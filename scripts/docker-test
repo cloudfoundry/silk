@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e -u
+
+ROOT_DIR_PATH=$(cd $(dirname $0)/.. && pwd)
+cd $ROOT_DIR_PATH
+
+docker run --privileged \
+   --rm \
+   -it \
+   -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+   -w /go/src/github.com/cloudfoundry-incubator/silk \
+   golang \
+   ./scripts/test.sh "$@"
