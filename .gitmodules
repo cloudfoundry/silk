@@ -1,3 +1,12 @@
 [submodule "vendor/github.com/containernetworking/cni"]
 	path = vendor/github.com/containernetworking/cni
 	url = https://github.com/containernetworking/cni
+[submodule "vendor/github.com/onsi/ginkgo"]
+	path = vendor/github.com/onsi/ginkgo
+	url = https://github.com/onsi/ginkgo
+[submodule "vendor/github.com/onsi/gomega"]
+	path = vendor/github.com/onsi/gomega
+	url = https://github.com/onsi/gomega
+[submodule "vendor/gopkg.in/yaml.v2"]
+	path = vendor/gopkg.in/yaml.v2
+	url = https://gopkg.in/yaml.v2

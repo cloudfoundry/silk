@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
 )
 
@@ -25,9 +25,17 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(result)
-		return nil
+
+		cniResult, err := current.NewResultFromResult(result)
+		if err != nil {
+			panic(err)
+		}
+
+		cniResult.IPs[0].Interface = -1
+
+		return types.PrintResult(cniResult, netConf.CNIVersion)
 	}
+
 	cmdDel := func(args *skel.CmdArgs) error {
 		var netConf NetConf
 		err := json.Unmarshal(args.StdinData, &netConf)
