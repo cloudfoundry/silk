@@ -3,6 +3,8 @@
 set -eu
 set -o pipefail
 
+cd $(dirname $0)/..
+
 go build -o /tmp/silk
 
 pushd vendor/github.com/containernetworking/cni/plugins/ipam/host-local > /dev/null

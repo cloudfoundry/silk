@@ -1,0 +1,15 @@
+resources:
+- name: silk
+  type: git
+  source:
+    uri: https://github.com/cloudfoundry-incubator/silk
+    branch: master
+
+jobs:
+- name: silk-test
+  plan:
+  - aggregate:
+    - get: silk
+      trigger: true
+  - task: acceptance-test
+    file: silk/ci/acceptance.yml
