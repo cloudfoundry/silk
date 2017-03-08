@@ -7,12 +7,12 @@ image_resource:
 
 inputs:
   - name: silk
+    path: go/src/github.com/cloudfoundry-incubator/silk
 
 run:
   path: /bin/bash
   args:
     - -c
     - |
-      mkdir -p $GOPATH/src/github.com/cloudfoundry-incubator && \
-      cp -r ${PWD}/silk $GOPATH/src/github.com/cloudfoundry-incubator/silk && \
+      GOPATH=${PWD}/go && \
       $GOPATH/src/github.com/cloudfoundry-incubator/silk/scripts/test.sh
