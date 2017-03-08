@@ -14,5 +14,6 @@ run:
   args:
     - -c
     - |
-      GOPATH=${PWD}/go && \
+      export GOPATH=${PWD}/go && \
+      export PATH=$PATH:$GOPATH/bin && \
       $GOPATH/src/github.com/cloudfoundry-incubator/silk/scripts/test.sh
