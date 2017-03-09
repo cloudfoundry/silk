@@ -7,28 +7,28 @@ import (
 
 type Creator struct{}
 
-func (c *Creator) Pair(ifname string, mtu int, hostNSPath, containerNSPath string) error {
+func (c *Creator) Pair(ifname string, mtu int, hostNSPath, containerNSPath string) (ip.Link, ip.Link, error) {
 	hostNS, err := ns.GetNS(hostNSPath)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
 	containerNS, err := ns.GetNS(containerNSPath)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
+	var hostVeth, containerVeth ip.Link
 	err = containerNS.Do(func(_ ns.NetNS) error {
-		_, _, err = ip.SetupVeth(ifname, mtu, hostNS)
+		hostVeth, containerVeth, err = ip.SetupVeth(ifname, mtu, hostNS)
 		if err != nil {
-			panic(err)
+			return err
 		}
-
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
-	return nil
+	return hostVeth, containerVeth, nil
 }

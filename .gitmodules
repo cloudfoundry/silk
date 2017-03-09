@@ -1,6 +1,7 @@
 [submodule "vendor/github.com/containernetworking/cni"]
 	path = vendor/github.com/containernetworking/cni
-	url = https://github.com/containernetworking/cni
+	url = https://github.com/cf-container-networking/cni
+	branch = vendored-types-leakage
 [submodule "vendor/github.com/onsi/ginkgo"]
 	path = vendor/github.com/onsi/ginkgo
 	url = https://github.com/onsi/ginkgo
