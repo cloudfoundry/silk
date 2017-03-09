@@ -13,3 +13,4 @@ jobs:
       trigger: true
   - task: acceptance-test
     file: silk/ci/acceptance.yml
+    privileged: true

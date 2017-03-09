@@ -2,14 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"net"
 
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
-	"github.com/vishvananda/netlink"
 )
 
 func main() {
@@ -27,19 +25,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 		panic(err)
 	}
 	result, err := ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
-	if err != nil {
-		panic(err)
-	}
-
-	veth := netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:  "silk-veth",
-			Flags: net.FlagUp,
-			MTU:   1500,
-		},
-		PeerName: "silk-veth-peer",
-	}
-	err = netlink.LinkAdd(&veth)
 	if err != nil {
 		panic(err)
 	}

@@ -20,6 +20,8 @@ var _ = Describe("Veth", func() {
 		var err error
 		hostNS, err = ns.NewNS()
 		Expect(err).NotTo(HaveOccurred())
+		containerNS, err = ns.NewNS()
+		Expect(err).NotTo(HaveOccurred())
 
 		creator = &veth.Creator{}
 	})
@@ -30,18 +32,8 @@ var _ = Describe("Veth", func() {
 	})
 
 	It("Creates a veth with one end in the targeted namespace", func() {
-		var err error
-		containerNS, err = ns.NewNS()
+		err := creator.Pair("eth0", 1500, hostNS.Path(), containerNS.Path())
 		Expect(err).NotTo(HaveOccurred())
-
-		err = containerNS.Do(func(_ ns.NetNS) error {
-			defer GinkgoRecover()
-
-			err := creator.Pair("eth0", 1500, hostNS.Path())
-			Expect(err).NotTo(HaveOccurred())
-
-			return nil
-		})
 
 		err = containerNS.Do(func(_ ns.NetNS) error {
 			defer GinkgoRecover()
