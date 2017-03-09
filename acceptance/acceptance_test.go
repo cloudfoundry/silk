@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/cni/pkg/types/current"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -20,18 +22,26 @@ var (
 )
 
 var _ = Describe("Acceptance", func() {
-	var cniStdin string
+	var (
+		cniStdin        string
+		containerNSPath string
+	)
 	BeforeEach(func() {
 		cniEnv = map[string]string{
 			"CNI_IFNAME":      "eth0",
-			"CNI_NETNS":       "/some/container/netns",
 			"CNI_CONTAINERID": "apricot",
 			"CNI_PATH":        paths.CNIPath,
 		}
+
+		containerNS, err := ns.NewNS()
+		Expect(err).NotTo(HaveOccurred())
+		containerNSPath = containerNS.Path()
+
+		cniEnv["CNI_NETNS"] = containerNSPath
 	})
 
 	//TODO make this work
-	PDescribe("veth devices", func() {
+	Describe("veth devices", func() {
 		BeforeEach(func() {
 			cniStdin = `
 			{
@@ -47,14 +57,28 @@ var _ = Describe("Acceptance", func() {
 			}
 			`
 		})
+
 		It("creates a veth pair", func() {
 			By("calling ADD")
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			link, err := netlink.LinkByName("silk-veth")
+			resultInterface, err := current.NewResult(sess.Out.Contents())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(link).To(BeAssignableToTypeOf(&netlink.Veth{}))
+			result, err := current.NewResultFromResult(resultInterface)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(result.Interfaces).To(HaveLen(2))
+
+			inHost := ifacesWithNS(result.Interfaces, "")
+			inContainer := ifacesWithNS(result.Interfaces, containerNSPath)
+
+			Expect(inHost).To(HaveLen(1))
+			Expect(inContainer).To(HaveLen(1))
+
+			link, err := netlink.LinkByName(inHost[0].Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(link.Attrs().Name).To(Equal(inHost[0].Name))
 		})
 	})
 
@@ -78,24 +102,18 @@ var _ = Describe("Acceptance", func() {
 			By("calling ADD")
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
-			Expect(sess.Out.Contents()).To(MatchJSON(`
-			{
-				"ips": [
-					{
-						"version": "4",
-						"address": "10.255.30.2/24",
-						"interface": -1,
-						"gateway": "10.255.30.1"
-					}
-				],
-				"routes": [
-					{
-						"dst": "0.0.0.0/0"
-					}
-				],
-				"dns": {}
-			}
-			`))
+
+			resultInterface, err := current.NewResult(sess.Out.Contents())
+			Expect(err).NotTo(HaveOccurred())
+			result, err := current.NewResultFromResult(resultInterface)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(result.IPs).To(HaveLen(1))
+			Expect(result.IPs).To(HaveLen(1))
+			Expect(result.IPs[0].Version).To(Equal("4"))
+			Expect(result.IPs[0].Interface).To(Equal(-1))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.2/24"))
+			Expect(result.IPs[0].Gateway.String()).To(Equal("10.255.30.1"))
 
 			By("checking that the ip is reserved for the correct container id")
 			bytes, err := ioutil.ReadFile("/tmp/cni/data/my-silk-network/10.255.30.2")
@@ -113,6 +131,9 @@ var _ = Describe("Acceptance", func() {
 	})
 
 	Describe("Reserve all IPs", func() {
+		var (
+			containerNSList []string
+		)
 		BeforeEach(func() {
 			cniStdin = `
 			{
@@ -128,52 +149,47 @@ var _ = Describe("Acceptance", func() {
 				 }
 			}
 			`
+			for i := 0; i < 3; i++ {
+				containerNS, err := ns.NewNS()
+				Expect(err).NotTo(HaveOccurred())
+				containerNSList = append(containerNSList, containerNS.Path())
+			}
 		})
 		It("fails to allocate an IP if none is available", func() {
 			By("exhausting all ips")
+			cniEnv["CNI_NETNS"] = containerNSList[0]
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
-			Expect(sess.Out.Contents()).To(MatchJSON(`
-			{
-				"ips": [
-					{
-						"version": "4",
-						"address": "10.255.40.1/30",
-						"interface": -1,
-						"gateway": "10.0.1.1"
-					}
-				],
-				"routes": [
-					{
-						"dst": "0.0.0.0/0"
-					}
-				],
-				"dns": {}
-			}
-			`))
+
+			resultInterface, err := current.NewResult(sess.Out.Contents())
+			Expect(err).NotTo(HaveOccurred())
+			result, err := current.NewResultFromResult(resultInterface)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(result.IPs).To(HaveLen(1))
+			Expect(result.IPs[0].Version).To(Equal("4"))
+			Expect(result.IPs[0].Interface).To(Equal(-1))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.1/30"))
+			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
+
+			cniEnv["CNI_NETNS"] = containerNSList[1]
 			sess = startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
-			Expect(sess.Out.Contents()).To(MatchJSON(`
-			{
-				"ips": [
-					{
-						"version": "4",
-						"address": "10.255.40.2/30",
-						"interface": -1,
-						"gateway": "10.0.1.1"
-					}
-				],
-				"routes": [
-					{
-						"dst": "0.0.0.0/0"
-					}
-				],
-				"dns": {}
-			}
-			`))
 
+			resultInterface, err = current.NewResult(sess.Out.Contents())
+			Expect(err).NotTo(HaveOccurred())
+			result, err = current.NewResultFromResult(resultInterface)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(result.IPs).To(HaveLen(1))
+			Expect(result.IPs[0].Version).To(Equal("4"))
+			Expect(result.IPs[0].Interface).To(Equal(-1))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.2/30"))
+			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
+
+			cniEnv["CNI_NETNS"] = containerNSList[2]
 			sess = startCommand("ADD", cniStdin)
-			Eventually(sess, cmdTimeout).Should(gexec.Exit(2))
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(1))
 			Expect(sess.Err).To(gbytes.Say("no IP addresses available in network: my-silk-network-exhaust"))
 		})
 	})
@@ -192,4 +208,14 @@ func startCommand(cniCommand, cniStdin string) *gexec.Session {
 	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
 	return sess
+}
+
+func ifacesWithNS(result []*current.Interface, nsPath string) []*current.Interface {
+	ret := []*current.Interface{}
+	for _, iface := range result {
+		if iface.Sandbox == nsPath {
+			ret = append(ret, iface)
+		}
+	}
+	return ret
 }
