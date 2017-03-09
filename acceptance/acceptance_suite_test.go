@@ -28,7 +28,7 @@ type testPaths struct {
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	var err error
-	pathToSilkCNI, err := gexec.Build("github.com/cloudfoundry-incubator/silk", "-race")
+	pathToSilkCNI, err := gexec.Build("github.com/cloudfoundry-incubator/silk", `-ldflags="-extldflags=-Wl,--allow-multiple-definition"`, "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	pathToIPAM, err := gexec.Build("github.com/cloudfoundry-incubator/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local", "-race")

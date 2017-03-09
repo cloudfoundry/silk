@@ -10,3 +10,9 @@
 [submodule "vendor/gopkg.in/yaml.v2"]
 	path = vendor/gopkg.in/yaml.v2
 	url = https://gopkg.in/yaml.v2
+[submodule "vendor/github.com/vishvananda/netlink"]
+	path = vendor/github.com/vishvananda/netlink
+	url = https://github.com/vishvananda/netlink
+[submodule "vendor/github.com/vishvananda/netns"]
+	path = vendor/github.com/vishvananda/netns
+	url = https://github.com/vishvananda/netns

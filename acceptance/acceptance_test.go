@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	"github.com/vishvananda/netlink"
 )
 
 const cmdTimeout = 10 * time.Second
@@ -27,6 +28,33 @@ var _ = Describe("Acceptance", func() {
 			"CNI_CONTAINERID": "apricot",
 			"CNI_PATH":        paths.CNIPath,
 		}
+	})
+
+	Describe("veth devices", func() {
+		BeforeEach(func() {
+			cniStdin = `
+			{
+				"cniVersion": "0.3.0",
+				"name": "silk-veth-test",
+				"type": "silk",
+				"ipam": {
+						"type": "host-local",
+						"subnet": "10.255.30.0/24",
+						"routes": [ { "dst": "0.0.0.0/0" } ],
+						"dataDir": "/tmp/cni/data"
+				 }
+			}
+			`
+		})
+		It("creates a veth pair", func() {
+			By("calling ADD")
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			link, err := netlink.LinkByName("silk-veth")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(link).To(BeAssignableToTypeOf(&netlink.Veth{}))
+		})
 	})
 
 	Describe("Lifecycle", func() {

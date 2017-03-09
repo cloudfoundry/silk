@@ -7,4 +7,8 @@ cd $(dirname $0)/..
 
 go install ./vendor/github.com/onsi/ginkgo/ginkgo
 
-ginkgo acceptance
+if [ "${1:-""}" = "" ]; then
+  ginkgo -r -ldflags="-extldflags=-Wl,--allow-multiple-definition"
+else
+  ginkgo -r -ldflags="-extldflags=-Wl,--allow-multiple-definition" $1
+fi
