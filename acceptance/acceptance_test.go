@@ -58,7 +58,7 @@ var _ = Describe("Acceptance", func() {
 			`
 		})
 
-		It("creates a veth pair", func() {
+		It("creates and destroys a veth pair", func() {
 			By("calling ADD")
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -79,6 +79,12 @@ var _ = Describe("Acceptance", func() {
 			link, err := netlink.LinkByName(inHost[0].Name)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(link.Attrs().Name).To(Equal(inHost[0].Name))
+
+			sess = startCommand("DEL", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			link, err = netlink.LinkByName(inHost[0].Name)
+			Expect(err).To(MatchError(ContainSubstring("not found")))
 		})
 	})
 

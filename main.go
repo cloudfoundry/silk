@@ -42,7 +42,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	creator := veth.Creator{}
+	creator := &veth.Creator{}
 
 	hostVeth, containerVeth, err := creator.Pair(args.IfName, 1500, currentNS.Path(), args.Netns)
 	if err != nil {
@@ -73,9 +73,17 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	err = ipam.ExecDel(netConf.IPAM.Type, args.StdinData)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	destroyer := &veth.Destroyer{}
+	err = destroyer.Destroy(args.IfName, args.Netns)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return nil
 }

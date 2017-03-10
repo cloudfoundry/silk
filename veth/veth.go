@@ -32,3 +32,25 @@ func (c *Creator) Pair(ifname string, mtu int, hostNSPath, containerNSPath strin
 
 	return hostVeth, containerVeth, nil
 }
+
+type Destroyer struct{}
+
+func (d *Destroyer) Destroy(ifname string, nsPath string) error {
+	deviceNS, err := ns.GetNS(nsPath)
+	if err != nil {
+		return err
+	}
+
+	err = deviceNS.Do(func(_ ns.NetNS) error {
+		err := ip.DelLinkByName(ifname)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
