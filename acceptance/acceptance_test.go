@@ -1,8 +1,10 @@
 package acceptance_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,7 +27,9 @@ var _ = Describe("Acceptance", func() {
 	var (
 		cniStdin        string
 		containerNSPath string
+		dataDir         string
 	)
+
 	BeforeEach(func() {
 		cniEnv = map[string]string{
 			"CNI_IFNAME":      "eth0",
@@ -38,12 +42,14 @@ var _ = Describe("Acceptance", func() {
 		containerNSPath = containerNS.Path()
 
 		cniEnv["CNI_NETNS"] = containerNSPath
+
+		dataDir, err = ioutil.TempDir("", "cni-data-dir-")
+		Expect(err).NotTo(HaveOccurred())
 	})
 
-	//TODO make this work
 	Describe("veth devices", func() {
 		BeforeEach(func() {
-			cniStdin = `
+			cniStdin = fmt.Sprintf(`
 			{
 				"cniVersion": "0.3.0",
 				"name": "silk-veth-test",
@@ -52,10 +58,10 @@ var _ = Describe("Acceptance", func() {
 						"type": "host-local",
 						"subnet": "10.255.30.0/24",
 						"routes": [ { "dst": "0.0.0.0/0" } ],
-						"dataDir": "/tmp/cni/data-veth-test"
+						"dataDir": "%s"
 				 }
 			}
-			`
+			`, dataDir)
 		})
 
 		It("creates and destroys a veth pair", func() {
@@ -86,11 +92,41 @@ var _ = Describe("Acceptance", func() {
 			link, err = netlink.LinkByName(inHost[0].Name)
 			Expect(err).To(MatchError(ContainSubstring("not found")))
 		})
+
+		hostLinkFromResult := func(cniResult []byte) netlink.Link {
+			resultInterface, err := current.NewResult(cniResult)
+			Expect(err).NotTo(HaveOccurred())
+			result, err := current.NewResultFromResult(resultInterface)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Interfaces).To(HaveLen(2))
+			inHost := ifacesWithNS(result.Interfaces, "")
+			link, err := netlink.LinkByName(inHost[0].Name)
+			Expect(err).NotTo(HaveOccurred())
+			return link
+		}
+
+		It("sets up the address", func() {
+			By("calling ADD")
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			By("checking the host side")
+			hostLink := hostLinkFromResult(sess.Out.Contents())
+
+			hostAddrs, err := netlink.AddrList(hostLink, netlink.FAMILY_ALL)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hostAddrs).To(HaveLen(1))
+			Expect(hostAddrs[0].IPNet.String()).To(Equal("169.254.0.1/32"))
+			Expect(hostAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
+			Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.30.2/32"))
+
+			By("checking the container side")
+		})
 	})
 
 	Describe("Lifecycle", func() {
 		BeforeEach(func() {
-			cniStdin = `
+			cniStdin = fmt.Sprintf(`
 			{
 				"cniVersion": "0.3.0",
 				"name": "my-silk-network",
@@ -99,10 +135,10 @@ var _ = Describe("Acceptance", func() {
 						"type": "host-local",
 						"subnet": "10.255.30.0/24",
 						"routes": [ { "dst": "0.0.0.0/0" } ],
-						"dataDir": "/tmp/cni/data"
+						"dataDir": "%s"
 				 }
 			}
-			`
+			`, dataDir)
 		})
 		It("allocates and frees ips", func() {
 			By("calling ADD")
@@ -122,7 +158,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs[0].Gateway.String()).To(Equal("10.255.30.1"))
 
 			By("checking that the ip is reserved for the correct container id")
-			bytes, err := ioutil.ReadFile("/tmp/cni/data/my-silk-network/10.255.30.2")
+			bytes, err := ioutil.ReadFile(filepath.Join(dataDir, "my-silk-network/10.255.30.2"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(bytes)).To(Equal("apricot"))
 
@@ -132,7 +168,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(sess.Out.Contents()).To(BeEmpty())
 
 			By("checking that the ip reserved is freed")
-			Expect("/tmp/cni/data/my-silk-network/10.255.30.2").NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dataDir, "my-silk-network/10.255.30.2")).NotTo(BeAnExistingFile())
 		})
 	})
 
@@ -141,7 +177,7 @@ var _ = Describe("Acceptance", func() {
 			containerNSList []string
 		)
 		BeforeEach(func() {
-			cniStdin = `
+			cniStdin = fmt.Sprintf(`
 			{
 				"cniVersion": "0.3.0",
 				"name": "my-silk-network-exhaust",
@@ -151,10 +187,11 @@ var _ = Describe("Acceptance", func() {
 						"subnet": "10.255.40.0/30",
 						"routes": [ { "dst": "0.0.0.0/0" } ],
 						"gateway": "10.0.1.1",
-						"dataDir": "/tmp/cni/data-exhaust"
+						"dataDir": "%s"
 				 }
 			}
-			`
+			`, dataDir)
+
 			for i := 0; i < 3; i++ {
 				containerNS, err := ns.NewNS()
 				Expect(err).NotTo(HaveOccurred())

@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"net"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/containernetworking/cni/pkg/ipam"
@@ -10,7 +12,9 @@ import (
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
+	"github.com/containernetworking/cni/pkg/utils/sysctl"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/vishvananda/netlink"
 )
 
 func main() {
@@ -19,6 +23,22 @@ func main() {
 
 type NetConf struct {
 	types.NetConf
+}
+
+func setPointToPointAddress(deviceName string, localAddr *net.IPNet, peerAddr *net.IPNet) error {
+	addr := &netlink.Addr{IPNet: localAddr}
+	addr.Scope = int(netlink.SCOPE_LINK)
+	addr.Peer = peerAddr
+
+	link, err := netlink.LinkByName(deviceName)
+	if err != nil {
+		return fmt.Errorf("find link by name: %s", err)
+	}
+
+	if err = netlink.AddrAdd(link, addr); err != nil {
+		return fmt.Errorf("adding address: %s", err)
+	}
+	return nil
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
@@ -45,6 +65,37 @@ func cmdAdd(args *skel.CmdArgs) error {
 	creator := &veth.Creator{}
 
 	hostVeth, containerVeth, err := creator.Pair(args.IfName, 1500, currentNS.Path(), args.Netns)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hostVethAddr := &net.IPNet{
+		IP:   net.ParseIP("169.254.0.1"),
+		Mask: net.CIDRMask(32, 32),
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = setPointToPointAddress(hostVeth.Attrs().Name, hostVethAddr, &cniResult.IPs[0].Address)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	containerNS, err := ns.GetNS(args.Netns)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// this is untested right now
+	err = containerNS.Do(func(_ ns.NetNS) error {
+		return setPointToPointAddress(containerVeth.Attrs().Name, &cniResult.IPs[0].Address, hostVethAddr)
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// disable IPv6 on host
+	_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", hostVeth.Attrs().Name), "1")
 	if err != nil {
 		log.Fatal(err)
 	}
