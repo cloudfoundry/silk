@@ -121,6 +121,28 @@ var _ = Describe("Acceptance", func() {
 			Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.30.2/32"))
 
 			By("checking the container side")
+			containerNS, err := ns.GetNS(containerNSPath)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = containerNS.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
+
+				link, err := netlink.LinkByName("eth0")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(link.Attrs().Name).To(Equal("eth0"))
+
+				containerAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(containerAddrs).To(HaveLen(1))
+				Expect(containerAddrs[0].IPNet.String()).To(Equal("10.255.30.2/32"))
+				Expect(containerAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
+				Expect(containerAddrs[0].Peer.String()).To(Equal("169.254.0.1/32"))
+				return nil
+			})
+
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 

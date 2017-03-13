@@ -25,8 +25,12 @@ type NetConf struct {
 	types.NetConf
 }
 
-func setPointToPointAddress(deviceName string, localAddr *net.IPNet, peerAddr *net.IPNet) error {
-	addr := &netlink.Addr{IPNet: localAddr}
+func setPointToPointAddress(deviceName string, localAddr, peerAddr *net.IPNet) error {
+	addr, err := netlink.ParseAddr(localAddr.String())
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	addr.Scope = int(netlink.SCOPE_LINK)
 	addr.Peer = peerAddr
 
@@ -70,13 +74,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	hostVethAddr := &net.IPNet{
-		IP:   net.ParseIP("169.254.0.1"),
-		Mask: net.CIDRMask(32, 32),
+		IP:   net.IPv4(169, 254, 0, 1),
+		Mask: net.IPv4Mask(255, 255, 255, 255),
 	}
-	if err != nil {
-		log.Fatal(err)
+	containerVethAddr := &net.IPNet{
+		IP:   cniResult.IPs[0].Address.IP,
+		Mask: net.IPv4Mask(255, 255, 255, 255),
 	}
-	err = setPointToPointAddress(hostVeth.Attrs().Name, hostVethAddr, &cniResult.IPs[0].Address)
+	err = setPointToPointAddress(hostVeth.Attrs().Name, hostVethAddr, containerVethAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,7 +93,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	// this is untested right now
 	err = containerNS.Do(func(_ ns.NetNS) error {
-		return setPointToPointAddress(containerVeth.Attrs().Name, &cniResult.IPs[0].Address, hostVethAddr)
+		return setPointToPointAddress(containerVeth.Attrs().Name, containerVethAddr, hostVethAddr)
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -96,6 +101,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	// disable IPv6 on host
 	_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", hostVeth.Attrs().Name), "1")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// disable IPv6 in container
+	err = containerNS.Do(func(_ ns.NetNS) error {
+		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", containerVeth.Attrs().Name), "1")
+		return err
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
