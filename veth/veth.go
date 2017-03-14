@@ -5,9 +5,9 @@ import (
 	"github.com/containernetworking/cni/pkg/ns"
 )
 
-type Creator struct{}
+type Manager struct{}
 
-func (c *Creator) Pair(ifname string, mtu int, hostNS, containerNS ns.NetNS) (ip.Link, ip.Link, error) {
+func (m *Manager) CreatePair(ifname string, mtu int, hostNS, containerNS ns.NetNS) (ip.Link, ip.Link, error) {
 	var err error
 	var hostVeth, containerVeth ip.Link
 	err = containerNS.Do(func(_ ns.NetNS) error {
@@ -24,9 +24,7 @@ func (c *Creator) Pair(ifname string, mtu int, hostNS, containerNS ns.NetNS) (ip
 	return hostVeth, containerVeth, nil
 }
 
-type Destroyer struct{}
-
-func (d *Destroyer) Destroy(ifname string, containerNS ns.NetNS) error {
+func (m *Manager) Destroy(ifname string, containerNS ns.NetNS) error {
 	err := containerNS.Do(func(_ ns.NetNS) error {
 		err := ip.DelLinkByName(ifname)
 		if err != nil {

@@ -71,9 +71,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	creator := &veth.Creator{}
+	vethManager := &veth.Manager{}
 
-	hostVeth, containerVeth, err := creator.Pair(args.IfName, 1500, currentNS, containerNS)
+	hostVeth, containerVeth, err := vethManager.CreatePair(args.IfName, 1500, currentNS, containerNS)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -147,8 +147,8 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	destroyer := &veth.Destroyer{}
-	err = destroyer.Destroy(args.IfName, containerNS)
+	vethManager := &veth.Manager{}
+	err = vethManager.Destroy(args.IfName, containerNS)
 	if err != nil {
 		log.Fatal(err)
 	}
