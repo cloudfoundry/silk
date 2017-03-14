@@ -47,7 +47,7 @@ var _ = Describe("Veth Manager", func() {
 
 	Describe("CreatePair", func() {
 		It("Creates a veth with one end in the targeted namespace", func() {
-			_, _, err := vethManager.CreatePair("eth0", 1500)
+			_, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -63,22 +63,24 @@ var _ = Describe("Veth Manager", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns both the host and container link", func() {
-			hostVeth, containerVeth, err := vethManager.CreatePair("eth0", 1500)
+		It("returns both the host and container link and namespaces", func() {
+			vethPair, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(hostVeth.Attrs().Name).To(MatchRegexp(`veth.*`))
-			Expect(containerVeth.Attrs().Name).To(Equal("eth0"))
+			Expect(vethPair.Host.Link.Attrs().Name).To(MatchRegexp(`veth.*`))
+			Expect(vethPair.Container.Link.Attrs().Name).To(Equal("eth0"))
+			Expect(vethPair.Host.Namespace).To(Equal(vethManager.HostNS))
+			Expect(vethPair.Container.Namespace).To(Equal(vethManager.ContainerNS))
 		})
 
 		Context("when creating the veth pair fails", func() {
 			It("returns an error", func() {
 				//create veth with eth0 in container
-				_, _, err := vethManager.CreatePair("eth0", 1500)
+				_, err := vethManager.CreatePair("eth0", 1500)
 				Expect(err).NotTo(HaveOccurred())
 
 				//create veth with eth0 in container, should fail since eth0 already exists
-				_, _, err = vethManager.CreatePair("eth0", 1500)
+				_, err = vethManager.CreatePair("eth0", 1500)
 				Expect(err).To(MatchError(ContainSubstring("container veth name provided (eth0) already exists")))
 			})
 		})
@@ -87,9 +89,9 @@ var _ = Describe("Veth Manager", func() {
 	Describe("Destroy", func() {
 		var vethName string
 		BeforeEach(func() {
-			_, containerVeth, err := vethManager.CreatePair("eth0", 1500)
+			vethPair, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
-			vethName = containerVeth.Attrs().Name
+			vethName = vethPair.Container.Link.Attrs().Name
 		})
 
 		It("destroys the veth with the given name in the given namespace", func() {

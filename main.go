@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
-	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -55,29 +54,29 @@ func setPointToPointAddress(deviceName string, localIP, peerIP net.IP) error {
 	return nil
 }
 
-func assignIP(hostVeth, containerVeth ip.Link, containerIP net.IP, containerNS ns.NetNS) {
+func assignIP(vethPair *veth.Pair, containerIP net.IP) {
 	hostIP := net.IPv4(169, 254, 0, 1)
-	err := setPointToPointAddress(hostVeth.Attrs().Name, hostIP, containerIP)
+	err := setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = containerNS.Do(func(_ ns.NetNS) error {
-		return setPointToPointAddress(containerVeth.Attrs().Name, containerIP, hostIP)
+	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+		return setPointToPointAddress(vethPair.Container.Link.Attrs().Name, containerIP, hostIP)
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func disableIPv6(hostVeth, containerVeth ip.Link, containerNS ns.NetNS) {
-	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", hostVeth.Attrs().Name), "1")
+func disableIPv6(vethPair *veth.Pair) {
+	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = containerNS.Do(func(_ ns.NetNS) error {
-		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", containerVeth.Attrs().Name), "1")
+	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
 		return err
 	})
 	if err != nil {
@@ -106,25 +105,25 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	hostVeth, containerVeth, err := vethManager.CreatePair(args.IfName, 1500)
+	vethPair, err := vethManager.CreatePair(args.IfName, 1500)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// vethPair.AssignIP(containerIP)
-	assignIP(hostVeth, containerVeth, cniResult.IPs[0].Address.IP, vethManager.ContainerNS)
+	assignIP(vethPair, cniResult.IPs[0].Address.IP)
 
 	// vethPair.DisableIPv6()
-	disableIPv6(hostVeth, containerVeth, vethManager.ContainerNS)
+	disableIPv6(vethPair)
 
 	cniResult.Interfaces = append(cniResult.Interfaces,
 		&current.Interface{
-			Name: hostVeth.Attrs().Name,
-			Mac:  hostVeth.Attrs().HardwareAddr.String(),
+			Name: vethPair.Host.Link.Attrs().Name,
+			Mac:  vethPair.Host.Link.Attrs().HardwareAddr.String(),
 		},
 		&current.Interface{
-			Name:    containerVeth.Attrs().Name,
-			Mac:     containerVeth.Attrs().HardwareAddr.String(),
+			Name:    vethPair.Container.Link.Attrs().Name,
+			Mac:     vethPair.Container.Link.Attrs().HardwareAddr.String(),
 			Sandbox: args.Netns,
 		},
 	)

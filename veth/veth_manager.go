@@ -12,6 +12,16 @@ type Manager struct {
 	ContainerNS ns.NetNS
 }
 
+type Pair struct {
+	Host      Peer
+	Container Peer
+}
+
+type Peer struct {
+	Link      ip.Link
+	Namespace ns.NetNS
+}
+
 func NewManager(containerNSPath string) (*Manager, error) {
 	hostNS, err := ns.GetCurrentNS()
 	if err != nil {
@@ -29,7 +39,7 @@ func NewManager(containerNSPath string) (*Manager, error) {
 	}, nil
 }
 
-func (m *Manager) CreatePair(ifname string, mtu int) (ip.Link, ip.Link, error) {
+func (m *Manager) CreatePair(ifname string, mtu int) (*Pair, error) {
 	var err error
 	var hostVeth, containerVeth ip.Link
 	err = m.ContainerNS.Do(func(_ ns.NetNS) error {
@@ -40,10 +50,19 @@ func (m *Manager) CreatePair(ifname string, mtu int) (ip.Link, ip.Link, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return hostVeth, containerVeth, nil
+	return &Pair{
+		Host: Peer{
+			Link:      hostVeth,
+			Namespace: m.HostNS,
+		},
+		Container: Peer{
+			Link:      containerVeth,
+			Namespace: m.ContainerNS,
+		},
+	}, nil
 }
 
 func (m *Manager) Destroy(ifname string) error {
