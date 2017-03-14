@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
+	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -25,7 +26,16 @@ type NetConf struct {
 	types.NetConf
 }
 
-func setPointToPointAddress(deviceName string, localAddr, peerAddr *net.IPNet) error {
+func setPointToPointAddress(deviceName string, localIP, peerIP net.IP) error {
+	localAddr := &net.IPNet{
+		IP:   localIP,
+		Mask: net.IPv4Mask(255, 255, 255, 255),
+	}
+	peerAddr := &net.IPNet{
+		IP:   peerIP,
+		Mask: net.IPv4Mask(255, 255, 255, 255),
+	}
+
 	addr, err := netlink.ParseAddr(localAddr.String())
 	if err != nil {
 		log.Fatal(err)
@@ -43,6 +53,36 @@ func setPointToPointAddress(deviceName string, localAddr, peerAddr *net.IPNet) e
 		return fmt.Errorf("adding address: %s", err)
 	}
 	return nil
+}
+
+func assignIP(hostVeth, containerVeth ip.Link, containerIP net.IP, containerNS ns.NetNS) {
+	hostIP := net.IPv4(169, 254, 0, 1)
+	err := setPointToPointAddress(hostVeth.Attrs().Name, hostIP, containerIP)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = containerNS.Do(func(_ ns.NetNS) error {
+		return setPointToPointAddress(containerVeth.Attrs().Name, containerIP, hostIP)
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func disableIPv6(hostVeth, containerVeth ip.Link, containerNS ns.NetNS) {
+	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", hostVeth.Attrs().Name), "1")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = containerNS.Do(func(_ ns.NetNS) error {
+		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", containerVeth.Attrs().Name), "1")
+		return err
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
@@ -71,40 +111,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	hostVethAddr := &net.IPNet{
-		IP:   net.IPv4(169, 254, 0, 1),
-		Mask: net.IPv4Mask(255, 255, 255, 255),
-	}
-	containerVethAddr := &net.IPNet{
-		IP:   cniResult.IPs[0].Address.IP,
-		Mask: net.IPv4Mask(255, 255, 255, 255),
-	}
-	err = setPointToPointAddress(hostVeth.Attrs().Name, hostVethAddr, containerVethAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// vethPair.AssignIP(containerIP)
+	assignIP(hostVeth, containerVeth, cniResult.IPs[0].Address.IP, vethManager.ContainerNS)
 
-	err = vethManager.ContainerNS.Do(func(_ ns.NetNS) error {
-		return setPointToPointAddress(containerVeth.Attrs().Name, containerVethAddr, hostVethAddr)
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// disable IPv6 on host
-	_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", hostVeth.Attrs().Name), "1")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// disable IPv6 in container
-	err = vethManager.ContainerNS.Do(func(_ ns.NetNS) error {
-		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", containerVeth.Attrs().Name), "1")
-		return err
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	// vethPair.DisableIPv6()
+	disableIPv6(hostVeth, containerVeth, vethManager.ContainerNS)
 
 	cniResult.Interfaces = append(cniResult.Interfaces,
 		&current.Interface{
