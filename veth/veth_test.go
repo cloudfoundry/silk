@@ -23,7 +23,10 @@ var _ = Describe("Veth Manager", func() {
 		containerNS, err = ns.NewNS()
 		Expect(err).NotTo(HaveOccurred())
 
-		vethManager = &veth.Manager{}
+		vethManager = &veth.Manager{
+			HostNS:      hostNS,
+			ContainerNS: containerNS,
+		}
 	})
 
 	AfterEach(func() {
@@ -33,7 +36,7 @@ var _ = Describe("Veth Manager", func() {
 
 	Describe("CreatePair", func() {
 		It("Creates a veth with one end in the targeted namespace", func() {
-			_, _, err := vethManager.CreatePair("eth0", 1500, hostNS, containerNS)
+			_, _, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -50,7 +53,7 @@ var _ = Describe("Veth Manager", func() {
 		})
 
 		It("returns both the host and container link", func() {
-			hostVeth, containerVeth, err := vethManager.CreatePair("eth0", 1500, hostNS, containerNS)
+			hostVeth, containerVeth, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(hostVeth.Attrs().Name).To(MatchRegexp(`veth.*`))
@@ -60,11 +63,11 @@ var _ = Describe("Veth Manager", func() {
 		Context("when creating the veth pair fails", func() {
 			It("returns an error", func() {
 				//create veth with eth0 in container
-				_, _, err := vethManager.CreatePair("eth0", 1500, hostNS, containerNS)
+				_, _, err := vethManager.CreatePair("eth0", 1500)
 				Expect(err).NotTo(HaveOccurred())
 
 				//create veth with eth0 in container, should fail since eth0 already exists
-				_, _, err = vethManager.CreatePair("eth0", 1500, hostNS, containerNS)
+				_, _, err = vethManager.CreatePair("eth0", 1500)
 				Expect(err).To(MatchError(ContainSubstring("container veth name provided (eth0) already exists")))
 			})
 		})
@@ -73,13 +76,13 @@ var _ = Describe("Veth Manager", func() {
 	Describe("Destroy", func() {
 		var vethName string
 		BeforeEach(func() {
-			_, containerVeth, err := vethManager.CreatePair("eth0", 1500, hostNS, containerNS)
+			_, containerVeth, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
 			vethName = containerVeth.Attrs().Name
 		})
 
 		It("destroys the veth with the given name in the given namespace", func() {
-			err := vethManager.Destroy(vethName, containerNS)
+			err := vethManager.Destroy(vethName)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -95,7 +98,7 @@ var _ = Describe("Veth Manager", func() {
 
 		Context("when the interface doesn't exist", func() {
 			It("returns an error", func() {
-				err := vethManager.Destroy("wrong-name", containerNS)
+				err := vethManager.Destroy("wrong-name")
 				Expect(err).To(MatchError(ContainSubstring("Link not found")))
 			})
 		})

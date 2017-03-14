@@ -5,13 +5,16 @@ import (
 	"github.com/containernetworking/cni/pkg/ns"
 )
 
-type Manager struct{}
+type Manager struct {
+	HostNS      ns.NetNS
+	ContainerNS ns.NetNS
+}
 
-func (m *Manager) CreatePair(ifname string, mtu int, hostNS, containerNS ns.NetNS) (ip.Link, ip.Link, error) {
+func (m *Manager) CreatePair(ifname string, mtu int) (ip.Link, ip.Link, error) {
 	var err error
 	var hostVeth, containerVeth ip.Link
-	err = containerNS.Do(func(_ ns.NetNS) error {
-		hostVeth, containerVeth, err = ip.SetupVeth(ifname, mtu, hostNS)
+	err = m.ContainerNS.Do(func(_ ns.NetNS) error {
+		hostVeth, containerVeth, err = ip.SetupVeth(ifname, mtu, m.HostNS)
 		if err != nil {
 			return err
 		}
@@ -24,8 +27,8 @@ func (m *Manager) CreatePair(ifname string, mtu int, hostNS, containerNS ns.NetN
 	return hostVeth, containerVeth, nil
 }
 
-func (m *Manager) Destroy(ifname string, containerNS ns.NetNS) error {
-	err := containerNS.Do(func(_ ns.NetNS) error {
+func (m *Manager) Destroy(ifname string) error {
+	err := m.ContainerNS.Do(func(_ ns.NetNS) error {
 		err := ip.DelLinkByName(ifname)
 		if err != nil {
 			return err

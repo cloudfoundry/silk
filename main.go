@@ -61,7 +61,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	currentNS, err := ns.GetCurrentNS()
+	hostNS, err := ns.GetCurrentNS()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,9 +71,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	vethManager := &veth.Manager{}
+	vethManager := &veth.Manager{
+		HostNS:      hostNS,
+		ContainerNS: containerNS,
+	}
 
-	hostVeth, containerVeth, err := vethManager.CreatePair(args.IfName, 1500, currentNS, containerNS)
+	hostVeth, containerVeth, err := vethManager.CreatePair(args.IfName, 1500)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -147,8 +150,11 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	vethManager := &veth.Manager{}
-	err = vethManager.Destroy(args.IfName, containerNS)
+	vethManager := &veth.Manager{
+		ContainerNS: containerNS,
+	}
+
+	err = vethManager.Destroy(args.IfName)
 	if err != nil {
 		log.Fatal(err)
 	}
