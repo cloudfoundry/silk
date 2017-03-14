@@ -35,7 +35,7 @@ var _ = Describe("Veth", func() {
 		})
 
 		It("Creates a veth with one end in the targeted namespace", func() {
-			_, _, err := creator.Pair("eth0", 1500, hostNS.Path(), containerNS.Path())
+			_, _, err := creator.Pair("eth0", 1500, hostNS, containerNS)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -52,7 +52,7 @@ var _ = Describe("Veth", func() {
 		})
 
 		It("returns both the host and container link", func() {
-			hostVeth, containerVeth, err := creator.Pair("eth0", 1500, hostNS.Path(), containerNS.Path())
+			hostVeth, containerVeth, err := creator.Pair("eth0", 1500, hostNS, containerNS)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(hostVeth.Attrs().Name).To(MatchRegexp(`veth.*`))
@@ -62,26 +62,12 @@ var _ = Describe("Veth", func() {
 		Context("when creating the veth pair fails", func() {
 			It("returns an error", func() {
 				//create veth with eth0 in container
-				_, _, err := creator.Pair("eth0", 1500, hostNS.Path(), containerNS.Path())
+				_, _, err := creator.Pair("eth0", 1500, hostNS, containerNS)
 				Expect(err).NotTo(HaveOccurred())
 
 				//create veth with eth0 in container, should fail since eth0 already exists
-				_, _, err = creator.Pair("eth0", 1500, hostNS.Path(), containerNS.Path())
+				_, _, err = creator.Pair("eth0", 1500, hostNS, containerNS)
 				Expect(err).To(MatchError(ContainSubstring("container veth name provided (eth0) already exists")))
-			})
-		})
-
-		Context("when getting the host NS fails", func() {
-			It("returns an error", func() {
-				_, _, err := creator.Pair("eth0", 1500, "/not/the/host/ns", containerNS.Path())
-				Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
-			})
-		})
-
-		Context("when getting the container NS fails", func() {
-			It("returns an error", func() {
-				_, _, err := creator.Pair("eth0", 1500, hostNS.Path(), "/not/the/container/ns")
-				Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
 			})
 		})
 	})

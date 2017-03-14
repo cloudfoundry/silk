@@ -7,17 +7,8 @@ import (
 
 type Creator struct{}
 
-func (c *Creator) Pair(ifname string, mtu int, hostNSPath, containerNSPath string) (ip.Link, ip.Link, error) {
-	hostNS, err := ns.GetNS(hostNSPath)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	containerNS, err := ns.GetNS(containerNSPath)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func (c *Creator) Pair(ifname string, mtu int, hostNS, containerNS ns.NetNS) (ip.Link, ip.Link, error) {
+	var err error
 	var hostVeth, containerVeth ip.Link
 	err = containerNS.Do(func(_ ns.NetNS) error {
 		hostVeth, containerVeth, err = ip.SetupVeth(ifname, mtu, hostNS)

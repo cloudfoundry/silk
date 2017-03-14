@@ -66,9 +66,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
+	containerNS, err := ns.GetNS(args.Netns)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	creator := &veth.Creator{}
 
-	hostVeth, containerVeth, err := creator.Pair(args.IfName, 1500, currentNS.Path(), args.Netns)
+	hostVeth, containerVeth, err := creator.Pair(args.IfName, 1500, currentNS, containerNS)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,12 +91,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	containerNS, err := ns.GetNS(args.Netns)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// this is untested right now
 	err = containerNS.Do(func(_ ns.NetNS) error {
 		return setPointToPointAddress(containerVeth.Attrs().Name, containerVethAddr, hostVethAddr)
 	})
