@@ -1,6 +1,8 @@
 package veth
 
 import (
+	"fmt"
+
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
 )
@@ -8,6 +10,23 @@ import (
 type Manager struct {
 	HostNS      ns.NetNS
 	ContainerNS ns.NetNS
+}
+
+func NewManager(containerNSPath string) (*Manager, error) {
+	hostNS, err := ns.GetCurrentNS()
+	if err != nil {
+		panic(err) // not tested
+	}
+
+	containerNS, err := ns.GetNS(containerNSPath)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create veth manager: %s", err)
+	}
+
+	return &Manager{
+		HostNS:      hostNS,
+		ContainerNS: containerNS,
+	}, nil
 }
 
 func (m *Manager) CreatePair(ifname string, mtu int) (ip.Link, ip.Link, error) {

@@ -11,27 +11,38 @@ import (
 
 var _ = Describe("Veth Manager", func() {
 	var (
-		hostNS      ns.NetNS
 		containerNS ns.NetNS
 		vethManager *veth.Manager
 	)
 
 	BeforeEach(func() {
 		var err error
-		hostNS, err = ns.NewNS()
-		Expect(err).NotTo(HaveOccurred())
 		containerNS, err = ns.NewNS()
 		Expect(err).NotTo(HaveOccurred())
 
-		vethManager = &veth.Manager{
-			HostNS:      hostNS,
-			ContainerNS: containerNS,
-		}
+		vethManager, err = veth.NewManager(containerNS.Path())
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		Expect(hostNS.Close()).To(Succeed())
 		Expect(containerNS.Close()).To(Succeed())
+	})
+
+	Describe("NewManager", func() {
+		It("Creates a new manager", func() {
+			currentNS, err := ns.GetCurrentNS()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vethManager.HostNS.Path()).To(Equal(currentNS.Path()))
+			Expect(vethManager.ContainerNS.Path()).To(Equal(containerNS.Path()))
+		})
+
+		Context("When the container namespace cannot be found from its path", func() {
+			It("returns an error", func() {
+				_, err := veth.NewManager("some-bad-path")
+				Expect(err.Error()).To(ContainSubstring("Failed to create veth manager:"))
+			})
+		})
 	})
 
 	Describe("CreatePair", func() {

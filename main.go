@@ -61,19 +61,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	hostNS, err := ns.GetCurrentNS()
+	vethManager, err := veth.NewManager(args.Netns)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	containerNS, err := ns.GetNS(args.Netns)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	vethManager := &veth.Manager{
-		HostNS:      hostNS,
-		ContainerNS: containerNS,
 	}
 
 	hostVeth, containerVeth, err := vethManager.CreatePair(args.IfName, 1500)
@@ -94,7 +84,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	err = containerNS.Do(func(_ ns.NetNS) error {
+	err = vethManager.ContainerNS.Do(func(_ ns.NetNS) error {
 		return setPointToPointAddress(containerVeth.Attrs().Name, containerVethAddr, hostVethAddr)
 	})
 	if err != nil {
@@ -108,7 +98,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	// disable IPv6 in container
-	err = containerNS.Do(func(_ ns.NetNS) error {
+	err = vethManager.ContainerNS.Do(func(_ ns.NetNS) error {
 		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", containerVeth.Attrs().Name), "1")
 		return err
 	})
@@ -146,14 +136,10 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	containerNS, err := ns.GetNS(args.Netns)
+	vethManager, err := veth.NewManager(args.Netns)
 	if err != nil {
 		log.Fatal(err)
 	}
-	vethManager := &veth.Manager{
-		ContainerNS: containerNS,
-	}
-
 	err = vethManager.Destroy(args.IfName)
 	if err != nil {
 		log.Fatal(err)
