@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/containernetworking/cni/pkg/ipam"
@@ -14,7 +13,6 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/utils/sysctl"
 	"github.com/containernetworking/cni/pkg/version"
-	"github.com/vishvananda/netlink"
 )
 
 func main() {
@@ -23,50 +21,6 @@ func main() {
 
 type NetConf struct {
 	types.NetConf
-}
-
-func setPointToPointAddress(deviceName string, localIP, peerIP net.IP) error {
-	localAddr := &net.IPNet{
-		IP:   localIP,
-		Mask: net.IPv4Mask(255, 255, 255, 255),
-	}
-	peerAddr := &net.IPNet{
-		IP:   peerIP,
-		Mask: net.IPv4Mask(255, 255, 255, 255),
-	}
-
-	addr, err := netlink.ParseAddr(localAddr.String())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	addr.Scope = int(netlink.SCOPE_LINK)
-	addr.Peer = peerAddr
-
-	link, err := netlink.LinkByName(deviceName)
-	if err != nil {
-		return fmt.Errorf("find link by name: %s", err)
-	}
-
-	if err = netlink.AddrAdd(link, addr); err != nil {
-		return fmt.Errorf("adding address: %s", err)
-	}
-	return nil
-}
-
-func assignIP(vethPair *veth.Pair, containerIP net.IP) {
-	hostIP := net.IPv4(169, 254, 0, 1)
-	err := setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		return setPointToPointAddress(vethPair.Container.Link.Attrs().Name, containerIP, hostIP)
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func disableIPv6(vethPair *veth.Pair) {
@@ -110,8 +64,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	// vethPair.AssignIP(containerIP)
-	assignIP(vethPair, cniResult.IPs[0].Address.IP)
+	vethManager.AssignIP(vethPair, cniResult.IPs[0].Address.IP)
 
 	// vethPair.DisableIPv6()
 	disableIPv6(vethPair)

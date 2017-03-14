@@ -2,14 +2,17 @@ package veth
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/vishvananda/netlink"
 )
 
 type Manager struct {
 	HostNS      ns.NetNS
 	ContainerNS ns.NetNS
+	Netlink     netlinkAdapter
 }
 
 type Pair struct {
@@ -36,6 +39,7 @@ func NewManager(containerNSPath string) (*Manager, error) {
 	return &Manager{
 		HostNS:      hostNS,
 		ContainerNS: containerNS,
+		Netlink:     &NetlinkAdapter{},
 	}, nil
 }
 
@@ -77,5 +81,50 @@ func (m *Manager) Destroy(ifname string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
+	hostIP := net.IPv4(169, 254, 0, 1)
+	err := m.setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP)
+	if err != nil {
+		return err
+	}
+
+	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+		return m.setPointToPointAddress(vethPair.Container.Link.Attrs().Name, containerIP, hostIP)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.IP) error {
+	localAddr := &net.IPNet{
+		IP:   localIP,
+		Mask: net.IPv4Mask(255, 255, 255, 255),
+	}
+	peerAddr := &net.IPNet{
+		IP:   peerIP,
+		Mask: net.IPv4Mask(255, 255, 255, 255),
+	}
+
+	addr, err := m.Netlink.ParseAddr(localAddr.String())
+	if err != nil {
+		return fmt.Errorf("parsing address %s: %s", localAddr, err)
+	}
+
+	addr.Scope = int(netlink.SCOPE_LINK)
+	addr.Peer = peerAddr
+
+	link, err := m.Netlink.LinkByName(deviceName)
+	if err != nil {
+		return fmt.Errorf("find link by name %s: %s", deviceName, err)
+	}
+
+	if err = m.Netlink.AddrAdd(link, addr); err != nil {
+		return fmt.Errorf("adding address %s: %s", localAddr, err)
+	}
 	return nil
 }

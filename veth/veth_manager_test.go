@@ -1,8 +1,15 @@
 package veth_test
 
 import (
+	"errors"
+	"fmt"
+	"log"
+	"net"
+
 	"github.com/cloudfoundry-incubator/silk/veth"
+	"github.com/cloudfoundry-incubator/silk/veth/fakes"
 	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/cni/pkg/utils/sysctl"
 	"github.com/vishvananda/netlink"
 
 	. "github.com/onsi/ginkgo"
@@ -29,7 +36,7 @@ var _ = Describe("Veth Manager", func() {
 	})
 
 	Describe("NewManager", func() {
-		It("Creates a new manager", func() {
+		It("creates a new manager", func() {
 			currentNS, err := ns.GetCurrentNS()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -46,7 +53,7 @@ var _ = Describe("Veth Manager", func() {
 	})
 
 	Describe("CreatePair", func() {
-		It("Creates a veth with one end in the targeted namespace", func() {
+		It("creates a veth with one end in the targeted namespace", func() {
 			_, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -116,4 +123,131 @@ var _ = Describe("Veth Manager", func() {
 			})
 		})
 	})
+
+	Describe("AssignIP", func() {
+		var (
+			vethPair *veth.Pair
+		)
+
+		BeforeEach(func() {
+			containerNS, err := ns.NewNS()
+			Expect(err).NotTo(HaveOccurred())
+
+			vethManager, err := veth.NewManager(containerNS.Path())
+			Expect(err).NotTo(HaveOccurred())
+
+			vethPair, err = vethManager.CreatePair("eth0", 1500)
+			Expect(err).NotTo(HaveOccurred())
+			disableIPv6(vethPair)
+		})
+
+		It("sets point to point addresses in both host and container", func() {
+			err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+			Expect(err).NotTo(HaveOccurred())
+
+			link, err := netlink.LinkByName(vethPair.Host.Link.Attrs().Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			hostAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hostAddrs).To(HaveLen(1))
+			Expect(hostAddrs[0].IPNet.String()).To(Equal("169.254.0.1/32"))
+			Expect(hostAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
+			Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.4.5/32"))
+
+			err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
+
+				link, err := netlink.LinkByName(vethPair.Container.Link.Attrs().Name)
+				Expect(err).NotTo(HaveOccurred())
+
+				containerAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(containerAddrs).To(HaveLen(1))
+				Expect(containerAddrs[0].IPNet.String()).To(Equal("10.255.4.5/32"))
+				Expect(containerAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
+				Expect(containerAddrs[0].Peer.String()).To(Equal("169.254.0.1/32"))
+				return nil
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("when the address cannot be parsed", func() {
+			BeforeEach(func() {
+				fakeNetlink := &fakes.NetlinkAdapter{}
+				fakeNetlink.ParseAddrReturns(nil, errors.New("kiwi"))
+				vethManager.Netlink = fakeNetlink
+			})
+
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError("parsing address 169.254.0.1/32: kiwi"))
+			})
+		})
+
+		Context("when the device cannot be found", func() {
+			BeforeEach(func() {
+				fakeNetlink := &fakes.NetlinkAdapter{}
+				fakeNetlink.LinkByNameReturns(nil, errors.New("kiwi"))
+				fakeNetlink.ParseAddrReturns(&netlink.Addr{}, nil)
+				vethManager.Netlink = fakeNetlink
+			})
+
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError(fmt.Sprintf("find link by name %s: kiwi", vethPair.Host.Link.Attrs().Name)))
+			})
+		})
+
+		Context("when the address cannot be added", func() {
+			BeforeEach(func() {
+				fakeNetlink := &fakes.NetlinkAdapter{}
+				fakeNetlink.AddrAddReturns(errors.New("kiwi"))
+				fakeNetlink.LinkByNameReturns(nil, nil)
+				fakeNetlink.ParseAddrReturns(&netlink.Addr{}, nil)
+				vethManager.Netlink = fakeNetlink
+			})
+
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError("adding address 169.254.0.1/32: kiwi"))
+			})
+		})
+
+		Context("when the container address cannot be parsed", func() {
+			BeforeEach(func() {
+				fakeNetlink := &fakes.NetlinkAdapter{}
+				fakeNetlink.ParseAddrStub = func(addr string) (*netlink.Addr, error) {
+					if addr == "10.255.4.5/32" {
+						return nil, errors.New("kiwi")
+					}
+
+					return &netlink.Addr{}, nil
+				}
+				vethManager.Netlink = fakeNetlink
+			})
+
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError("parsing address 10.255.4.5/32: kiwi"))
+			})
+		})
+	})
 })
+
+func disableIPv6(vethPair *veth.Pair) {
+	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
+		return err
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+}
