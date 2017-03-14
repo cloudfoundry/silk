@@ -143,8 +143,12 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
+	containerNS, err := ns.GetNS(args.Netns)
+	if err != nil {
+		log.Fatal(err)
+	}
 	destroyer := &veth.Destroyer{}
-	err = destroyer.Destroy(args.IfName, args.Netns)
+	err = destroyer.Destroy(args.IfName, containerNS)
 	if err != nil {
 		log.Fatal(err)
 	}

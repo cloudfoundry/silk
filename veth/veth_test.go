@@ -109,7 +109,7 @@ var _ = Describe("Veth", func() {
 		})
 
 		It("destroys the veth with the given name in the given namespace", func() {
-			err := destroyer.Destroy("some-name", containerNS.Path())
+			err := destroyer.Destroy("some-name", containerNS)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -123,16 +123,9 @@ var _ = Describe("Veth", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		Context("when getting the ns fails", func() {
-			It("returns an error", func() {
-				err := destroyer.Destroy("some-name", "/some/bad/path")
-				Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
-			})
-		})
-
 		Context("when the interface doesn't exist", func() {
 			It("returns an error", func() {
-				err := destroyer.Destroy("wrong-name", containerNS.Path())
+				err := destroyer.Destroy("wrong-name", containerNS)
 				Expect(err).To(MatchError(ContainSubstring("Link not found")))
 			})
 		})
