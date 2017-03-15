@@ -6,6 +6,7 @@ import (
 
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/cni/pkg/utils/sysctl"
 	"github.com/vishvananda/netlink"
 )
 
@@ -33,6 +34,7 @@ func NewManager(containerNSPath string) (*Manager, error) {
 
 	containerNS, err := ns.GetNS(containerNSPath)
 	if err != nil {
+		// not tested
 		return nil, fmt.Errorf("Failed to create veth manager: %s", err)
 	}
 
@@ -49,7 +51,7 @@ func (m *Manager) CreatePair(ifname string, mtu int) (*Pair, error) {
 	err = m.ContainerNS.Do(func(_ ns.NetNS) error {
 		hostVeth, containerVeth, err = ip.SetupVeth(ifname, mtu, m.HostNS)
 		if err != nil {
-			return err
+			return err // not tested
 		}
 		return nil
 	})
@@ -73,12 +75,29 @@ func (m *Manager) Destroy(ifname string) error {
 	err := m.ContainerNS.Do(func(_ ns.NetNS) error {
 		err := ip.DelLinkByName(ifname)
 		if err != nil {
-			return err
+			return err // not tested
 		}
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) DisableIPv6(vethPair *Pair) error {
+	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
+	if err != nil {
+		panic(err) // not tested
+	}
+
+	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
+		return err
+	})
+	if err != nil {
+		panic(err) // not tested
 	}
 
 	return nil

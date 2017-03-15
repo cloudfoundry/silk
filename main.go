@@ -2,16 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/containernetworking/cni/pkg/ipam"
-	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
-	"github.com/containernetworking/cni/pkg/utils/sysctl"
 	"github.com/containernetworking/cni/pkg/version"
 )
 
@@ -21,21 +18,6 @@ func main() {
 
 type NetConf struct {
 	types.NetConf
-}
-
-func disableIPv6(vethPair *veth.Pair) {
-	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
-		return err
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
@@ -64,10 +46,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
+	vethManager.DisableIPv6(vethPair)
 	vethManager.AssignIP(vethPair, cniResult.IPs[0].Address.IP)
-
-	// vethPair.DisableIPv6()
-	disableIPv6(vethPair)
 
 	cniResult.Interfaces = append(cniResult.Interfaces,
 		&current.Interface{

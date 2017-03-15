@@ -3,13 +3,11 @@ package veth_test
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/cloudfoundry-incubator/silk/veth/fakes"
 	"github.com/containernetworking/cni/pkg/ns"
-	"github.com/containernetworking/cni/pkg/utils/sysctl"
 	"github.com/vishvananda/netlink"
 
 	. "github.com/onsi/ginkgo"
@@ -125,20 +123,15 @@ var _ = Describe("Veth Manager", func() {
 	})
 
 	Describe("AssignIP", func() {
-		var (
-			vethPair *veth.Pair
-		)
+		var vethPair *veth.Pair
 
 		BeforeEach(func() {
-			containerNS, err := ns.NewNS()
-			Expect(err).NotTo(HaveOccurred())
-
-			vethManager, err := veth.NewManager(containerNS.Path())
-			Expect(err).NotTo(HaveOccurred())
-
+			var err error
 			vethPair, err = vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
-			disableIPv6(vethPair)
+
+			err = vethManager.DisableIPv6(vethPair)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("sets point to point addresses in both host and container", func() {
@@ -235,19 +228,41 @@ var _ = Describe("Veth Manager", func() {
 			})
 		})
 	})
-})
 
-func disableIPv6(vethPair *veth.Pair) {
-	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
-	if err != nil {
-		log.Fatal(err)
-	}
+	Describe("DisableIPv6", func() {
+		var vethPair *veth.Pair
 
-	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
-		return err
+		BeforeEach(func() {
+			var err error
+			vethPair, err = vethManager.CreatePair("eth0", 1500)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("removes all IPv6 addresses from the veth pair", func() {
+			err := vethManager.DisableIPv6(vethPair)
+			Expect(err).NotTo(HaveOccurred())
+
+			link, err := netlink.LinkByName(vethPair.Host.Link.Attrs().Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			hostAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hostAddrs).To(HaveLen(0))
+
+			err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
+
+				link, err := netlink.LinkByName(vethPair.Container.Link.Attrs().Name)
+				Expect(err).NotTo(HaveOccurred())
+
+				containerAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(containerAddrs).To(HaveLen(0))
+				return nil
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
-}
+})
