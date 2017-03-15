@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/cloudfoundry-incubator/silk/veth/fakes"
@@ -31,8 +32,10 @@ var _ = Describe("Veth Manager", func() {
 		vethManager = &veth.Manager{
 			ContainerNSPath:  containerNS.Path(),
 			HostNSPath:       hostNS.Path(),
+			IPAdapter:        &veth.IPAdapter{},
 			NamespaceAdapter: &veth.NamespaceAdapter{},
 			NetlinkAdapter:   &veth.NetlinkAdapter{},
+			SysctlAdapter:    &veth.SysctlAdapter{},
 		}
 	})
 
@@ -116,14 +119,15 @@ var _ = Describe("Veth Manager", func() {
 		})
 
 		Context("when creating the veth pair fails", func() {
-			It("returns an error", func() {
-				//create veth with eth0 in container
-				_, err := vethManager.CreatePair("eth0", 1500)
-				Expect(err).NotTo(HaveOccurred())
+			BeforeEach(func() {
+				fakeIPAdapter := &fakes.IPAdapter{}
+				fakeIPAdapter.SetupVethReturns(nil, nil, errors.New("kiwi"))
+				vethManager.IPAdapter = fakeIPAdapter
+			})
 
-				//create veth with eth0 in container, should fail since eth0 already exists
-				_, err = vethManager.CreatePair("eth0", 1500)
-				Expect(err).To(MatchError(ContainSubstring("container veth name provided (eth0) already exists")))
+			It("returns an error", func() {
+				_, err := vethManager.CreatePair("eth0", 1500)
+				Expect(err).To(MatchError("Setting up veth: kiwi"))
 			})
 		})
 	})
@@ -154,9 +158,14 @@ var _ = Describe("Veth Manager", func() {
 		})
 
 		Context("when the interface doesn't exist", func() {
+			BeforeEach(func() {
+				fakeIPAdapter := &fakes.IPAdapter{}
+				fakeIPAdapter.DelLinkByNameReturns(errors.New("kiwi"))
+				vethManager.IPAdapter = fakeIPAdapter
+			})
 			It("returns an error", func() {
-				err := vethManager.Destroy("wrong-name")
-				Expect(err).To(MatchError(ContainSubstring("Link not found")))
+				err := vethManager.Destroy("ifname")
+				Expect(err).To(MatchError("Deleting link: kiwi"))
 			})
 		})
 	})
@@ -316,6 +325,37 @@ var _ = Describe("Veth Manager", func() {
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("when disabling ipv6 on the host interface fails", func() {
+			BeforeEach(func() {
+				fakeSysctlAdapter := &fakes.SysctlAdapter{}
+				fakeSysctlAdapter.SysctlReturns("", errors.New("kiwi"))
+				vethManager.SysctlAdapter = fakeSysctlAdapter
+			})
+
+			It("returns an error", func() {
+				err := vethManager.DisableIPv6(vethPair)
+				Expect(err).To(MatchError("Disabling IPv6 on host: kiwi"))
+			})
+		})
+
+		Context("when disabling ipv6 in the container interface fails", func() {
+			BeforeEach(func() {
+				fakeSysctlAdapter := &fakes.SysctlAdapter{}
+				fakeSysctlAdapter.SysctlStub = func(name string, params ...string) (string, error) {
+					if strings.Contains(name, "eth0") {
+						return "", errors.New("kiwi")
+					}
+					return "", nil
+				}
+				vethManager.SysctlAdapter = fakeSysctlAdapter
+			})
+
+			It("returns an error", func() {
+				err := vethManager.DisableIPv6(vethPair)
+				Expect(err).To(MatchError("Disabling IPv6 in container: kiwi"))
+			})
 		})
 	})
 })

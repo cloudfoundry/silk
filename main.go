@@ -13,7 +13,15 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 )
 
+var hostNSPath string
+
 func main() {
+	hostNS, err := ns.GetCurrentNS()
+	if err != nil {
+		log.Fatal(err)
+	}
+	hostNSPath = hostNS.Path()
+
 	skel.PluginMain(cmdAdd, cmdDel, version.All)
 }
 
@@ -32,23 +40,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
+	vethManager := veth.NewManager(hostNSPath, args.Netns)
+
 	cniResult, err := current.NewResultFromResult(result)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	hostNS, err := ns.GetCurrentNS()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	vethManager := &veth.Manager{
-		HostNSPath:       hostNS.Path(),
-		ContainerNSPath:  args.Netns,
-		NamespaceAdapter: &veth.NamespaceAdapter{},
-		NetlinkAdapter:   &veth.NetlinkAdapter{},
-	}
-	err = vethManager.Init()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,21 +92,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	hostNS, err := ns.GetCurrentNS()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	vethManager := &veth.Manager{
-		HostNSPath:       hostNS.Path(),
-		ContainerNSPath:  args.Netns,
-		NamespaceAdapter: &veth.NamespaceAdapter{},
-		NetlinkAdapter:   &veth.NetlinkAdapter{},
-	}
-	err = vethManager.Init()
-	if err != nil {
-		log.Fatal(err)
-	}
+	vethManager := veth.NewManager(hostNSPath, args.Netns)
 
 	err = vethManager.Destroy(args.IfName)
 	if err != nil {

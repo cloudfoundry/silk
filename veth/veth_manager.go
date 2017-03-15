@@ -2,11 +2,11 @@ package veth
 
 import (
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
-	"github.com/containernetworking/cni/pkg/utils/sysctl"
 	"github.com/vishvananda/netlink"
 )
 
@@ -15,8 +15,10 @@ type Manager struct {
 	ContainerNS      ns.NetNS
 	ContainerNSPath  string
 	HostNSPath       string
+	IPAdapter        ipAdapter
 	NetlinkAdapter   netlinkAdapter
 	NamespaceAdapter namespaceAdapter
+	SysctlAdapter    sysctlAdapter
 }
 
 type Pair struct {
@@ -27,6 +29,23 @@ type Pair struct {
 type Peer struct {
 	Link      ip.Link
 	Namespace ns.NetNS
+}
+
+func NewManager(hostNSPath, containerNSPath string) *Manager {
+	vethManager := &Manager{
+		HostNSPath:       hostNSPath,
+		ContainerNSPath:  containerNSPath,
+		NamespaceAdapter: &NamespaceAdapter{},
+		NetlinkAdapter:   &NetlinkAdapter{},
+		IPAdapter:        &IPAdapter{},
+		SysctlAdapter:    &SysctlAdapter{},
+	}
+	err := vethManager.Init()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return vethManager
 }
 
 func (m *Manager) Init() error {
@@ -49,9 +68,9 @@ func (m *Manager) CreatePair(ifname string, mtu int) (*Pair, error) {
 	var err error
 	var hostVeth, containerVeth ip.Link
 	err = m.ContainerNS.Do(func(_ ns.NetNS) error {
-		hostVeth, containerVeth, err = ip.SetupVeth(ifname, mtu, m.HostNS)
+		hostVeth, containerVeth, err = m.IPAdapter.SetupVeth(ifname, mtu, m.HostNS)
 		if err != nil {
-			return err // not tested
+			return fmt.Errorf("Setting up veth: %s", err)
 		}
 		return nil
 	})
@@ -73,9 +92,9 @@ func (m *Manager) CreatePair(ifname string, mtu int) (*Pair, error) {
 
 func (m *Manager) Destroy(ifname string) error {
 	err := m.ContainerNS.Do(func(_ ns.NetNS) error {
-		err := ip.DelLinkByName(ifname)
+		err := m.IPAdapter.DelLinkByName(ifname)
 		if err != nil {
-			return err // not tested
+			return fmt.Errorf("Deleting link: %s", err)
 		}
 		return nil
 	})
@@ -88,19 +107,19 @@ func (m *Manager) Destroy(ifname string) error {
 
 func (m *Manager) DisableIPv6(vethPair *Pair) error {
 	err := vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
-		_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
+		_, err := m.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
 		return err
 	})
 	if err != nil {
-		panic(err) // not tested
+		return fmt.Errorf("Disabling IPv6 on host: %s", err)
 	}
 
 	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
+		_, err := m.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
 		return err
 	})
 	if err != nil {
-		panic(err) // not tested
+		return fmt.Errorf("Disabling IPv6 in container: %s", err)
 	}
 
 	return nil
