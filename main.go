@@ -6,6 +6,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/containernetworking/cni/pkg/ipam"
+	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
@@ -36,7 +37,18 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	vethManager, err := veth.NewManager(args.Netns)
+	hostNS, err := ns.GetCurrentNS()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	vethManager := &veth.Manager{
+		HostNSPath:       hostNS.Path(),
+		ContainerNSPath:  args.Netns,
+		NamespaceAdapter: &veth.NamespaceAdapter{},
+		NetlinkAdapter:   &veth.NetlinkAdapter{},
+	}
+	err = vethManager.Init()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,8 +58,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	vethManager.DisableIPv6(vethPair)
-	vethManager.AssignIP(vethPair, cniResult.IPs[0].Address.IP)
+	err = vethManager.DisableIPv6(vethPair)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = vethManager.AssignIP(vethPair, cniResult.IPs[0].Address.IP)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	cniResult.Interfaces = append(cniResult.Interfaces,
 		&current.Interface{
@@ -79,10 +98,22 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	vethManager, err := veth.NewManager(args.Netns)
+	hostNS, err := ns.GetCurrentNS()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	vethManager := &veth.Manager{
+		HostNSPath:       hostNS.Path(),
+		ContainerNSPath:  args.Netns,
+		NamespaceAdapter: &veth.NamespaceAdapter{},
+		NetlinkAdapter:   &veth.NetlinkAdapter{},
+	}
+	err = vethManager.Init()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	err = vethManager.Destroy(args.IfName)
 	if err != nil {
 		log.Fatal(err)

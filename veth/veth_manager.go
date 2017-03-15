@@ -11,9 +11,12 @@ import (
 )
 
 type Manager struct {
-	HostNS      ns.NetNS
-	ContainerNS ns.NetNS
-	Netlink     netlinkAdapter
+	HostNS           ns.NetNS
+	ContainerNS      ns.NetNS
+	ContainerNSPath  string
+	HostNSPath       string
+	NetlinkAdapter   netlinkAdapter
+	NamespaceAdapter namespaceAdapter
 }
 
 type Pair struct {
@@ -26,23 +29,20 @@ type Peer struct {
 	Namespace ns.NetNS
 }
 
-func NewManager(containerNSPath string) (*Manager, error) {
-	hostNS, err := ns.GetCurrentNS()
+func (m *Manager) Init() error {
+	hostNS, err := m.NamespaceAdapter.GetNS(m.HostNSPath)
 	if err != nil {
-		panic(err) // not tested
+		return fmt.Errorf("Getting host namespace: %s", err)
 	}
 
-	containerNS, err := ns.GetNS(containerNSPath)
+	containerNS, err := m.NamespaceAdapter.GetNS(m.ContainerNSPath)
 	if err != nil {
-		// not tested
-		return nil, fmt.Errorf("Failed to create veth manager: %s", err)
+		return fmt.Errorf("Getting container namespace: %s", err)
 	}
 
-	return &Manager{
-		HostNS:      hostNS,
-		ContainerNS: containerNS,
-		Netlink:     &NetlinkAdapter{},
-	}, nil
+	m.HostNS = hostNS
+	m.ContainerNS = containerNS
+	return nil
 }
 
 func (m *Manager) CreatePair(ifname string, mtu int) (*Pair, error) {
@@ -87,13 +87,16 @@ func (m *Manager) Destroy(ifname string) error {
 }
 
 func (m *Manager) DisableIPv6(vethPair *Pair) error {
-	_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
+	err := vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
+		_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
+		return err
+	})
 	if err != nil {
 		panic(err) // not tested
 	}
 
 	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		_, err = sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
+		_, err := sysctl.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
 		return err
 	})
 	if err != nil {
@@ -105,7 +108,9 @@ func (m *Manager) DisableIPv6(vethPair *Pair) error {
 
 func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
 	hostIP := net.IPv4(169, 254, 0, 1)
-	err := m.setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP)
+	err := vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
+		return m.setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP)
+	})
 	if err != nil {
 		return err
 	}
@@ -129,7 +134,7 @@ func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.
 		Mask: net.IPv4Mask(255, 255, 255, 255),
 	}
 
-	addr, err := m.Netlink.ParseAddr(localAddr.String())
+	addr, err := m.NetlinkAdapter.ParseAddr(localAddr.String())
 	if err != nil {
 		return fmt.Errorf("parsing address %s: %s", localAddr, err)
 	}
@@ -137,12 +142,12 @@ func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.
 	addr.Scope = int(netlink.SCOPE_LINK)
 	addr.Peer = peerAddr
 
-	link, err := m.Netlink.LinkByName(deviceName)
+	link, err := m.NetlinkAdapter.LinkByName(deviceName)
 	if err != nil {
 		return fmt.Errorf("find link by name %s: %s", deviceName, err)
 	}
 
-	if err = m.Netlink.AddrAdd(link, addr); err != nil {
+	if err = m.NetlinkAdapter.AddrAdd(link, addr); err != nil {
 		return fmt.Errorf("adding address %s: %s", localAddr, err)
 	}
 	return nil
