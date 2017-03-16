@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+
+if (( $# != 1 )); then
+  echo "missing concourse target"
+  echo ""
+  echo "example usage:"
+  echo "fly-execute my-target"
+  exit 1
+fi
+
+DIR=$(cd $(dirname $0)/.. && pwd)
+fly -t $1 execute -i silk=${DIR} -c ${DIR}/ci/acceptance.yml  --privileged
