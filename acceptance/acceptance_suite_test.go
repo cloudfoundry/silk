@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"path"
 
+	"github.com/containernetworking/cni/pkg/ns"
 	. "github.com/onsi/ginkgo"
 	ginkgoConfig "github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,10 @@ func TestAcceptance(t *testing.T) {
 	RunSpecs(t, "Acceptance Suite")
 }
 
-var paths testPaths
+var (
+	paths  testPaths
+	hostNS ns.NetNS
+)
 
 type testPaths struct {
 	PathToPlugin string
@@ -28,6 +32,10 @@ type testPaths struct {
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	var err error
+
+	hostNS, err = ns.GetCurrentNS()
+	Expect(err).NotTo(HaveOccurred())
+
 	pathToSilkCNI, err := gexec.Build("github.com/cloudfoundry-incubator/silk", `-ldflags="-extldflags=-Wl,--allow-multiple-definition"`, "-race")
 	Expect(err).NotTo(HaveOccurred())
 
