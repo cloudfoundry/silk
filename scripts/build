@@ -1,0 +1,30 @@
+#!/bin/bash
+
+go build -o /tmp/cni/silk -ldflags="-extldflags=-Wl,--allow-multiple-definition" -race .
+go build -o /tmp/cni/host-local -race github.com/cloudfoundry-incubator/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local
+echo '{
+  "cniVersion": "0.3.0",
+  "name": "my-silk-network",
+  "type": "silk",
+  "ipam": {
+      "type": "host-local",
+      "subnet": "10.255.30.0/24",
+      "routes": [ { "dst": "0.0.0.0/0" } ]
+   }
+}' > /tmp/cni/silk.conf
+
+echo '
+export CNI_PATH=/tmp/cni
+export CNI_NETNS=/var/run/netns/apricot
+export CNI_CONTAINERID=apricot
+export CNI_COMMAND=ADD
+export CNI_IFNAME=eth0
+' > /tmp/cni/silk.env
+
+echo "build succeeded, see: /tmp/cni"
+echo ""
+echo "to run:"
+echo ""
+echo "ip netns add apricot"
+echo "source /tmp/cni/silk.env"
+echo "/tmp/cni/silk < /tmp/cni/silk.conf"
