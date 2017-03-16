@@ -64,16 +64,48 @@ var _ = Describe("Acceptance", func() {
 			`, dataDir)
 		})
 
+		It("returns the expected CNI result", func() {
+			By("calling ADD")
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			result := cniResultForCurrentVersion(sess.Out.Contents())
+
+			inHost := ifacesWithNS(result.Interfaces, "")
+
+			expectedCNIStdout := fmt.Sprintf(`
+			{
+				"interfaces": [
+						{
+								"name": "%s",
+								"mac": "%s"
+						},
+						{
+								"name": "eth0",
+								"sandbox": "%s"
+						}
+				],
+				"ips": [
+						{
+								"version": "4",
+								"address": "10.255.30.2/24",
+								"gateway": "10.255.30.1",
+								"interface": 1
+						}
+				],
+				"routes": [{"dst": "0.0.0.0/0"}],
+				"dns": {}
+			}
+			`, inHost[0].Name, inHost[0].Mac, containerNSPath)
+
+			Expect(sess.Out.Contents()).To(MatchJSON(expectedCNIStdout))
+		})
+
 		It("creates and destroys a veth pair", func() {
 			By("calling ADD")
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			resultInterface, err := current.NewResult(sess.Out.Contents())
-			Expect(err).NotTo(HaveOccurred())
-			result, err := current.NewResultFromResult(resultInterface)
-			Expect(err).NotTo(HaveOccurred())
-
+			result := cniResultForCurrentVersion(sess.Out.Contents())
 			Expect(result.Interfaces).To(HaveLen(2))
 
 			inHost := ifacesWithNS(result.Interfaces, "")
@@ -94,10 +126,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		hostLinkFromResult := func(cniResult []byte) netlink.Link {
-			resultInterface, err := current.NewResult(cniResult)
-			Expect(err).NotTo(HaveOccurred())
-			result, err := current.NewResultFromResult(resultInterface)
-			Expect(err).NotTo(HaveOccurred())
+			result := cniResultForCurrentVersion(cniResult)
 			Expect(result.Interfaces).To(HaveLen(2))
 			inHost := ifacesWithNS(result.Interfaces, "")
 			link, err := netlink.LinkByName(inHost[0].Name)
@@ -167,15 +196,12 @@ var _ = Describe("Acceptance", func() {
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			resultInterface, err := current.NewResult(sess.Out.Contents())
-			Expect(err).NotTo(HaveOccurred())
-			result, err := current.NewResultFromResult(resultInterface)
-			Expect(err).NotTo(HaveOccurred())
+			result := cniResultForCurrentVersion(sess.Out.Contents())
 
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
-			Expect(result.IPs[0].Interface).To(Equal(-1))
+			Expect(result.IPs[0].Interface).To(Equal(1))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.2/24"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("10.255.30.1"))
 
@@ -226,14 +252,11 @@ var _ = Describe("Acceptance", func() {
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			resultInterface, err := current.NewResult(sess.Out.Contents())
-			Expect(err).NotTo(HaveOccurred())
-			result, err := current.NewResultFromResult(resultInterface)
-			Expect(err).NotTo(HaveOccurred())
+			result := cniResultForCurrentVersion(sess.Out.Contents())
 
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
-			Expect(result.IPs[0].Interface).To(Equal(-1))
+			Expect(result.IPs[0].Interface).To(Equal(1))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.1/30"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
 
@@ -241,14 +264,11 @@ var _ = Describe("Acceptance", func() {
 			sess = startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			resultInterface, err = current.NewResult(sess.Out.Contents())
-			Expect(err).NotTo(HaveOccurred())
-			result, err = current.NewResultFromResult(resultInterface)
-			Expect(err).NotTo(HaveOccurred())
+			result = cniResultForCurrentVersion(sess.Out.Contents())
 
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
-			Expect(result.IPs[0].Interface).To(Equal(-1))
+			Expect(result.IPs[0].Interface).To(Equal(1))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.2/30"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
 
@@ -283,4 +303,13 @@ func ifacesWithNS(result []*current.Interface, nsPath string) []*current.Interfa
 		}
 	}
 	return ret
+}
+
+func cniResultForCurrentVersion(output []byte) *current.Result {
+	resultInterface, err := current.NewResult(output)
+	Expect(err).NotTo(HaveOccurred())
+	result, err := current.NewResultFromResult(resultInterface)
+	Expect(err).NotTo(HaveOccurred())
+
+	return result
 }

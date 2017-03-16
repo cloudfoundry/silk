@@ -112,7 +112,9 @@ var _ = Describe("Veth Manager", func() {
 			vethPair, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
 
+			hardwareAddrRegex := `[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}`
 			Expect(vethPair.Host.Link.Attrs().Name).To(MatchRegexp(`veth.*`))
+			Expect(vethPair.Host.Link.Attrs().HardwareAddr).To(MatchRegexp(hardwareAddrRegex))
 			Expect(vethPair.Container.Link.Attrs().Name).To(Equal("eth0"))
 			Expect(vethPair.Host.Namespace).To(Equal(vethManager.HostNS))
 			Expect(vethPair.Container.Namespace).To(Equal(vethManager.ContainerNS))

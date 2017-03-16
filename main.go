@@ -74,7 +74,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		},
 	)
 
-	cniResult.IPs[0].Interface = -1
+	cniResult.IPs[0].Interface = 1
 
 	return types.PrintResult(cniResult, netConf.CNIVersion)
 
