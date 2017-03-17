@@ -204,6 +204,11 @@ var _ = Describe("Veth Manager", func() {
 				Expect(hostAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
 				Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.4.5/32"))
 				Expect(link.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
+
+				ipLink := vethPair.Host.Link
+				Expect(ipLink.Attrs().Name).To(Equal(link.Attrs().Name))
+				Expect(ipLink.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
+				Expect(ipLink.Attrs().Index).To(Equal(link.Attrs().Index))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -222,6 +227,11 @@ var _ = Describe("Veth Manager", func() {
 				Expect(containerAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
 				Expect(containerAddrs[0].Peer.String()).To(Equal("169.254.0.1/32"))
 				Expect(link.Attrs().HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
+
+				ipLink := vethPair.Container.Link
+				Expect(ipLink.Attrs().Name).To(Equal(link.Attrs().Name))
+				Expect(ipLink.Attrs().HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
+				Expect(ipLink.Attrs().Index).To(Equal(link.Attrs().Index))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -332,6 +342,18 @@ var _ = Describe("Veth Manager", func() {
 			It("returns an error", func() {
 				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
 				Expect(err).To(MatchError("adding MAC address aa:aa:0a:ff:04:05: kiwi"))
+			})
+		})
+
+		Context("when the link cannot be found after setting its addresses", func() {
+			BeforeEach(func() {
+				fakeIPAdapter := &fakes.IPAdapter{}
+				fakeIPAdapter.LinkByNameReturns(nil, errors.New("kiwi"))
+				vethManager.IPAdapter = fakeIPAdapter
+			})
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError(fmt.Sprintf("find new link by name %s: kiwi", vethPair.Host.Link.Attrs().Name)))
 			})
 		})
 	})

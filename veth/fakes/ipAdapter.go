@@ -29,6 +29,15 @@ type IPAdapter struct {
 	delLinkByNameReturns struct {
 		result1 error
 	}
+	LinkByNameStub        func(name string) (ip.Link, error)
+	linkByNameMutex       sync.RWMutex
+	linkByNameArgsForCall []struct {
+		name string
+	}
+	linkByNameReturns struct {
+		result1 ip.Link
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -101,6 +110,39 @@ func (fake *IPAdapter) DelLinkByNameReturns(result1 error) {
 	}{result1}
 }
 
+func (fake *IPAdapter) LinkByName(name string) (ip.Link, error) {
+	fake.linkByNameMutex.Lock()
+	fake.linkByNameArgsForCall = append(fake.linkByNameArgsForCall, struct {
+		name string
+	}{name})
+	fake.recordInvocation("LinkByName", []interface{}{name})
+	fake.linkByNameMutex.Unlock()
+	if fake.LinkByNameStub != nil {
+		return fake.LinkByNameStub(name)
+	}
+	return fake.linkByNameReturns.result1, fake.linkByNameReturns.result2
+}
+
+func (fake *IPAdapter) LinkByNameCallCount() int {
+	fake.linkByNameMutex.RLock()
+	defer fake.linkByNameMutex.RUnlock()
+	return len(fake.linkByNameArgsForCall)
+}
+
+func (fake *IPAdapter) LinkByNameArgsForCall(i int) string {
+	fake.linkByNameMutex.RLock()
+	defer fake.linkByNameMutex.RUnlock()
+	return fake.linkByNameArgsForCall[i].name
+}
+
+func (fake *IPAdapter) LinkByNameReturns(result1 ip.Link, result2 error) {
+	fake.LinkByNameStub = nil
+	fake.linkByNameReturns = struct {
+		result1 ip.Link
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *IPAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -108,6 +150,8 @@ func (fake *IPAdapter) Invocations() map[string][][]interface{} {
 	defer fake.setupVethMutex.RUnlock()
 	fake.delLinkByNameMutex.RLock()
 	defer fake.delLinkByNameMutex.RUnlock()
+	fake.linkByNameMutex.RLock()
+	defer fake.linkByNameMutex.RUnlock()
 	return fake.invocations
 }
 

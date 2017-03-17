@@ -197,5 +197,9 @@ func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.
 		return nil, fmt.Errorf("adding MAC address %s: %s", hardwareAddr, err)
 	}
 
-	return ip.LinkByName(deviceName)
+	ipLink, err := m.IPAdapter.LinkByName(deviceName)
+	if err != nil {
+		return nil, fmt.Errorf("find new link by name %s: %s", deviceName, err)
+	}
+	return ipLink, nil
 }
