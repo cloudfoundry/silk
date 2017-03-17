@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 
-	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/vishvananda/netlink"
 )
@@ -28,7 +27,7 @@ type Pair struct {
 }
 
 type Peer struct {
-	Link      ip.Link
+	Link      net.Interface
 	Namespace ns.NetNS
 }
 
@@ -68,7 +67,7 @@ func (m *Manager) Init() error {
 
 func (m *Manager) CreatePair(ifname string, mtu int) (*Pair, error) {
 	var err error
-	var hostVeth, containerVeth ip.Link
+	var hostVeth, containerVeth net.Interface
 	err = m.ContainerNS.Do(func(_ ns.NetNS) error {
 		hostVeth, containerVeth, err = m.IPAdapter.SetupVeth(ifname, mtu, m.HostNS)
 		if err != nil {
@@ -109,7 +108,7 @@ func (m *Manager) Destroy(ifname string) error {
 
 func (m *Manager) DisableIPv6(vethPair *Pair) error {
 	err := vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
-		_, err := m.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Attrs().Name), "1")
+		_, err := m.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Host.Link.Name), "1")
 		return err
 	})
 	if err != nil {
@@ -117,7 +116,7 @@ func (m *Manager) DisableIPv6(vethPair *Pair) error {
 	}
 
 	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		_, err := m.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Attrs().Name), "1")
+		_, err := m.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", vethPair.Container.Link.Name), "1")
 		return err
 	})
 	if err != nil {
@@ -139,7 +138,7 @@ func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
 	hostIP := net.IPv4(169, 254, 0, 1)
 
 	err = vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
-		link, err := m.setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP, hostHardwareAddr)
+		link, err := m.setPointToPointAddress(vethPair.Host.Link.Name, hostIP, containerIP, hostHardwareAddr)
 		if err != nil {
 			return err
 		}
@@ -151,7 +150,7 @@ func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
 	}
 
 	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		link, err := m.setPointToPointAddress(vethPair.Container.Link.Attrs().Name, containerIP, hostIP, containerHardwareAddr)
+		link, err := m.setPointToPointAddress(vethPair.Container.Link.Name, containerIP, hostIP, containerHardwareAddr)
 		if err != nil {
 			return err
 		}
@@ -164,7 +163,7 @@ func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
 	return nil
 }
 
-func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.IP, hardwareAddr net.HardwareAddr) (ip.Link, error) {
+func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.IP, hardwareAddr net.HardwareAddr) (net.Interface, error) {
 	localAddr := &net.IPNet{
 		IP:   localIP,
 		Mask: net.IPv4Mask(255, 255, 255, 255),
@@ -176,7 +175,7 @@ func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.
 
 	addr, err := m.NetlinkAdapter.ParseAddr(localAddr.String())
 	if err != nil {
-		return nil, fmt.Errorf("parsing address %s: %s", localAddr, err)
+		return net.Interface{}, fmt.Errorf("parsing address %s: %s", localAddr, err)
 	}
 
 	addr.Scope = int(netlink.SCOPE_LINK)
@@ -184,22 +183,28 @@ func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.
 
 	link, err := m.NetlinkAdapter.LinkByName(deviceName)
 	if err != nil {
-		return nil, fmt.Errorf("find link by name %s: %s", deviceName, err)
+		return net.Interface{}, fmt.Errorf("find link by name %s: %s", deviceName, err)
 	}
 
 	err = m.NetlinkAdapter.AddrAdd(link, addr)
 	if err != nil {
-		return nil, fmt.Errorf("adding IP address %s: %s", localAddr, err)
+		return net.Interface{}, fmt.Errorf("adding IP address %s: %s", localAddr, err)
 	}
 
 	err = m.NetlinkAdapter.LinkSetHardwareAddr(link, hardwareAddr)
 	if err != nil {
-		return nil, fmt.Errorf("adding MAC address %s: %s", hardwareAddr, err)
+		return net.Interface{}, fmt.Errorf("adding MAC address %s: %s", hardwareAddr, err)
 	}
 
-	ipLink, err := m.IPAdapter.LinkByName(deviceName)
+	nlLink, err := m.NetlinkAdapter.LinkByName(deviceName)
 	if err != nil {
-		return nil, fmt.Errorf("find new link by name %s: %s", deviceName, err)
+		return net.Interface{}, fmt.Errorf("find new link by name %s: %s", deviceName, err)
 	}
-	return ipLink, nil
+	return net.Interface{
+		Index:        nlLink.Attrs().Index,
+		MTU:          nlLink.Attrs().MTU,
+		Name:         nlLink.Attrs().Name,
+		HardwareAddr: nlLink.Attrs().HardwareAddr,
+		Flags:        nlLink.Attrs().Flags,
+	}, nil
 }

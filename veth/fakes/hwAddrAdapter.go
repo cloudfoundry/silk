@@ -17,6 +17,10 @@ type HWAddrAdapter struct {
 		result1 net.HardwareAddr
 		result2 error
 	}
+	generateHardwareAddr4ReturnsOnCall map[int]struct {
+		result1 net.HardwareAddr
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -28,6 +32,7 @@ func (fake *HWAddrAdapter) GenerateHardwareAddr4(arg1 net.IP, arg2 []byte) (net.
 		copy(arg2Copy, arg2)
 	}
 	fake.generateHardwareAddr4Mutex.Lock()
+	ret, specificReturn := fake.generateHardwareAddr4ReturnsOnCall[len(fake.generateHardwareAddr4ArgsForCall)]
 	fake.generateHardwareAddr4ArgsForCall = append(fake.generateHardwareAddr4ArgsForCall, struct {
 		arg1 net.IP
 		arg2 []byte
@@ -36,6 +41,9 @@ func (fake *HWAddrAdapter) GenerateHardwareAddr4(arg1 net.IP, arg2 []byte) (net.
 	fake.generateHardwareAddr4Mutex.Unlock()
 	if fake.GenerateHardwareAddr4Stub != nil {
 		return fake.GenerateHardwareAddr4Stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
 	}
 	return fake.generateHardwareAddr4Returns.result1, fake.generateHardwareAddr4Returns.result2
 }
@@ -55,6 +63,20 @@ func (fake *HWAddrAdapter) GenerateHardwareAddr4ArgsForCall(i int) (net.IP, []by
 func (fake *HWAddrAdapter) GenerateHardwareAddr4Returns(result1 net.HardwareAddr, result2 error) {
 	fake.GenerateHardwareAddr4Stub = nil
 	fake.generateHardwareAddr4Returns = struct {
+		result1 net.HardwareAddr
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *HWAddrAdapter) GenerateHardwareAddr4ReturnsOnCall(i int, result1 net.HardwareAddr, result2 error) {
+	fake.GenerateHardwareAddr4Stub = nil
+	if fake.generateHardwareAddr4ReturnsOnCall == nil {
+		fake.generateHardwareAddr4ReturnsOnCall = make(map[int]struct {
+			result1 net.HardwareAddr
+			result2 error
+		})
+	}
+	fake.generateHardwareAddr4ReturnsOnCall[i] = struct {
 		result1 net.HardwareAddr
 		result2 error
 	}{result1, result2}

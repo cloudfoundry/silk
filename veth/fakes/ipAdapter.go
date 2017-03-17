@@ -2,14 +2,14 @@
 package fakes
 
 import (
+	"net"
 	"sync"
 
-	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
 )
 
 type IPAdapter struct {
-	SetupVethStub        func(string, int, ns.NetNS) (ip.Link, ip.Link, error)
+	SetupVethStub        func(string, int, ns.NetNS) (net.Interface, net.Interface, error)
 	setupVethMutex       sync.RWMutex
 	setupVethArgsForCall []struct {
 		arg1 string
@@ -17,8 +17,13 @@ type IPAdapter struct {
 		arg3 ns.NetNS
 	}
 	setupVethReturns struct {
-		result1 ip.Link
-		result2 ip.Link
+		result1 net.Interface
+		result2 net.Interface
+		result3 error
+	}
+	setupVethReturnsOnCall map[int]struct {
+		result1 net.Interface
+		result2 net.Interface
 		result3 error
 	}
 	DelLinkByNameStub        func(string) error
@@ -29,21 +34,16 @@ type IPAdapter struct {
 	delLinkByNameReturns struct {
 		result1 error
 	}
-	LinkByNameStub        func(name string) (ip.Link, error)
-	linkByNameMutex       sync.RWMutex
-	linkByNameArgsForCall []struct {
-		name string
-	}
-	linkByNameReturns struct {
-		result1 ip.Link
-		result2 error
+	delLinkByNameReturnsOnCall map[int]struct {
+		result1 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *IPAdapter) SetupVeth(arg1 string, arg2 int, arg3 ns.NetNS) (ip.Link, ip.Link, error) {
+func (fake *IPAdapter) SetupVeth(arg1 string, arg2 int, arg3 ns.NetNS) (net.Interface, net.Interface, error) {
 	fake.setupVethMutex.Lock()
+	ret, specificReturn := fake.setupVethReturnsOnCall[len(fake.setupVethArgsForCall)]
 	fake.setupVethArgsForCall = append(fake.setupVethArgsForCall, struct {
 		arg1 string
 		arg2 int
@@ -53,6 +53,9 @@ func (fake *IPAdapter) SetupVeth(arg1 string, arg2 int, arg3 ns.NetNS) (ip.Link,
 	fake.setupVethMutex.Unlock()
 	if fake.SetupVethStub != nil {
 		return fake.SetupVethStub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
 	}
 	return fake.setupVethReturns.result1, fake.setupVethReturns.result2, fake.setupVethReturns.result3
 }
@@ -69,17 +72,34 @@ func (fake *IPAdapter) SetupVethArgsForCall(i int) (string, int, ns.NetNS) {
 	return fake.setupVethArgsForCall[i].arg1, fake.setupVethArgsForCall[i].arg2, fake.setupVethArgsForCall[i].arg3
 }
 
-func (fake *IPAdapter) SetupVethReturns(result1 ip.Link, result2 ip.Link, result3 error) {
+func (fake *IPAdapter) SetupVethReturns(result1 net.Interface, result2 net.Interface, result3 error) {
 	fake.SetupVethStub = nil
 	fake.setupVethReturns = struct {
-		result1 ip.Link
-		result2 ip.Link
+		result1 net.Interface
+		result2 net.Interface
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *IPAdapter) SetupVethReturnsOnCall(i int, result1 net.Interface, result2 net.Interface, result3 error) {
+	fake.SetupVethStub = nil
+	if fake.setupVethReturnsOnCall == nil {
+		fake.setupVethReturnsOnCall = make(map[int]struct {
+			result1 net.Interface
+			result2 net.Interface
+			result3 error
+		})
+	}
+	fake.setupVethReturnsOnCall[i] = struct {
+		result1 net.Interface
+		result2 net.Interface
 		result3 error
 	}{result1, result2, result3}
 }
 
 func (fake *IPAdapter) DelLinkByName(arg1 string) error {
 	fake.delLinkByNameMutex.Lock()
+	ret, specificReturn := fake.delLinkByNameReturnsOnCall[len(fake.delLinkByNameArgsForCall)]
 	fake.delLinkByNameArgsForCall = append(fake.delLinkByNameArgsForCall, struct {
 		arg1 string
 	}{arg1})
@@ -87,6 +107,9 @@ func (fake *IPAdapter) DelLinkByName(arg1 string) error {
 	fake.delLinkByNameMutex.Unlock()
 	if fake.DelLinkByNameStub != nil {
 		return fake.DelLinkByNameStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
 	}
 	return fake.delLinkByNameReturns.result1
 }
@@ -110,37 +133,16 @@ func (fake *IPAdapter) DelLinkByNameReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *IPAdapter) LinkByName(name string) (ip.Link, error) {
-	fake.linkByNameMutex.Lock()
-	fake.linkByNameArgsForCall = append(fake.linkByNameArgsForCall, struct {
-		name string
-	}{name})
-	fake.recordInvocation("LinkByName", []interface{}{name})
-	fake.linkByNameMutex.Unlock()
-	if fake.LinkByNameStub != nil {
-		return fake.LinkByNameStub(name)
+func (fake *IPAdapter) DelLinkByNameReturnsOnCall(i int, result1 error) {
+	fake.DelLinkByNameStub = nil
+	if fake.delLinkByNameReturnsOnCall == nil {
+		fake.delLinkByNameReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
 	}
-	return fake.linkByNameReturns.result1, fake.linkByNameReturns.result2
-}
-
-func (fake *IPAdapter) LinkByNameCallCount() int {
-	fake.linkByNameMutex.RLock()
-	defer fake.linkByNameMutex.RUnlock()
-	return len(fake.linkByNameArgsForCall)
-}
-
-func (fake *IPAdapter) LinkByNameArgsForCall(i int) string {
-	fake.linkByNameMutex.RLock()
-	defer fake.linkByNameMutex.RUnlock()
-	return fake.linkByNameArgsForCall[i].name
-}
-
-func (fake *IPAdapter) LinkByNameReturns(result1 ip.Link, result2 error) {
-	fake.LinkByNameStub = nil
-	fake.linkByNameReturns = struct {
-		result1 ip.Link
-		result2 error
-	}{result1, result2}
+	fake.delLinkByNameReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *IPAdapter) Invocations() map[string][][]interface{} {
@@ -150,8 +152,6 @@ func (fake *IPAdapter) Invocations() map[string][][]interface{} {
 	defer fake.setupVethMutex.RUnlock()
 	fake.delLinkByNameMutex.RLock()
 	defer fake.delLinkByNameMutex.RUnlock()
-	fake.linkByNameMutex.RLock()
-	defer fake.linkByNameMutex.RUnlock()
 	return fake.invocations
 }
 

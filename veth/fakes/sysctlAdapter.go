@@ -16,12 +16,17 @@ type SysctlAdapter struct {
 		result1 string
 		result2 error
 	}
+	sysctlReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
 func (fake *SysctlAdapter) Sysctl(name string, params ...string) (string, error) {
 	fake.sysctlMutex.Lock()
+	ret, specificReturn := fake.sysctlReturnsOnCall[len(fake.sysctlArgsForCall)]
 	fake.sysctlArgsForCall = append(fake.sysctlArgsForCall, struct {
 		name   string
 		params []string
@@ -30,6 +35,9 @@ func (fake *SysctlAdapter) Sysctl(name string, params ...string) (string, error)
 	fake.sysctlMutex.Unlock()
 	if fake.SysctlStub != nil {
 		return fake.SysctlStub(name, params...)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
 	}
 	return fake.sysctlReturns.result1, fake.sysctlReturns.result2
 }
@@ -49,6 +57,20 @@ func (fake *SysctlAdapter) SysctlArgsForCall(i int) (string, []string) {
 func (fake *SysctlAdapter) SysctlReturns(result1 string, result2 error) {
 	fake.SysctlStub = nil
 	fake.sysctlReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *SysctlAdapter) SysctlReturnsOnCall(i int, result1 string, result2 error) {
+	fake.SysctlStub = nil
+	if fake.sysctlReturnsOnCall == nil {
+		fake.sysctlReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.sysctlReturnsOnCall[i] = struct {
 		result1 string
 		result2 error
 	}{result1, result2}

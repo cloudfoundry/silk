@@ -17,10 +17,18 @@ type NamespaceAdapter struct {
 		result1 ns.NetNS
 		result2 error
 	}
+	getNSReturnsOnCall map[int]struct {
+		result1 ns.NetNS
+		result2 error
+	}
 	GetCurrentNSStub        func() (ns.NetNS, error)
 	getCurrentNSMutex       sync.RWMutex
 	getCurrentNSArgsForCall []struct{}
 	getCurrentNSReturns     struct {
+		result1 ns.NetNS
+		result2 error
+	}
+	getCurrentNSReturnsOnCall map[int]struct {
 		result1 ns.NetNS
 		result2 error
 	}
@@ -30,6 +38,7 @@ type NamespaceAdapter struct {
 
 func (fake *NamespaceAdapter) GetNS(arg1 string) (ns.NetNS, error) {
 	fake.getNSMutex.Lock()
+	ret, specificReturn := fake.getNSReturnsOnCall[len(fake.getNSArgsForCall)]
 	fake.getNSArgsForCall = append(fake.getNSArgsForCall, struct {
 		arg1 string
 	}{arg1})
@@ -37,6 +46,9 @@ func (fake *NamespaceAdapter) GetNS(arg1 string) (ns.NetNS, error) {
 	fake.getNSMutex.Unlock()
 	if fake.GetNSStub != nil {
 		return fake.GetNSStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
 	}
 	return fake.getNSReturns.result1, fake.getNSReturns.result2
 }
@@ -61,13 +73,31 @@ func (fake *NamespaceAdapter) GetNSReturns(result1 ns.NetNS, result2 error) {
 	}{result1, result2}
 }
 
+func (fake *NamespaceAdapter) GetNSReturnsOnCall(i int, result1 ns.NetNS, result2 error) {
+	fake.GetNSStub = nil
+	if fake.getNSReturnsOnCall == nil {
+		fake.getNSReturnsOnCall = make(map[int]struct {
+			result1 ns.NetNS
+			result2 error
+		})
+	}
+	fake.getNSReturnsOnCall[i] = struct {
+		result1 ns.NetNS
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *NamespaceAdapter) GetCurrentNS() (ns.NetNS, error) {
 	fake.getCurrentNSMutex.Lock()
+	ret, specificReturn := fake.getCurrentNSReturnsOnCall[len(fake.getCurrentNSArgsForCall)]
 	fake.getCurrentNSArgsForCall = append(fake.getCurrentNSArgsForCall, struct{}{})
 	fake.recordInvocation("GetCurrentNS", []interface{}{})
 	fake.getCurrentNSMutex.Unlock()
 	if fake.GetCurrentNSStub != nil {
 		return fake.GetCurrentNSStub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
 	}
 	return fake.getCurrentNSReturns.result1, fake.getCurrentNSReturns.result2
 }
@@ -81,6 +111,20 @@ func (fake *NamespaceAdapter) GetCurrentNSCallCount() int {
 func (fake *NamespaceAdapter) GetCurrentNSReturns(result1 ns.NetNS, result2 error) {
 	fake.GetCurrentNSStub = nil
 	fake.getCurrentNSReturns = struct {
+		result1 ns.NetNS
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NamespaceAdapter) GetCurrentNSReturnsOnCall(i int, result1 ns.NetNS, result2 error) {
+	fake.GetCurrentNSStub = nil
+	if fake.getCurrentNSReturnsOnCall == nil {
+		fake.getCurrentNSReturnsOnCall = make(map[int]struct {
+			result1 ns.NetNS
+			result2 error
+		})
+	}
+	fake.getCurrentNSReturnsOnCall[i] = struct {
 		result1 ns.NetNS
 		result2 error
 	}{result1, result2}

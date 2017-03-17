@@ -114,9 +114,9 @@ var _ = Describe("Veth Manager", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			hardwareAddrRegex := `[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}`
-			Expect(vethPair.Host.Link.Attrs().Name).To(MatchRegexp(`veth.*`))
-			Expect(vethPair.Host.Link.Attrs().HardwareAddr).To(MatchRegexp(hardwareAddrRegex))
-			Expect(vethPair.Container.Link.Attrs().Name).To(Equal("eth0"))
+			Expect(vethPair.Host.Link.Name).To(MatchRegexp(`veth.*`))
+			Expect(vethPair.Host.Link.HardwareAddr).To(MatchRegexp(hardwareAddrRegex))
+			Expect(vethPair.Container.Link.Name).To(Equal("eth0"))
 			Expect(vethPair.Host.Namespace).To(Equal(vethManager.HostNS))
 			Expect(vethPair.Container.Namespace).To(Equal(vethManager.ContainerNS))
 		})
@@ -124,7 +124,7 @@ var _ = Describe("Veth Manager", func() {
 		Context("when creating the veth pair fails", func() {
 			BeforeEach(func() {
 				fakeIPAdapter := &fakes.IPAdapter{}
-				fakeIPAdapter.SetupVethReturns(nil, nil, errors.New("kiwi"))
+				fakeIPAdapter.SetupVethReturns(net.Interface{}, net.Interface{}, errors.New("kiwi"))
 				vethManager.IPAdapter = fakeIPAdapter
 			})
 
@@ -142,7 +142,7 @@ var _ = Describe("Veth Manager", func() {
 			Expect(err).NotTo(HaveOccurred())
 			vethPair, err := vethManager.CreatePair("eth0", 1500)
 			Expect(err).NotTo(HaveOccurred())
-			vethName = vethPair.Container.Link.Attrs().Name
+			vethName = vethPair.Container.Link.Name
 		})
 
 		It("destroys the veth with the given name in the given namespace", func() {
@@ -194,7 +194,7 @@ var _ = Describe("Veth Manager", func() {
 			err = vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
 				defer GinkgoRecover()
 
-				link, err := netlink.LinkByName(vethPair.Host.Link.Attrs().Name)
+				link, err := netlink.LinkByName(vethPair.Host.Link.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				hostAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
@@ -206,9 +206,9 @@ var _ = Describe("Veth Manager", func() {
 				Expect(link.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
 
 				ipLink := vethPair.Host.Link
-				Expect(ipLink.Attrs().Name).To(Equal(link.Attrs().Name))
-				Expect(ipLink.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
-				Expect(ipLink.Attrs().Index).To(Equal(link.Attrs().Index))
+				Expect(ipLink.Name).To(Equal(link.Attrs().Name))
+				Expect(ipLink.HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
+				Expect(ipLink.Index).To(Equal(link.Attrs().Index))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -216,7 +216,7 @@ var _ = Describe("Veth Manager", func() {
 			err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
 				defer GinkgoRecover()
 
-				link, err := netlink.LinkByName(vethPair.Container.Link.Attrs().Name)
+				link, err := netlink.LinkByName(vethPair.Container.Link.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				containerAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
@@ -229,9 +229,9 @@ var _ = Describe("Veth Manager", func() {
 				Expect(link.Attrs().HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
 
 				ipLink := vethPair.Container.Link
-				Expect(ipLink.Attrs().Name).To(Equal(link.Attrs().Name))
-				Expect(ipLink.Attrs().HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
-				Expect(ipLink.Attrs().Index).To(Equal(link.Attrs().Index))
+				Expect(ipLink.Name).To(Equal(link.Attrs().Name))
+				Expect(ipLink.HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
+				Expect(ipLink.Index).To(Equal(link.Attrs().Index))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -260,7 +260,7 @@ var _ = Describe("Veth Manager", func() {
 
 			It("returns an error", func() {
 				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
-				Expect(err).To(MatchError(fmt.Sprintf("find link by name %s: kiwi", vethPair.Host.Link.Attrs().Name)))
+				Expect(err).To(MatchError(fmt.Sprintf("find link by name %s: kiwi", vethPair.Host.Link.Name)))
 			})
 		})
 
@@ -347,13 +347,14 @@ var _ = Describe("Veth Manager", func() {
 
 		Context("when the link cannot be found after setting its addresses", func() {
 			BeforeEach(func() {
-				fakeIPAdapter := &fakes.IPAdapter{}
-				fakeIPAdapter.LinkByNameReturns(nil, errors.New("kiwi"))
-				vethManager.IPAdapter = fakeIPAdapter
+				fakeNetlinkAdapter := &fakes.NetlinkAdapter{}
+				fakeNetlinkAdapter.LinkByNameReturnsOnCall(0, nil, nil)
+				fakeNetlinkAdapter.LinkByNameReturnsOnCall(1, nil, errors.New("kiwi"))
+				vethManager.NetlinkAdapter = fakeNetlinkAdapter
 			})
 			It("returns an error", func() {
 				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
-				Expect(err).To(MatchError(fmt.Sprintf("find new link by name %s: kiwi", vethPair.Host.Link.Attrs().Name)))
+				Expect(err).To(MatchError(fmt.Sprintf("find new link by name %s: kiwi", vethPair.Host.Link.Name)))
 			})
 		})
 	})
@@ -376,7 +377,7 @@ var _ = Describe("Veth Manager", func() {
 			err = vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
 				defer GinkgoRecover()
 
-				link, err := netlink.LinkByName(vethPair.Host.Link.Attrs().Name)
+				link, err := netlink.LinkByName(vethPair.Host.Link.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				hostAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
@@ -389,7 +390,7 @@ var _ = Describe("Veth Manager", func() {
 			err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
 				defer GinkgoRecover()
 
-				link, err := netlink.LinkByName(vethPair.Container.Link.Attrs().Name)
+				link, err := netlink.LinkByName(vethPair.Container.Link.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				containerAddrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
