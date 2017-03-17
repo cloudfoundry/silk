@@ -2,6 +2,7 @@
 package fakes
 
 import (
+	"net"
 	"sync"
 
 	"github.com/vishvananda/netlink"
@@ -33,6 +34,15 @@ type NetlinkAdapter struct {
 		arg2 *netlink.Addr
 	}
 	addrAddReturns struct {
+		result1 error
+	}
+	LinkSetHardwareAddrStub        func(netlink.Link, net.HardwareAddr) error
+	linkSetHardwareAddrMutex       sync.RWMutex
+	linkSetHardwareAddrArgsForCall []struct {
+		arg1 netlink.Link
+		arg2 net.HardwareAddr
+	}
+	linkSetHardwareAddrReturns struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
@@ -138,6 +148,39 @@ func (fake *NetlinkAdapter) AddrAddReturns(result1 error) {
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) LinkSetHardwareAddr(arg1 netlink.Link, arg2 net.HardwareAddr) error {
+	fake.linkSetHardwareAddrMutex.Lock()
+	fake.linkSetHardwareAddrArgsForCall = append(fake.linkSetHardwareAddrArgsForCall, struct {
+		arg1 netlink.Link
+		arg2 net.HardwareAddr
+	}{arg1, arg2})
+	fake.recordInvocation("LinkSetHardwareAddr", []interface{}{arg1, arg2})
+	fake.linkSetHardwareAddrMutex.Unlock()
+	if fake.LinkSetHardwareAddrStub != nil {
+		return fake.LinkSetHardwareAddrStub(arg1, arg2)
+	}
+	return fake.linkSetHardwareAddrReturns.result1
+}
+
+func (fake *NetlinkAdapter) LinkSetHardwareAddrCallCount() int {
+	fake.linkSetHardwareAddrMutex.RLock()
+	defer fake.linkSetHardwareAddrMutex.RUnlock()
+	return len(fake.linkSetHardwareAddrArgsForCall)
+}
+
+func (fake *NetlinkAdapter) LinkSetHardwareAddrArgsForCall(i int) (netlink.Link, net.HardwareAddr) {
+	fake.linkSetHardwareAddrMutex.RLock()
+	defer fake.linkSetHardwareAddrMutex.RUnlock()
+	return fake.linkSetHardwareAddrArgsForCall[i].arg1, fake.linkSetHardwareAddrArgsForCall[i].arg2
+}
+
+func (fake *NetlinkAdapter) LinkSetHardwareAddrReturns(result1 error) {
+	fake.LinkSetHardwareAddrStub = nil
+	fake.linkSetHardwareAddrReturns = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -147,6 +190,8 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.parseAddrMutex.RUnlock()
 	fake.addrAddMutex.RLock()
 	defer fake.addrAddMutex.RUnlock()
+	fake.linkSetHardwareAddrMutex.RLock()
+	defer fake.linkSetHardwareAddrMutex.RUnlock()
 	return fake.invocations
 }
 

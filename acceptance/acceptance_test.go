@@ -65,10 +65,11 @@ var _ = Describe("Acceptance", func() {
 				"interfaces": [
 						{
 								"name": "%s",
-								"mac": "%s"
+								"mac": "aa:aa:0a:ff:1e:01"
 						},
 						{
 								"name": "eth0",
+								"mac": "ee:ee:0a:ff:1e:01",
 								"sandbox": "%s"
 						}
 				],
@@ -83,7 +84,7 @@ var _ = Describe("Acceptance", func() {
 				"routes": [{"dst": "0.0.0.0/0"}],
 				"dns": {}
 			}
-			`, inHost[0].Name, inHost[0].Mac, containerNS.Path())
+			`, inHost[0].Name, containerNS.Path())
 
 			Expect(sess.Out.Contents()).To(MatchJSON(expectedCNIStdout))
 		})
@@ -122,7 +123,7 @@ var _ = Describe("Acceptance", func() {
 			return link
 		}
 
-		It("sets up the address", func() {
+		It("sets up the IP address and MAC address", func() {
 			By("calling ADD")
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -136,6 +137,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(hostAddrs[0].IPNet.String()).To(Equal("169.254.0.1/32"))
 			Expect(hostAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
 			Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.30.1/32"))
+			Expect(hostLink.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:1e:01"))
 
 			By("checking the container side")
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -153,6 +155,7 @@ var _ = Describe("Acceptance", func() {
 				Expect(containerAddrs[0].IPNet.String()).To(Equal("10.255.30.1/32"))
 				Expect(containerAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
 				Expect(containerAddrs[0].Peer.String()).To(Equal("169.254.0.1/32"))
+				Expect(link.Attrs().HardwareAddr.String()).To(Equal("ee:ee:0a:ff:1e:01"))
 				return nil
 			})
 

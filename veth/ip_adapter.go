@@ -13,10 +13,10 @@ type ipAdapter interface {
 
 type IPAdapter struct{}
 
-func (n *IPAdapter) SetupVeth(ifname string, mtu int, namespace ns.NetNS) (ip.Link, ip.Link, error) {
+func (*IPAdapter) SetupVeth(ifname string, mtu int, namespace ns.NetNS) (ip.Link, ip.Link, error) {
 	return ip.SetupVeth(ifname, mtu, namespace)
 }
 
-func (n *IPAdapter) DelLinkByName(ifname string) error {
+func (*IPAdapter) DelLinkByName(ifname string) error {
 	return ip.DelLinkByName(ifname)
 }

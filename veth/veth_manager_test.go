@@ -33,6 +33,7 @@ var _ = Describe("Veth Manager", func() {
 			ContainerNSPath:  containerNS.Path(),
 			HostNSPath:       hostNS.Path(),
 			IPAdapter:        &veth.IPAdapter{},
+			HWAddrAdapter:    &veth.HWAddrAdapter{},
 			NamespaceAdapter: &veth.NamespaceAdapter{},
 			NetlinkAdapter:   &veth.NetlinkAdapter{},
 			SysctlAdapter:    &veth.SysctlAdapter{},
@@ -202,6 +203,7 @@ var _ = Describe("Veth Manager", func() {
 				Expect(hostAddrs[0].IPNet.String()).To(Equal("169.254.0.1/32"))
 				Expect(hostAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
 				Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.4.5/32"))
+				Expect(link.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -219,6 +221,7 @@ var _ = Describe("Veth Manager", func() {
 				Expect(containerAddrs[0].IPNet.String()).To(Equal("10.255.4.5/32"))
 				Expect(containerAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
 				Expect(containerAddrs[0].Peer.String()).To(Equal("169.254.0.1/32"))
+				Expect(link.Attrs().HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -251,7 +254,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 		})
 
-		Context("when the address cannot be added", func() {
+		Context("when the IP address cannot be added", func() {
 			BeforeEach(func() {
 				fakeNetlink := &fakes.NetlinkAdapter{}
 				fakeNetlink.AddrAddReturns(errors.New("kiwi"))
@@ -262,7 +265,7 @@ var _ = Describe("Veth Manager", func() {
 
 			It("returns an error", func() {
 				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
-				Expect(err).To(MatchError("adding address 169.254.0.1/32: kiwi"))
+				Expect(err).To(MatchError("adding IP address 169.254.0.1/32: kiwi"))
 			})
 		})
 
@@ -282,6 +285,53 @@ var _ = Describe("Veth Manager", func() {
 			It("returns an error", func() {
 				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
 				Expect(err).To(MatchError("parsing address 10.255.4.5/32: kiwi"))
+			})
+		})
+
+		Context("when the MAC address cannot be generated for the host", func() {
+			BeforeEach(func() {
+				fakeHWAddrAdapter := &fakes.HWAddrAdapter{}
+				fakeHWAddrAdapter.GenerateHardwareAddr4Returns(nil, errors.New("kiwi"))
+				vethManager.HWAddrAdapter = fakeHWAddrAdapter
+			})
+
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError("generating MAC address for host: kiwi"))
+			})
+		})
+
+		Context("when the MAC address cannot be generated for the container", func() {
+			BeforeEach(func() {
+				fakeHWAddrAdapter := &fakes.HWAddrAdapter{}
+				fakeHWAddrAdapter.GenerateHardwareAddr4Stub = func(ipAddr net.IP, prefix []byte) (net.HardwareAddr, error) {
+					if prefix[0] == 0xaa {
+						return nil, nil
+					}
+					return nil, errors.New("kiwi")
+				}
+				vethManager.HWAddrAdapter = fakeHWAddrAdapter
+			})
+
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError("generating MAC address for container: kiwi"))
+			})
+		})
+
+		Context("when the MAC address cannot be added", func() {
+			BeforeEach(func() {
+				fakeNetlink := &fakes.NetlinkAdapter{}
+				fakeNetlink.AddrAddReturns(nil)
+				fakeNetlink.LinkByNameReturns(nil, nil)
+				fakeNetlink.ParseAddrReturns(&netlink.Addr{}, nil)
+				fakeNetlink.LinkSetHardwareAddrReturns(errors.New("kiwi"))
+				vethManager.NetlinkAdapter = fakeNetlink
+			})
+
+			It("returns an error", func() {
+				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				Expect(err).To(MatchError("adding MAC address aa:aa:0a:ff:04:05: kiwi"))
 			})
 		})
 	})

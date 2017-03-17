@@ -17,6 +17,7 @@ type Manager struct {
 	HostNSPath       string
 	IPAdapter        ipAdapter
 	NetlinkAdapter   netlinkAdapter
+	HWAddrAdapter    hwAddrAdapter
 	NamespaceAdapter namespaceAdapter
 	SysctlAdapter    sysctlAdapter
 }
@@ -38,6 +39,7 @@ func NewManager(hostNSPath, containerNSPath string) *Manager {
 		NamespaceAdapter: &NamespaceAdapter{},
 		NetlinkAdapter:   &NetlinkAdapter{},
 		IPAdapter:        &IPAdapter{},
+		HWAddrAdapter:    &HWAddrAdapter{},
 		SysctlAdapter:    &SysctlAdapter{},
 	}
 	err := vethManager.Init()
@@ -126,16 +128,35 @@ func (m *Manager) DisableIPv6(vethPair *Pair) error {
 }
 
 func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
+	hostHardwareAddr, err := m.HWAddrAdapter.GenerateHardwareAddr4(containerIP, []byte{0xaa, 0xaa})
+	if err != nil {
+		return fmt.Errorf("generating MAC address for host: %s", err)
+	}
+	containerHardwareAddr, err := m.HWAddrAdapter.GenerateHardwareAddr4(containerIP, []byte{0xee, 0xee})
+	if err != nil {
+		return fmt.Errorf("generating MAC address for container: %s", err)
+	}
 	hostIP := net.IPv4(169, 254, 0, 1)
-	err := vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
-		return m.setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP)
+
+	err = vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
+		link, err := m.setPointToPointAddress(vethPair.Host.Link.Attrs().Name, hostIP, containerIP, hostHardwareAddr)
+		if err != nil {
+			return err
+		}
+		vethPair.Host.Link = link
+		return nil
 	})
 	if err != nil {
 		return err
 	}
 
 	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		return m.setPointToPointAddress(vethPair.Container.Link.Attrs().Name, containerIP, hostIP)
+		link, err := m.setPointToPointAddress(vethPair.Container.Link.Attrs().Name, containerIP, hostIP, containerHardwareAddr)
+		if err != nil {
+			return err
+		}
+		vethPair.Container.Link = link
+		return nil
 	})
 	if err != nil {
 		return err
@@ -143,7 +164,7 @@ func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
 	return nil
 }
 
-func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.IP) error {
+func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.IP, hardwareAddr net.HardwareAddr) (ip.Link, error) {
 	localAddr := &net.IPNet{
 		IP:   localIP,
 		Mask: net.IPv4Mask(255, 255, 255, 255),
@@ -155,7 +176,7 @@ func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.
 
 	addr, err := m.NetlinkAdapter.ParseAddr(localAddr.String())
 	if err != nil {
-		return fmt.Errorf("parsing address %s: %s", localAddr, err)
+		return nil, fmt.Errorf("parsing address %s: %s", localAddr, err)
 	}
 
 	addr.Scope = int(netlink.SCOPE_LINK)
@@ -163,11 +184,18 @@ func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.
 
 	link, err := m.NetlinkAdapter.LinkByName(deviceName)
 	if err != nil {
-		return fmt.Errorf("find link by name %s: %s", deviceName, err)
+		return nil, fmt.Errorf("find link by name %s: %s", deviceName, err)
 	}
 
-	if err = m.NetlinkAdapter.AddrAdd(link, addr); err != nil {
-		return fmt.Errorf("adding address %s: %s", localAddr, err)
+	err = m.NetlinkAdapter.AddrAdd(link, addr)
+	if err != nil {
+		return nil, fmt.Errorf("adding IP address %s: %s", localAddr, err)
 	}
-	return nil
+
+	err = m.NetlinkAdapter.LinkSetHardwareAddr(link, hardwareAddr)
+	if err != nil {
+		return nil, fmt.Errorf("adding MAC address %s: %s", hardwareAddr, err)
+	}
+
+	return ip.LinkByName(deviceName)
 }
