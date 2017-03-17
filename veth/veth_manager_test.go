@@ -237,10 +237,16 @@ var _ = Describe("Veth Manager", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		Context("when the address cannot be parsed", func() {
+		Context("when the host address cannot be parsed", func() {
 			BeforeEach(func() {
 				fakeNetlink := &fakes.NetlinkAdapter{}
-				fakeNetlink.ParseAddrReturns(nil, errors.New("kiwi"))
+				fakeNetlink.ParseAddrStub = func(addr string) (*netlink.Addr, error) {
+					if addr == "169.254.0.1/32" {
+						return nil, errors.New("kiwi")
+					}
+
+					return &netlink.Addr{}, nil
+				}
 				vethManager.NetlinkAdapter = fakeNetlink
 			})
 
@@ -289,6 +295,8 @@ var _ = Describe("Veth Manager", func() {
 
 					return &netlink.Addr{}, nil
 				}
+
+				fakeNetlink.LinkByNameReturns(&fakeNetlinkLink{}, nil)
 				vethManager.NetlinkAdapter = fakeNetlink
 			})
 
@@ -345,10 +353,13 @@ var _ = Describe("Veth Manager", func() {
 			})
 		})
 
-		Context("when the link cannot be found after setting its addresses", func() {
+		Context("when the device cannot be found after setting its addresses", func() {
 			BeforeEach(func() {
 				fakeNetlinkAdapter := &fakes.NetlinkAdapter{}
+				fakeNetlinkAdapter.ParseAddrReturns(&netlink.Addr{}, nil)
 				fakeNetlinkAdapter.LinkByNameReturnsOnCall(0, nil, nil)
+				fakeNetlinkAdapter.AddrAddReturns(nil)
+				fakeNetlinkAdapter.LinkSetHardwareAddrReturns(nil)
 				fakeNetlinkAdapter.LinkByNameReturnsOnCall(1, nil, errors.New("kiwi"))
 				vethManager.NetlinkAdapter = fakeNetlinkAdapter
 			})
@@ -434,3 +445,14 @@ var _ = Describe("Veth Manager", func() {
 		})
 	})
 })
+
+type fakeNetlinkLink struct {
+}
+
+func (f *fakeNetlinkLink) Attrs() *netlink.LinkAttrs {
+	return &netlink.LinkAttrs{}
+}
+
+func (f *fakeNetlinkLink) Type() string {
+	return ""
+}

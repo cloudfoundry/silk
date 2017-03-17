@@ -64,12 +64,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	cniResult.Interfaces = append(cniResult.Interfaces,
 		&current.Interface{
-			Name: vethPair.Host.Link.Attrs().Name,
-			Mac:  vethPair.Host.Link.Attrs().HardwareAddr.String(),
+			Name: vethPair.Host.Link.Name,
+			Mac:  vethPair.Host.Link.HardwareAddr.String(),
 		},
 		&current.Interface{
-			Name:    vethPair.Container.Link.Attrs().Name,
-			Mac:     vethPair.Container.Link.Attrs().HardwareAddr.String(),
+			Name:    vethPair.Container.Link.Name,
+			Mac:     vethPair.Container.Link.HardwareAddr.String(),
 			Sandbox: args.Netns,
 		},
 	)
