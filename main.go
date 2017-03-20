@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 
@@ -34,34 +35,42 @@ func cmdAdd(args *skel.CmdArgs) error {
 	var netConf NetConf
 	err := json.Unmarshal(args.StdinData, &netConf)
 	if err != nil {
-		log.Fatal(err)
+		return err // impossible, skel package asserts JSON is valid
 	}
 	result, err := ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
 	if err != nil {
-		log.Fatal(err)
+		return &types.Error{
+			Code:    100,
+			Msg:     "ipam plugin failed",
+			Details: err.Error(),
+		}
 	}
 
 	vethManager := veth.NewManager(hostNSPath, args.Netns)
 
 	cniResult, err := current.NewResultFromResult(result)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("unable to convert result to current CNI version: %s", err) // not tested
 	}
 	cniResult.IPs[0].Address.Mask = net.IPv4Mask(255, 255, 255, 255)
 
 	vethPair, err := vethManager.CreatePair(args.IfName, 1500)
 	if err != nil {
-		log.Fatal(err)
+		return &types.Error{
+			Code:    100,
+			Msg:     "creation of veth pair failed",
+			Details: err.Error(),
+		}
 	}
 
 	err = vethManager.DisableIPv6(vethPair)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("unable to disable IPv6: %s", err) // not tested
 	}
 
 	err = vethManager.AssignIP(vethPair, &cniResult.IPs[0].Address)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("unable to assign ip: %s", err) // not tested
 	}
 
 	cniResult.Interfaces = append(cniResult.Interfaces,
@@ -86,19 +95,27 @@ func cmdDel(args *skel.CmdArgs) error {
 	var netConf NetConf
 	err := json.Unmarshal(args.StdinData, &netConf)
 	if err != nil {
-		log.Fatal(err)
+		return err // impossible, skel package asserts JSON is valid
 	}
 
 	err = ipam.ExecDel(netConf.IPAM.Type, args.StdinData)
 	if err != nil {
-		log.Fatal(err)
+		return &types.Error{
+			Code:    100,
+			Msg:     "ipam plugin failed",
+			Details: err.Error(),
+		}
 	}
 
 	vethManager := veth.NewManager(hostNSPath, args.Netns)
 
 	err = vethManager.Destroy(args.IfName)
 	if err != nil {
-		log.Fatal(err)
+		return &types.Error{
+			Code:    100,
+			Msg:     "deletion of veth pair failed",
+			Details: err.Error(),
+		}
 	}
 
 	return nil

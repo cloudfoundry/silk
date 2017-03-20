@@ -12,7 +12,6 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/vishvananda/netlink"
 )
@@ -20,16 +19,13 @@ import (
 const cmdTimeout = 10 * time.Second
 
 var (
-	cniEnv map[string]string
+	cniEnv      map[string]string
+	containerNS ns.NetNS
+	cniStdin    string
+	dataDir     string
 )
 
 var _ = Describe("Acceptance", func() {
-	var (
-		cniStdin    string
-		containerNS ns.NetNS
-		dataDir     string
-	)
-
 	BeforeEach(func() {
 		cniEnv = map[string]string{
 			"CNI_IFNAME":      "eth0",
@@ -259,7 +255,11 @@ var _ = Describe("Acceptance", func() {
 			cniEnv["CNI_NETNS"] = containerNSList[2]
 			sess = startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(1))
-			Expect(sess.Err).To(gbytes.Say("no IP addresses available in network: my-silk-network"))
+			Expect(sess.Out.Contents()).To(MatchJSON(`{
+				"code": 100,
+	"msg": "ipam plugin failed",
+  "details": "no IP addresses available in network: my-silk-network"
+}`))
 		})
 	})
 })
