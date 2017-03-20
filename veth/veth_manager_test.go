@@ -446,8 +446,8 @@ var _ = Describe("Veth Manager", func() {
 			Expect(fakeNetlink.LinkByNameCallCount()).To(Equal(1))
 			Expect(fakeNetlink.LinkByNameArgsForCall(0)).To(Equal("some-device"))
 
-			Expect(fakeNetlink.SetARPOffCallCount()).To(Equal(1))
-			Expect(fakeNetlink.SetARPOffArgsForCall(0)).To(Equal(&fakeNetlinkLink{}))
+			Expect(fakeNetlink.LinkSetARPOffCallCount()).To(Equal(1))
+			Expect(fakeNetlink.LinkSetARPOffArgsForCall(0)).To(Equal(&fakeNetlinkLink{}))
 		})
 
 		Context("when the netlink call fails", func() {
@@ -464,9 +464,9 @@ var _ = Describe("Veth Manager", func() {
 
 		})
 
-		Context("when the SetARPOff call fails", func() {
+		Context("when the LinkSetARPOff call fails", func() {
 			BeforeEach(func() {
-				fakeNetlink.SetARPOffReturns(errors.New("banana"))
+				fakeNetlink.LinkSetARPOffReturns(errors.New("banana"))
 				mac, err := net.ParseMAC("aa:aa:aa:aa:aa:aa")
 				Expect(err).NotTo(HaveOccurred())
 

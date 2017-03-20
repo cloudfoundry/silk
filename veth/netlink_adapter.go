@@ -13,7 +13,7 @@ type netlinkAdapter interface {
 	AddrAdd(netlink.Link, *netlink.Addr) error
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
 	NeighAdd(*netlink.Neigh) error
-	SetARPOff(netlink.Link) error
+	LinkSetARPOff(netlink.Link) error
 }
 
 type NetlinkAdapter struct{}
@@ -38,6 +38,6 @@ func (*NetlinkAdapter) NeighAdd(neigh *netlink.Neigh) error {
 	return netlink.NeighAdd(neigh)
 }
 
-func (*NetlinkAdapter) SetARPOff(link netlink.Link) error {
-	return netlink.SetARPOff(link)
+func (*NetlinkAdapter) LinkSetARPOff(link netlink.Link) error {
+	return netlink.LinkSetARPOff(link)
 }

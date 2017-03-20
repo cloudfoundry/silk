@@ -191,7 +191,7 @@ func (m *Manager) DisableARPOnDevice(ip net.IP, mac net.HardwareAddr, device net
 		return fmt.Errorf("find link by name %s: %s", device.Name, err)
 	}
 
-	err = m.NetlinkAdapter.SetARPOff(link)
+	err = m.NetlinkAdapter.LinkSetARPOff(link)
 	if err != nil {
 		return fmt.Errorf("set ARP off %s: %s", device.Name, err)
 	}
