@@ -181,6 +181,17 @@ var _ = Describe("Acceptance", func() {
 		})
 	})
 
+	Describe("CNI version support", func() {
+		It("only claims to support CNI spec version 0.3.0", func() {
+			sess := startCommand("VERSION", "{}")
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			Expect(sess.Out.Contents()).To(MatchJSON(`{
+          "cniVersion": "0.3.0",
+          "supportedVersions": [ "0.3.0" ]
+        }`))
+		})
+	})
+
 	Describe("Lifecycle", func() {
 		BeforeEach(func() {
 			cniStdin = cniConfig("10.255.30.0/24", dataDir)

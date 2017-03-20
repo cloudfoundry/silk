@@ -24,7 +24,7 @@ func main() {
 	}
 	hostNSPath = hostNS.Path()
 
-	skel.PluginMain(cmdAdd, cmdDel, version.All)
+	skel.PluginMain(cmdAdd, cmdDel, version.PluginSupports("0.3.0"))
 }
 
 type NetConf struct {
