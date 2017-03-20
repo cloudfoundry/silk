@@ -126,19 +126,22 @@ func (m *Manager) DisableIPv6(vethPair *Pair) error {
 	return nil
 }
 
-func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
-	hostHardwareAddr, err := m.HWAddrAdapter.GenerateHardwareAddr4(containerIP, []byte{0xaa, 0xaa})
+func (m *Manager) AssignIP(vethPair *Pair, containerAddress *net.IPNet) error {
+	hostHardwareAddr, err := m.HWAddrAdapter.GenerateHardwareAddr4(containerAddress.IP, []byte{0xaa, 0xaa})
 	if err != nil {
 		return fmt.Errorf("generating MAC address for host: %s", err)
 	}
-	containerHardwareAddr, err := m.HWAddrAdapter.GenerateHardwareAddr4(containerIP, []byte{0xee, 0xee})
+	containerHardwareAddr, err := m.HWAddrAdapter.GenerateHardwareAddr4(containerAddress.IP, []byte{0xee, 0xee})
 	if err != nil {
 		return fmt.Errorf("generating MAC address for container: %s", err)
 	}
-	hostIP := net.IPv4(169, 254, 0, 1)
+	hostAddress := &net.IPNet{
+		IP:   net.IPv4(169, 254, 0, 1),
+		Mask: net.IPv4Mask(255, 255, 255, 255),
+	}
 
 	err = vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
-		link, err := m.setPointToPointAddress(vethPair.Host.Link.Name, hostIP, containerIP, hostHardwareAddr)
+		link, err := m.setPointToPointAddress(vethPair.Host.Link.Name, hostAddress, containerAddress, hostHardwareAddr)
 		if err != nil {
 			return err
 		}
@@ -150,7 +153,7 @@ func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
 	}
 
 	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
-		link, err := m.setPointToPointAddress(vethPair.Container.Link.Name, containerIP, hostIP, containerHardwareAddr)
+		link, err := m.setPointToPointAddress(vethPair.Container.Link.Name, containerAddress, hostAddress, containerHardwareAddr)
 		if err != nil {
 			return err
 		}
@@ -163,16 +166,7 @@ func (m *Manager) AssignIP(vethPair *Pair, containerIP net.IP) error {
 	return nil
 }
 
-func (m *Manager) setPointToPointAddress(deviceName string, localIP, peerIP net.IP, hardwareAddr net.HardwareAddr) (net.Interface, error) {
-	localAddr := &net.IPNet{
-		IP:   localIP,
-		Mask: net.IPv4Mask(255, 255, 255, 255),
-	}
-	peerAddr := &net.IPNet{
-		IP:   peerIP,
-		Mask: net.IPv4Mask(255, 255, 255, 255),
-	}
-
+func (m *Manager) setPointToPointAddress(deviceName string, localAddr, peerAddr *net.IPNet, hardwareAddr net.HardwareAddr) (net.Interface, error) {
 	addr, err := m.NetlinkAdapter.ParseAddr(localAddr.String())
 	if err != nil {
 		return net.Interface{}, fmt.Errorf("parsing address %s: %s", localAddr, err)

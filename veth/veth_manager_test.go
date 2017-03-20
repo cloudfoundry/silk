@@ -175,6 +175,7 @@ var _ = Describe("Veth Manager", func() {
 
 	Describe("AssignIP", func() {
 		var vethPair *veth.Pair
+		var containerAddress *net.IPNet
 
 		BeforeEach(func() {
 			var err error
@@ -185,10 +186,15 @@ var _ = Describe("Veth Manager", func() {
 
 			err = vethManager.DisableIPv6(vethPair)
 			Expect(err).NotTo(HaveOccurred())
+
+			containerAddress = &net.IPNet{
+				IP:   net.IPv4(10, 255, 4, 5),
+				Mask: net.IPv4Mask(255, 255, 255, 255),
+			}
 		})
 
 		It("sets point to point addresses in both host and container", func() {
-			err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+			err := vethManager.AssignIP(vethPair, containerAddress)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
@@ -251,7 +257,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError("parsing address 169.254.0.1/32: kiwi"))
 			})
 		})
@@ -265,7 +271,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError(fmt.Sprintf("find link by name %s: kiwi", vethPair.Host.Link.Name)))
 			})
 		})
@@ -280,7 +286,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError("adding IP address 169.254.0.1/32: kiwi"))
 			})
 		})
@@ -301,7 +307,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError("parsing address 10.255.4.5/32: kiwi"))
 			})
 		})
@@ -314,7 +320,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError("generating MAC address for host: kiwi"))
 			})
 		})
@@ -332,7 +338,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError("generating MAC address for container: kiwi"))
 			})
 		})
@@ -348,7 +354,7 @@ var _ = Describe("Veth Manager", func() {
 			})
 
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError("adding MAC address aa:aa:0a:ff:04:05: kiwi"))
 			})
 		})
@@ -364,7 +370,7 @@ var _ = Describe("Veth Manager", func() {
 				vethManager.NetlinkAdapter = fakeNetlinkAdapter
 			})
 			It("returns an error", func() {
-				err := vethManager.AssignIP(vethPair, net.IPv4(10, 255, 4, 5))
+				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError(fmt.Sprintf("find new link by name %s: kiwi", vethPair.Host.Link.Name)))
 			})
 		})

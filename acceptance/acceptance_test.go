@@ -76,7 +76,7 @@ var _ = Describe("Acceptance", func() {
 				"ips": [
 						{
 								"version": "4",
-								"address": "10.255.30.1/24",
+								"address": "10.255.30.1/32",
 								"gateway": "10.0.1.1",
 								"interface": 1
 						}
@@ -200,7 +200,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
-			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.1/24"))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.1/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
 
 			By("checking that the ip is reserved for the correct container id")
@@ -241,7 +241,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
-			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.1/30"))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.1/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
 
 			cniEnv["CNI_NETNS"] = containerNSList[1]
@@ -253,7 +253,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
-			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.2/30"))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.2/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
 
 			cniEnv["CNI_NETNS"] = containerNSList[2]

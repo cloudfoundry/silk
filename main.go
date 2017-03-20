@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net"
 
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/containernetworking/cni/pkg/ipam"
@@ -46,6 +47,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+	cniResult.IPs[0].Address.Mask = net.IPv4Mask(255, 255, 255, 255)
 
 	vethPair, err := vethManager.CreatePair(args.IfName, 1500)
 	if err != nil {
@@ -57,7 +59,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		log.Fatal(err)
 	}
 
-	err = vethManager.AssignIP(vethPair, cniResult.IPs[0].Address.IP)
+	err = vethManager.AssignIP(vethPair, &cniResult.IPs[0].Address)
 	if err != nil {
 		log.Fatal(err)
 	}
