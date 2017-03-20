@@ -29,6 +29,7 @@ type Pair struct {
 type Peer struct {
 	Link      net.Interface
 	Namespace ns.NetNS
+	IP        net.IP
 }
 
 func NewManager(hostNSPath, containerNSPath string) *Manager {
@@ -146,6 +147,7 @@ func (m *Manager) AssignIP(vethPair *Pair, containerAddress *net.IPNet) error {
 			return err
 		}
 		vethPair.Host.Link = link
+		vethPair.Host.IP = hostAddress.IP
 		return nil
 	})
 	if err != nil {
@@ -158,12 +160,54 @@ func (m *Manager) AssignIP(vethPair *Pair, containerAddress *net.IPNet) error {
 			return err
 		}
 		vethPair.Container.Link = link
+		vethPair.Container.IP = containerAddress.IP
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (m *Manager) DisableARP(vethPair *Pair) error {
+	err := vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
+		return m.DisableARPOnDevice(vethPair.Container.IP, vethPair.Container.Link.HardwareAddr, vethPair.Host.Link)
+	})
+	if err != nil {
+		return err
+	}
+	err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+		return m.DisableARPOnDevice(vethPair.Host.IP, vethPair.Host.Link.HardwareAddr, vethPair.Container.Link)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) DisableARPOnDevice(ip net.IP, mac net.HardwareAddr, device net.Interface) error {
+	link, err := m.NetlinkAdapter.LinkByName(device.Name)
+	if err != nil {
+		return fmt.Errorf("find link by name %s: %s", device.Name, err)
+	}
+
+	err = m.NetlinkAdapter.SetARPOff(link)
+	if err != nil {
+		return fmt.Errorf("set ARP off %s: %s", device.Name, err)
+	}
+
+	err = m.NetlinkAdapter.NeighAdd(&netlink.Neigh{
+		LinkIndex:    device.Index,
+		Family:       netlink.FAMILY_V4,
+		State:        netlink.NUD_PERMANENT,
+		IP:           ip,
+		HardwareAddr: mac,
+	})
+	if err != nil {
+		return fmt.Errorf("Neigh add: %s", err)
+	}
+
+	return err
 }
 
 func (m *Manager) setPointToPointAddress(deviceName string, localAddr, peerAddr *net.IPNet, hardwareAddr net.HardwareAddr) (net.Interface, error) {

@@ -73,6 +73,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to assign ip: %s", err) // not tested
 	}
 
+	err = vethManager.DisableARP(vethPair)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	cniResult.Interfaces = append(cniResult.Interfaces,
 		&current.Interface{
 			Name: vethPair.Host.Link.Name,

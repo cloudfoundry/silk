@@ -211,10 +211,6 @@ var _ = Describe("Veth Manager", func() {
 				Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.4.5/32"))
 				Expect(link.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
 
-				ipLink := vethPair.Host.Link
-				Expect(ipLink.Name).To(Equal(link.Attrs().Name))
-				Expect(ipLink.HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
-				Expect(ipLink.Index).To(Equal(link.Attrs().Index))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -238,6 +234,43 @@ var _ = Describe("Veth Manager", func() {
 				Expect(ipLink.Name).To(Equal(link.Attrs().Name))
 				Expect(ipLink.HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
 				Expect(ipLink.Index).To(Equal(link.Attrs().Index))
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("updates the veth pair data in the manager", func() {
+			err := vethManager.AssignIP(vethPair, containerAddress)
+			Expect(err).NotTo(HaveOccurred())
+
+			host := vethPair.Host
+			err = vethPair.Host.Namespace.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
+
+				link, err := netlink.LinkByName(vethPair.Host.Link.Name)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(host.Link.Name).To(Equal(link.Attrs().Name))
+				Expect(host.Link.HardwareAddr.String()).To(Equal("aa:aa:0a:ff:04:05"))
+				Expect(host.Link.Index).To(Equal(link.Attrs().Index))
+				Expect(host.IP.String()).To(Equal("169.254.0.1"))
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			container := vethPair.Container
+			err = vethPair.Container.Namespace.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
+
+				link, err := netlink.LinkByName(vethPair.Container.Link.Name)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(container.Link.Name).To(Equal(link.Attrs().Name))
+				Expect(container.Link.HardwareAddr.String()).To(Equal("ee:ee:0a:ff:04:05"))
+				Expect(container.Link.Index).To(Equal(link.Attrs().Index))
+				Expect(container.IP.String()).To(Equal("10.255.4.5"))
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -372,6 +405,73 @@ var _ = Describe("Veth Manager", func() {
 			It("returns an error", func() {
 				err := vethManager.AssignIP(vethPair, containerAddress)
 				Expect(err).To(MatchError(fmt.Sprintf("find new link by name %s: kiwi", vethPair.Host.Link.Name)))
+			})
+		})
+	})
+
+	Describe("DisableARPOnDevice", func() {
+		var (
+			iface       net.Interface
+			fakeNetlink *fakes.NetlinkAdapter
+		)
+		BeforeEach(func() {
+			fakeNetlink = &fakes.NetlinkAdapter{}
+			fakeNetlink.LinkByNameReturns(&fakeNetlinkLink{}, nil)
+			vethManager.NetlinkAdapter = fakeNetlink
+			mac, err := net.ParseMAC("ea:ea:ea:ea:ea:ea")
+			Expect(err).NotTo(HaveOccurred())
+			iface = net.Interface{
+				Index:        42,
+				MTU:          4545,
+				Name:         "some-device",
+				HardwareAddr: mac,
+			}
+		})
+		It("disables arp", func() {
+			mac, err := net.ParseMAC("aa:aa:aa:aa:aa:aa")
+			Expect(err).NotTo(HaveOccurred())
+
+			err = vethManager.DisableARPOnDevice(net.ParseIP("1.2.3.4"), mac, iface)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fakeNetlink.NeighAddCallCount()).To(Equal(1))
+			Expect(*fakeNetlink.NeighAddArgsForCall(0)).To(Equal(netlink.Neigh{
+				LinkIndex:    42,
+				Family:       netlink.FAMILY_V4,
+				State:        netlink.NUD_PERMANENT,
+				IP:           net.ParseIP("1.2.3.4"),
+				HardwareAddr: mac,
+			}))
+
+			Expect(fakeNetlink.LinkByNameCallCount()).To(Equal(1))
+			Expect(fakeNetlink.LinkByNameArgsForCall(0)).To(Equal("some-device"))
+
+			Expect(fakeNetlink.SetARPOffCallCount()).To(Equal(1))
+			Expect(fakeNetlink.SetARPOffArgsForCall(0)).To(Equal(&fakeNetlinkLink{}))
+		})
+
+		Context("when the netlink call fails", func() {
+			BeforeEach(func() {
+				fakeNetlink.NeighAddReturns(errors.New("banana"))
+			})
+			It("returns an error", func() {
+				mac, err := net.ParseMAC("aa:aa:aa:aa:aa:aa")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = vethManager.DisableARPOnDevice(net.ParseIP("1.2.3.4"), mac, iface)
+				Expect(err).To(MatchError("Neigh add: banana"))
+			})
+
+		})
+
+		Context("when the SetARPOff call fails", func() {
+			BeforeEach(func() {
+				fakeNetlink.SetARPOffReturns(errors.New("banana"))
+				mac, err := net.ParseMAC("aa:aa:aa:aa:aa:aa")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = vethManager.DisableARPOnDevice(net.ParseIP("1.2.3.4"), mac, iface)
+				Expect(err).To(MatchError("set ARP off some-device: banana"))
 			})
 		})
 	})

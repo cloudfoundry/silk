@@ -12,6 +12,8 @@ type netlinkAdapter interface {
 	ParseAddr(string) (*netlink.Addr, error)
 	AddrAdd(netlink.Link, *netlink.Addr) error
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
+	NeighAdd(*netlink.Neigh) error
+	SetARPOff(netlink.Link) error
 }
 
 type NetlinkAdapter struct{}
@@ -30,4 +32,12 @@ func (*NetlinkAdapter) AddrAdd(link netlink.Link, addr *netlink.Addr) error {
 
 func (*NetlinkAdapter) LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error {
 	return netlink.LinkSetHardwareAddr(link, hwaddr)
+}
+
+func (*NetlinkAdapter) NeighAdd(neigh *netlink.Neigh) error {
+	return netlink.NeighAdd(neigh)
+}
+
+func (*NetlinkAdapter) SetARPOff(link netlink.Link) error {
+	return netlink.SetARPOff(link)
 }

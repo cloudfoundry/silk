@@ -59,6 +59,28 @@ type NetlinkAdapter struct {
 	linkSetHardwareAddrReturnsOnCall map[int]struct {
 		result1 error
 	}
+	NeighAddStub        func(*netlink.Neigh) error
+	neighAddMutex       sync.RWMutex
+	neighAddArgsForCall []struct {
+		arg1 *netlink.Neigh
+	}
+	neighAddReturns struct {
+		result1 error
+	}
+	neighAddReturnsOnCall map[int]struct {
+		result1 error
+	}
+	SetARPOffStub        func(netlink.Link) error
+	setARPOffMutex       sync.RWMutex
+	setARPOffArgsForCall []struct {
+		arg1 netlink.Link
+	}
+	setARPOffReturns struct {
+		result1 error
+	}
+	setARPOffReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -263,6 +285,102 @@ func (fake *NetlinkAdapter) LinkSetHardwareAddrReturnsOnCall(i int, result1 erro
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) NeighAdd(arg1 *netlink.Neigh) error {
+	fake.neighAddMutex.Lock()
+	ret, specificReturn := fake.neighAddReturnsOnCall[len(fake.neighAddArgsForCall)]
+	fake.neighAddArgsForCall = append(fake.neighAddArgsForCall, struct {
+		arg1 *netlink.Neigh
+	}{arg1})
+	fake.recordInvocation("NeighAdd", []interface{}{arg1})
+	fake.neighAddMutex.Unlock()
+	if fake.NeighAddStub != nil {
+		return fake.NeighAddStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.neighAddReturns.result1
+}
+
+func (fake *NetlinkAdapter) NeighAddCallCount() int {
+	fake.neighAddMutex.RLock()
+	defer fake.neighAddMutex.RUnlock()
+	return len(fake.neighAddArgsForCall)
+}
+
+func (fake *NetlinkAdapter) NeighAddArgsForCall(i int) *netlink.Neigh {
+	fake.neighAddMutex.RLock()
+	defer fake.neighAddMutex.RUnlock()
+	return fake.neighAddArgsForCall[i].arg1
+}
+
+func (fake *NetlinkAdapter) NeighAddReturns(result1 error) {
+	fake.NeighAddStub = nil
+	fake.neighAddReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) NeighAddReturnsOnCall(i int, result1 error) {
+	fake.NeighAddStub = nil
+	if fake.neighAddReturnsOnCall == nil {
+		fake.neighAddReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.neighAddReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) SetARPOff(arg1 netlink.Link) error {
+	fake.setARPOffMutex.Lock()
+	ret, specificReturn := fake.setARPOffReturnsOnCall[len(fake.setARPOffArgsForCall)]
+	fake.setARPOffArgsForCall = append(fake.setARPOffArgsForCall, struct {
+		arg1 netlink.Link
+	}{arg1})
+	fake.recordInvocation("SetARPOff", []interface{}{arg1})
+	fake.setARPOffMutex.Unlock()
+	if fake.SetARPOffStub != nil {
+		return fake.SetARPOffStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.setARPOffReturns.result1
+}
+
+func (fake *NetlinkAdapter) SetARPOffCallCount() int {
+	fake.setARPOffMutex.RLock()
+	defer fake.setARPOffMutex.RUnlock()
+	return len(fake.setARPOffArgsForCall)
+}
+
+func (fake *NetlinkAdapter) SetARPOffArgsForCall(i int) netlink.Link {
+	fake.setARPOffMutex.RLock()
+	defer fake.setARPOffMutex.RUnlock()
+	return fake.setARPOffArgsForCall[i].arg1
+}
+
+func (fake *NetlinkAdapter) SetARPOffReturns(result1 error) {
+	fake.SetARPOffStub = nil
+	fake.setARPOffReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) SetARPOffReturnsOnCall(i int, result1 error) {
+	fake.SetARPOffStub = nil
+	if fake.setARPOffReturnsOnCall == nil {
+		fake.setARPOffReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.setARPOffReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -274,6 +392,10 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.addrAddMutex.RUnlock()
 	fake.linkSetHardwareAddrMutex.RLock()
 	defer fake.linkSetHardwareAddrMutex.RUnlock()
+	fake.neighAddMutex.RLock()
+	defer fake.neighAddMutex.RUnlock()
+	fake.setARPOffMutex.RLock()
+	defer fake.setARPOffMutex.RUnlock()
 	return fake.invocations
 }
 

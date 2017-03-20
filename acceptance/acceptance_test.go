@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/containernetworking/cni/pkg/ns"
@@ -178,6 +179,47 @@ var _ = Describe("Acceptance", func() {
 			sess, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+		})
+
+		It("turns off ARP for veth devices", func() {
+			cniStdin = cniConfig("10.255.60.0/24", dataDir)
+
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			By("checking the host side")
+			hostLink := hostLinkFromResult(sess.Out.Contents())
+			Expect(hostLink.Attrs().RawFlags & syscall.IFF_NOARP).To(Equal(uint32(syscall.IFF_NOARP)))
+
+			neighs, err := netlink.NeighList(hostLink.Attrs().Index, netlink.FAMILY_V4)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(neighs).To(HaveLen(1))
+			Expect(neighs[0].IP.String()).To(Equal("10.255.60.1"))
+			Expect(neighs[0].HardwareAddr.String()).To(Equal("ee:ee:0a:ff:3c:01"))
+			Expect(neighs[0].State).To(Equal(netlink.NUD_PERMANENT))
+
+			By("checking the container side")
+			err = containerNS.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
+
+				containerLink, err := netlink.LinkByName("eth0")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(containerLink.Attrs().RawFlags & syscall.IFF_NOARP).To(Equal(uint32(syscall.IFF_NOARP)))
+
+				neighs, err := netlink.NeighList(containerLink.Attrs().Index, netlink.FAMILY_V4)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(neighs).To(HaveLen(1))
+				Expect(neighs[0].IP.String()).To(Equal("169.254.0.1"))
+				Expect(neighs[0].HardwareAddr.String()).To(Equal("aa:aa:0a:ff:3c:01"))
+				Expect(neighs[0].State).To(Equal(netlink.NUD_PERMANENT))
+
+				Expect(err).NotTo(HaveOccurred())
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
 		})
 	})
 

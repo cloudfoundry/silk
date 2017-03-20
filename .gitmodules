@@ -11,8 +11,8 @@
 	path = vendor/gopkg.in/yaml.v2
 	url = https://gopkg.in/yaml.v2
 [submodule "vendor/github.com/vishvananda/netlink"]
-	path = vendor/github.com/vishvananda/netlink
-	url = https://github.com/vishvananda/netlink
+	path = vendor/github.com/cf-container-networking/netlink
+	url = https://github.com/cf-container-networking/netlink
 [submodule "vendor/github.com/vishvananda/netns"]
 	path = vendor/github.com/vishvananda/netns
 	url = https://github.com/vishvananda/netns
