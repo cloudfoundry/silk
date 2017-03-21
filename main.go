@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/cloudfoundry-incubator/silk/config"
 	"github.com/cloudfoundry-incubator/silk/veth"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
@@ -16,12 +17,15 @@ import (
 )
 
 var hostNSPath string
+var hostNS ns.NetNS
 
 func main() {
-	hostNS, err := ns.GetCurrentNS()
+	var err error
+	hostNS, err = ns.GetCurrentNS()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	hostNSPath = hostNS.Path()
 
 	skel.PluginMain(cmdAdd, cmdDel, version.PluginSupports("0.3.0"))
@@ -46,13 +50,28 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 	}
 
-	vethManager := veth.NewManager(hostNSPath, args.Netns)
-
 	cniResult, err := current.NewResultFromResult(result)
 	if err != nil {
 		return fmt.Errorf("unable to convert result to current CNI version: %s", err) // not tested
 	}
 	cniResult.IPs[0].Address.Mask = net.IPv4Mask(255, 255, 255, 255)
+
+	configCreator := config.ConfigCreator{
+		HardwareAddressGenerator: &config.HardwareAddressGenerator{},
+		DeviceNameGenerator:      &config.DeviceNameGenerator{},
+		NamespaceAdapter:         &veth.NamespaceAdapter{},
+	}
+
+	cfg, err := configCreator.Create(hostNS, args, cniResult)
+	if err != nil {
+		return &types.Error{
+			Code:    100,
+			Msg:     "creating config",
+			Details: err.Error(),
+		}
+	}
+
+	vethManager := veth.NewManager(cfg.Host.Namespace.Path(), cfg.Container.Namespace.Path())
 
 	vethPair, err := vethManager.CreatePair(args.IfName, 1500)
 	if err != nil {
@@ -60,7 +79,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 			Code:    100,
 			Msg:     "creation of veth pair failed",
 			Details: err.Error(),
-		}
+		} // not tested
 	}
 
 	err = vethManager.DisableIPv6(vethPair)

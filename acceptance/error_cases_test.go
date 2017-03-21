@@ -34,7 +34,7 @@ var _ = Describe("errors", func() {
 			Eventually(session, cmdTimeout).Should(gexec.Exit(1))
 
 			Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
+	"code": 100,
 	"msg": "ipam plugin failed",
   "details": "invalid CIDR address: 10.255.30.0/33"
 }`))
@@ -49,9 +49,9 @@ var _ = Describe("errors", func() {
 			Eventually(session, cmdTimeout).Should(gexec.Exit(1))
 
 			Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
-	"msg": "creation of veth pair failed",
-  "details": "Setting up veth: failed to make veth pair: numerical result out of range"
+	"code": 100,
+	"msg": "creating config",
+  "details": "IfName cannot be longer than 15 characters"
 }`))
 		})
 	})
@@ -63,7 +63,7 @@ var _ = Describe("errors", func() {
 			Eventually(session, cmdTimeout).Should(gexec.Exit(1))
 
 			Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
+	"code": 100,
 	"msg": "ipam plugin failed",
   "details": "invalid CIDR address: 10.255.30.0/33"
 }`))
@@ -78,7 +78,7 @@ var _ = Describe("errors", func() {
 			Eventually(session, cmdTimeout).Should(gexec.Exit(1))
 
 			Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
+	"code": 100,
 	"msg": "deletion of veth pair failed",
   "details": "Deleting link: failed to lookup \"some-bad-eth-name\": numerical result out of range"
 }`))
