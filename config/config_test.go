@@ -54,6 +54,11 @@ var _ = Describe("Config", func() {
 			Expect(result.Interfaces[result.IPs[0].Interface].Name).To(Equal("container-device-name"))
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.5/32"))
+			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
+
+			Expect(result.Routes).To(HaveLen(1))
+			Expect(result.Routes[0].Dst.String()).To(Equal("0.0.0.0/0"))
+			Expect(result.Routes[0].GW).To(Equal(cfg.Host.IPAddress.IP))
 		})
 	})
 })

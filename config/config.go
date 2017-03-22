@@ -49,10 +49,18 @@ func (c *Config) AsCNIResult() *current.Result {
 				Version:   "4",
 				Interface: 1,
 				Address:   c.Container.IPAddress,
-				Gateway:   nil,
+				Gateway:   c.Host.IPAddress.IP,
 			},
 		},
-		Routes: nil,
-		DNS:    types.DNS{},
+		Routes: []*types.Route{
+			&types.Route{
+				Dst: net.IPNet{
+					IP:   net.IPv4zero,
+					Mask: net.IPv4Mask(0, 0, 0, 0),
+				},
+				GW: c.Host.IPAddress.IP,
+			},
+		},
+		DNS: types.DNS{},
 	}
 }
