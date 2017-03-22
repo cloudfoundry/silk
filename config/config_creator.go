@@ -19,6 +19,7 @@ type hardwareAddressGenerator interface {
 //go:generate counterfeiter -o fakes/deviceNameGenerator.go --fake-name DeviceNameGenerator . deviceNameGenerator
 type deviceNameGenerator interface {
 	GenerateForHost(containerIP net.IP) (string, error)
+	GenerateTemporaryForContainer(containerIP net.IP) (string, error)
 }
 
 //go:generate counterfeiter -o fakes/namespaceAdapter.go --fake-name NamespaceAdapter . namespaceAdapter
@@ -34,11 +35,12 @@ type netNS interface {
 
 type Config struct {
 	Container struct {
-		DeviceName      string
-		Namespace       netNS
-		IPAddress       net.IPNet
-		HardwareAddress net.HardwareAddr
-		MTU             int
+		DeviceName          string
+		TemporaryDeviceName string
+		Namespace           netNS
+		IPAddress           net.IPNet
+		HardwareAddress     net.HardwareAddr
+		MTU                 int
 	}
 	Host struct {
 		DeviceName      string
@@ -72,6 +74,10 @@ func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResul
 		return nil, errors.New("no IP address in IPAM result")
 	}
 	conf.Container.IPAddress = ipamResult.IPs[0].Address
+	conf.Container.TemporaryDeviceName, err = c.DeviceNameGenerator.GenerateTemporaryForContainer(conf.Container.IPAddress.IP)
+	if err != nil {
+		return nil, fmt.Errorf("generating temporary container device name: %s", err)
+	}
 	conf.Container.HardwareAddress, err = c.HardwareAddressGenerator.GenerateForContainer(conf.Container.IPAddress.IP)
 	if err != nil {
 		return nil, fmt.Errorf("generating container veth hardware address: %s", err)

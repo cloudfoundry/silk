@@ -59,6 +59,7 @@ var _ = Describe("ConfigCreator", func() {
 			fakeHardwareAddressGenerator.GenerateForContainerReturns(containerMAC, nil)
 			fakeHardwareAddressGenerator.GenerateForHostReturns(hostMAC, nil)
 			fakeDeviceNameGenerator.GenerateForHostReturns("s-010255030004", nil)
+			fakeDeviceNameGenerator.GenerateTemporaryForContainerReturns("c-010255030004", nil)
 			containerNS.PathReturns("/some/container/namespace")
 			configCreator = &config.ConfigCreator{
 				HardwareAddressGenerator: fakeHardwareAddressGenerator,
@@ -76,6 +77,7 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.Container.IPAddress).To(Equal(ipamResult.IPs[0].Address))
 			Expect(conf.Container.HardwareAddress).To(Equal(containerMAC))
 			Expect(conf.Container.MTU).To(Equal(1500))
+			Expect(conf.Container.TemporaryDeviceName).To(Equal("c-010255030004"))
 		})
 
 		It("creates a config with the desired host device metadata", func() {
@@ -138,13 +140,23 @@ var _ = Describe("ConfigCreator", func() {
 			})
 		})
 
-		Context("when the device name generator fails", func() {
+		Context("when the device name generator fails for the host device", func() {
 			BeforeEach(func() {
 				fakeDeviceNameGenerator.GenerateForHostReturns("", errors.New("potato"))
 			})
 			It("wraps and returns the error", func() {
 				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
 				Expect(err).To(MatchError("generating host device name: potato"))
+			})
+		})
+
+		Context("when the device name generator fails for the container's temporary name", func() {
+			BeforeEach(func() {
+				fakeDeviceNameGenerator.GenerateTemporaryForContainerReturns("", errors.New("potato"))
+			})
+			It("wraps and returns the error", func() {
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				Expect(err).To(MatchError("generating temporary container device name: potato"))
 			})
 		})
 

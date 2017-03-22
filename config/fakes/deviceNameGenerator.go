@@ -20,6 +20,19 @@ type DeviceNameGenerator struct {
 		result1 string
 		result2 error
 	}
+	GenerateTemporaryForContainerStub        func(containerIP net.IP) (string, error)
+	generateTemporaryForContainerMutex       sync.RWMutex
+	generateTemporaryForContainerArgsForCall []struct {
+		containerIP net.IP
+	}
+	generateTemporaryForContainerReturns struct {
+		result1 string
+		result2 error
+	}
+	generateTemporaryForContainerReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -75,11 +88,64 @@ func (fake *DeviceNameGenerator) GenerateForHostReturnsOnCall(i int, result1 str
 	}{result1, result2}
 }
 
+func (fake *DeviceNameGenerator) GenerateTemporaryForContainer(containerIP net.IP) (string, error) {
+	fake.generateTemporaryForContainerMutex.Lock()
+	ret, specificReturn := fake.generateTemporaryForContainerReturnsOnCall[len(fake.generateTemporaryForContainerArgsForCall)]
+	fake.generateTemporaryForContainerArgsForCall = append(fake.generateTemporaryForContainerArgsForCall, struct {
+		containerIP net.IP
+	}{containerIP})
+	fake.recordInvocation("GenerateTemporaryForContainer", []interface{}{containerIP})
+	fake.generateTemporaryForContainerMutex.Unlock()
+	if fake.GenerateTemporaryForContainerStub != nil {
+		return fake.GenerateTemporaryForContainerStub(containerIP)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.generateTemporaryForContainerReturns.result1, fake.generateTemporaryForContainerReturns.result2
+}
+
+func (fake *DeviceNameGenerator) GenerateTemporaryForContainerCallCount() int {
+	fake.generateTemporaryForContainerMutex.RLock()
+	defer fake.generateTemporaryForContainerMutex.RUnlock()
+	return len(fake.generateTemporaryForContainerArgsForCall)
+}
+
+func (fake *DeviceNameGenerator) GenerateTemporaryForContainerArgsForCall(i int) net.IP {
+	fake.generateTemporaryForContainerMutex.RLock()
+	defer fake.generateTemporaryForContainerMutex.RUnlock()
+	return fake.generateTemporaryForContainerArgsForCall[i].containerIP
+}
+
+func (fake *DeviceNameGenerator) GenerateTemporaryForContainerReturns(result1 string, result2 error) {
+	fake.GenerateTemporaryForContainerStub = nil
+	fake.generateTemporaryForContainerReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *DeviceNameGenerator) GenerateTemporaryForContainerReturnsOnCall(i int, result1 string, result2 error) {
+	fake.GenerateTemporaryForContainerStub = nil
+	if fake.generateTemporaryForContainerReturnsOnCall == nil {
+		fake.generateTemporaryForContainerReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.generateTemporaryForContainerReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *DeviceNameGenerator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.generateForHostMutex.RLock()
 	defer fake.generateForHostMutex.RUnlock()
+	fake.generateTemporaryForContainerMutex.RLock()
+	defer fake.generateTemporaryForContainerMutex.RUnlock()
 	return fake.invocations
 }
 
