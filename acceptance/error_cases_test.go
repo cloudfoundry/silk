@@ -80,7 +80,7 @@ var _ = Describe("errors", func() {
 			Expect(session.Out.Contents()).To(MatchJSON(`{
 	"code": 100,
 	"msg": "teardown failed",
-  "details": "failed to find link \"some-bad-eth-name\": numerical result out of range"
+	"details": "deleting link: failed to find link \"some-bad-eth-name\": numerical result out of range"
 }`))
 		})
 	})

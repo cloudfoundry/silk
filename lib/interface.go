@@ -3,6 +3,7 @@ package lib
 import (
 	"net"
 
+	"github.com/cloudfoundry-incubator/silk/config"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/vishvananda/netlink"
 )
@@ -14,6 +15,11 @@ type linkOperations interface {
 	SetPointToPointAddress(link netlink.Link, localIPAddr, peerIPAddr net.IP) error
 	RenameLink(oldName, newName string) error
 	DeleteLinkByName(deviceName string) error
+}
+
+//go:generate counterfeiter -o fakes/common.go --fake-name Common . common
+type common interface {
+	BasicSetup(deviceName string, local, peer config.DualAddress) error
 }
 
 //go:generate counterfeiter -o fakes/namespaceAdapter.go --fake-name NamespaceAdapter . namespaceAdapter

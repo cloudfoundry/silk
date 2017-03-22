@@ -8,7 +8,8 @@ import (
 )
 
 type Container struct {
-	Common
+	Common         common
+	LinkOperations linkOperations
 }
 
 // Teardown deletes the named device from the container.
@@ -16,7 +17,10 @@ type Container struct {
 // and any associated addresses, neighbor rules, etc
 func (c *Container) Teardown(containerNS ns.NetNS, deviceName string) error {
 	return containerNS.Do(func(_ ns.NetNS) error {
-		return c.Common.LinkOperations.DeleteLinkByName(deviceName)
+		if err := c.LinkOperations.DeleteLinkByName(deviceName); err != nil {
+			return fmt.Errorf("deleting link: %s", err)
+		}
+		return nil
 	})
 }
 
@@ -30,10 +34,13 @@ func (c *Container) Setup(cfg *config.Config) error {
 	peer := cfg.Host.Address
 
 	return cfg.Container.Namespace.Do(func(_ ns.NetNS) error {
-		if err := c.Common.LinkOperations.RenameLink(cfg.Container.TemporaryDeviceName, deviceName); err != nil {
+		if err := c.LinkOperations.RenameLink(cfg.Container.TemporaryDeviceName, deviceName); err != nil {
 			return fmt.Errorf("renaming link in container: %s", err)
 		}
 
-		return c.Common.BasicSetup(deviceName, local, peer)
+		if err := c.Common.BasicSetup(deviceName, local, peer); err != nil {
+			return fmt.Errorf("setting up device in container: %s", err)
+		}
+		return nil
 	})
 }

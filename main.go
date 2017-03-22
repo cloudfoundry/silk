@@ -32,12 +32,13 @@ func main() {
 	}
 
 	netlinkAdapter := &adapter.NetlinkAdapter{}
-	commonSetup := lib.Common{
+	linkOperations := &lib.LinkOperations{
+		SysctlAdapter:  &adapter.SysctlAdapter{},
 		NetlinkAdapter: netlinkAdapter,
-		LinkOperations: &lib.LinkOperations{
-			SysctlAdapter:  &adapter.SysctlAdapter{},
-			NetlinkAdapter: netlinkAdapter,
-		},
+	}
+	commonSetup := &lib.Common{
+		NetlinkAdapter: netlinkAdapter,
+		LinkOperations: linkOperations,
 	}
 
 	plugin := &CNIPlugin{
@@ -55,7 +56,8 @@ func main() {
 			Common: commonSetup,
 		},
 		Container: &lib.Container{
-			Common: commonSetup,
+			Common:         commonSetup,
+			LinkOperations: linkOperations,
 		},
 	}
 
