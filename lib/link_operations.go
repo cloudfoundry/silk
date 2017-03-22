@@ -35,7 +35,7 @@ func (s *LinkOperations) StaticNeighborNoARP(link netlink.Link, destIP net.IP, h
 		return fmt.Errorf("neigh add: %s", err)
 	}
 
-	return err
+	return nil
 }
 
 func (s *LinkOperations) SetPointToPointAddress(link netlink.Link, localIPAddr, peerIPAddr net.IP) error {
