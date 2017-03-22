@@ -1,4 +1,4 @@
-package veth
+package lib
 
 import "github.com/containernetworking/cni/pkg/ns"
 

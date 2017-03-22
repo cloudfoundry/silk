@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 
 	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/cloudfoundry-incubator/silk/veth"
-	"github.com/cloudfoundry-incubator/silk/veth2"
+	"github.com/cloudfoundry-incubator/silk/lib"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -21,7 +19,9 @@ type CNIPlugin struct {
 	HostNSPath      string
 	HostNS          ns.NetNS
 	ConfigCreator   *config.ConfigCreator
-	VethPairCreator *veth2.VethPairCreator
+	VethPairCreator *lib.VethPairCreator
+	Host            *lib.Host
+	Container       *lib.Container
 }
 
 func main() {
@@ -30,15 +30,32 @@ func main() {
 		log.Fatal(err)
 	}
 
+	netlinkAdapter := &lib.NetlinkAdapter{}
+	commonSetup := lib.Common{
+		NetlinkAdapter: netlinkAdapter,
+		LinkOperations: &lib.LinkOperations{
+			SysctlAdapter:  &lib.SysctlAdapter{},
+			NetlinkAdapter: netlinkAdapter,
+		},
+	}
+
 	plugin := &CNIPlugin{
 		HostNSPath: hostNS.Path(),
 		HostNS:     hostNS,
 		ConfigCreator: &config.ConfigCreator{
 			HardwareAddressGenerator: &config.HardwareAddressGenerator{},
 			DeviceNameGenerator:      &config.DeviceNameGenerator{},
-			NamespaceAdapter:         &veth.NamespaceAdapter{},
+			NamespaceAdapter:         &lib.NamespaceAdapter{},
 		},
-		VethPairCreator: &veth2.VethPairCreator{},
+		VethPairCreator: &lib.VethPairCreator{
+			NetlinkAdapter: netlinkAdapter,
+		},
+		Host: &lib.Host{
+			Common: commonSetup,
+		},
+		Container: &lib.Container{
+			Common: commonSetup,
+		},
 	}
 
 	skel.PluginMain(plugin.cmdAdd, plugin.cmdDel, version.PluginSupports("0.3.0"))
@@ -46,6 +63,14 @@ func main() {
 
 type NetConf struct {
 	types.NetConf
+}
+
+func typedError(msg string, err error) *types.Error {
+	return &types.Error{
+		Code:    100,
+		Msg:     msg,
+		Details: err.Error(),
+	}
 }
 
 func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
@@ -56,78 +81,35 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 	}
 	result, err := ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
 	if err != nil {
-		return &types.Error{
-			Code:    100,
-			Msg:     "ipam plugin failed",
-			Details: err.Error(),
-		}
+		return typedError("ipam plugin failed", err)
 	}
 
 	cniResult, err := current.NewResultFromResult(result)
 	if err != nil {
 		return fmt.Errorf("unable to convert result to current CNI version: %s", err) // not tested
 	}
-	cniResult.IPs[0].Address.Mask = net.IPv4Mask(255, 255, 255, 255)
 
 	cfg, err := p.ConfigCreator.Create(p.HostNS, args, cniResult)
 	if err != nil {
-		return &types.Error{
-			Code:    100,
-			Msg:     "creating config",
-			Details: err.Error(),
-		}
+		return typedError("creating config", err)
 	}
 
-	vethManager := &veth.Manager{
-		HostNS:           cfg.Host.Namespace,
-		ContainerNS:      cfg.Container.Namespace,
-		NamespaceAdapter: &veth.NamespaceAdapter{},
-		NetlinkAdapter:   &veth.NetlinkAdapter{},
-		IPAdapter:        &veth.IPAdapter{},
-		HWAddrAdapter:    &veth.HWAddrAdapter{},
-		SysctlAdapter:    &veth.SysctlAdapter{},
-	}
-
-	vethPair, err := vethManager.CreatePair(args.IfName, 1500)
+	err = p.VethPairCreator.Create(cfg)
 	if err != nil {
-		return &types.Error{
-			Code:    100,
-			Msg:     "creation of veth pair failed",
-			Details: err.Error(),
-		} // not tested
+		return typedError("creating veth pair", err)
 	}
 
-	err = vethManager.DisableIPv6(vethPair)
+	err = p.Host.Setup(cfg)
 	if err != nil {
-		return fmt.Errorf("unable to disable IPv6: %s", err) // not tested
+		return typedError("setting up host", err)
 	}
 
-	err = vethManager.AssignIP(vethPair, &cniResult.IPs[0].Address)
+	err = p.Container.Setup(cfg)
 	if err != nil {
-		return fmt.Errorf("unable to assign ip: %s", err) // not tested
+		return typedError("setting up container", err)
 	}
 
-	err = vethManager.DisableARP(vethPair)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	cniResult.Interfaces = append(cniResult.Interfaces,
-		&current.Interface{
-			Name: vethPair.Host.Link.Name,
-			Mac:  vethPair.Host.Link.HardwareAddr.String(),
-		},
-		&current.Interface{
-			Name:    vethPair.Container.Link.Name,
-			Mac:     vethPair.Container.Link.HardwareAddr.String(),
-			Sandbox: args.Netns,
-		},
-	)
-
-	cniResult.IPs[0].Interface = 1
-
-	return types.PrintResult(cniResult, netConf.CNIVersion)
-
+	return types.PrintResult(cfg.AsCNIResult(), netConf.CNIVersion)
 }
 
 func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
@@ -139,22 +121,17 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 
 	err = ipam.ExecDel(netConf.IPAM.Type, args.StdinData)
 	if err != nil {
-		return &types.Error{
-			Code:    100,
-			Msg:     "ipam plugin failed",
-			Details: err.Error(),
-		}
+		return typedError("ipam plugin failed", err)
 	}
 
-	vethManager := veth.NewManager(p.HostNSPath, args.Netns)
-
-	err = vethManager.Destroy(args.IfName)
+	containerNS, err := ns.GetNS(args.Netns)
 	if err != nil {
-		return &types.Error{
-			Code:    100,
-			Msg:     "deletion of veth pair failed",
-			Details: err.Error(),
-		}
+		return typedError("opening container network namespace", err)
+	}
+
+	err = p.Container.Teardown(containerNS, args.IfName)
+	if err != nil {
+		return typedError("teardown failed", err)
 	}
 
 	return nil

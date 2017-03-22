@@ -1,4 +1,4 @@
-package veth2
+package lib
 
 import (
 	"fmt"
@@ -9,10 +9,13 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-type VethPairCreator struct{}
+type VethPairCreator struct {
+	NetlinkAdapter netlinkAdapter
+}
 
 // Create will create a pair of virtual ethernet devices and move one end into the container
-func (c *VethPairCreator) Create(cfg config.Config) error {
+// The container-side will have a temporary name.
+func (c *VethPairCreator) Create(cfg *config.Config) error {
 	hostName := cfg.Host.DeviceName
 	containerName := cfg.Container.TemporaryDeviceName
 
@@ -27,16 +30,16 @@ func (c *VethPairCreator) Create(cfg config.Config) error {
 
 	// Note: this Do is only necessary while we're doing container namespace switching elsewhere in this process
 	err := cfg.Host.Namespace.Do(func(_ ns.NetNS) error {
-		if err := netlink.LinkAdd(vethDeviceRequest); err != nil {
+		if err := c.NetlinkAdapter.LinkAdd(vethDeviceRequest); err != nil {
 			return fmt.Errorf("creating veth pair: %s", err)
 		}
 
-		containerVeth, err := netlink.LinkByName(containerName)
+		containerVeth, err := c.NetlinkAdapter.LinkByName(containerName)
 		if err != nil {
 			return fmt.Errorf("failed to find newly-created veth device %q: %v", containerName, err)
 		}
 
-		err = netlink.LinkSetNsFd(containerVeth, int(cfg.Container.Namespace.Fd()))
+		err = c.NetlinkAdapter.LinkSetNsFd(containerVeth, int(cfg.Container.Namespace.Fd()))
 		if err != nil {
 			return fmt.Errorf("failed to move veth to container namespace: %s", err)
 		}

@@ -17,18 +17,12 @@ var _ = Describe("Config", func() {
 		cfg = &config.Config{}
 		cfg.Container.DeviceName = "container-device-name"
 		cfg.Container.Namespace, _ = ns.NewNS()
-		cfg.Container.IPAddress = net.IPNet{
-			IP:   net.IP{10, 255, 30, 5},
-			Mask: net.IPv4Mask(255, 255, 255, 255),
-		}
-		cfg.Container.HardwareAddress = net.HardwareAddr{0x01, 0x02, 0x03, 0x0A, 0xBC, 0xDE}
+		cfg.Container.Address.IP = net.IP{10, 255, 30, 5}
+		cfg.Container.Address.Hardware = net.HardwareAddr{0x01, 0x02, 0x03, 0x0A, 0xBC, 0xDE}
 		cfg.Container.MTU = 1234
 		cfg.Host.DeviceName = "host-device-name"
-		cfg.Host.IPAddress = net.IPNet{
-			IP:   net.IP{169, 254, 0, 1},
-			Mask: net.IPv4Mask(255, 255, 255, 255),
-		}
-		cfg.Host.HardwareAddress = net.HardwareAddr{0xdd, 0xdd, 0x03, 0x0A, 0xBC, 0xDE}
+		cfg.Host.Address.IP = net.IP{169, 254, 0, 1}
+		cfg.Host.Address.Hardware = net.HardwareAddr{0xdd, 0xdd, 0x03, 0x0A, 0xBC, 0xDE}
 	})
 
 	AfterEach(func() {
@@ -58,7 +52,7 @@ var _ = Describe("Config", func() {
 
 			Expect(result.Routes).To(HaveLen(1))
 			Expect(result.Routes[0].Dst.String()).To(Equal("0.0.0.0/0"))
-			Expect(result.Routes[0].GW).To(Equal(cfg.Host.IPAddress.IP))
+			Expect(result.Routes[0].GW).To(Equal(cfg.Host.Address.IP))
 		})
 	})
 })

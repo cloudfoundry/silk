@@ -13,20 +13,23 @@ type netNS interface {
 	ns.NetNS
 }
 
+type DualAddress struct {
+	Hardware net.HardwareAddr
+	IP       net.IP
+}
+
 type Config struct {
 	Container struct {
 		DeviceName          string
 		TemporaryDeviceName string
 		Namespace           netNS
-		IPAddress           net.IPNet
-		HardwareAddress     net.HardwareAddr
+		Address             DualAddress
 		MTU                 int
 	}
 	Host struct {
-		DeviceName      string
-		Namespace       netNS
-		IPAddress       net.IPNet
-		HardwareAddress net.HardwareAddr
+		DeviceName string
+		Namespace  netNS
+		Address    DualAddress
 	}
 }
 
@@ -35,12 +38,12 @@ func (c *Config) AsCNIResult() *current.Result {
 		Interfaces: []*current.Interface{
 			&current.Interface{
 				Name:    c.Host.DeviceName,
-				Mac:     c.Host.HardwareAddress.String(),
+				Mac:     c.Host.Address.Hardware.String(),
 				Sandbox: "",
 			},
 			&current.Interface{
 				Name:    c.Container.DeviceName,
-				Mac:     c.Container.HardwareAddress.String(),
+				Mac:     c.Container.Address.Hardware.String(),
 				Sandbox: c.Container.Namespace.Path(),
 			},
 		},
@@ -48,8 +51,11 @@ func (c *Config) AsCNIResult() *current.Result {
 			&current.IPConfig{
 				Version:   "4",
 				Interface: 1,
-				Address:   c.Container.IPAddress,
-				Gateway:   c.Host.IPAddress.IP,
+				Address: net.IPNet{
+					IP:   c.Container.Address.IP,
+					Mask: []byte{255, 255, 255, 255},
+				},
+				Gateway: c.Host.Address.IP,
 			},
 		},
 		Routes: []*types.Route{
@@ -58,7 +64,7 @@ func (c *Config) AsCNIResult() *current.Result {
 					IP:   net.IPv4zero,
 					Mask: net.IPv4Mask(0, 0, 0, 0),
 				},
-				GW: c.Host.IPAddress.IP,
+				GW: c.Host.Address.IP,
 			},
 		},
 		DNS: types.DNS{},

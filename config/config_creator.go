@@ -51,26 +51,23 @@ func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResul
 	if len(ipamResult.IPs) == 0 {
 		return nil, errors.New("no IP address in IPAM result")
 	}
-	conf.Container.IPAddress = ipamResult.IPs[0].Address
-	conf.Container.TemporaryDeviceName, err = c.DeviceNameGenerator.GenerateTemporaryForContainer(conf.Container.IPAddress.IP)
+	conf.Container.Address.IP = ipamResult.IPs[0].Address.IP
+	conf.Container.TemporaryDeviceName, err = c.DeviceNameGenerator.GenerateTemporaryForContainer(conf.Container.Address.IP)
 	if err != nil {
 		return nil, fmt.Errorf("generating temporary container device name: %s", err)
 	}
-	conf.Container.HardwareAddress, err = c.HardwareAddressGenerator.GenerateForContainer(conf.Container.IPAddress.IP)
+	conf.Container.Address.Hardware, err = c.HardwareAddressGenerator.GenerateForContainer(conf.Container.Address.IP)
 	if err != nil {
 		return nil, fmt.Errorf("generating container veth hardware address: %s", err)
 	}
 	conf.Container.MTU = 1500
-	conf.Host.DeviceName, err = c.DeviceNameGenerator.GenerateForHost(conf.Container.IPAddress.IP)
+	conf.Host.DeviceName, err = c.DeviceNameGenerator.GenerateForHost(conf.Container.Address.IP)
 	if err != nil {
 		return nil, fmt.Errorf("generating host device name: %s", err)
 	}
 	conf.Host.Namespace = hostNS
-	conf.Host.IPAddress = net.IPNet{
-		IP:   []byte{169, 254, 0, 1},
-		Mask: []byte{255, 255, 255, 255},
-	}
-	conf.Host.HardwareAddress, err = c.HardwareAddressGenerator.GenerateForHost(conf.Container.IPAddress.IP)
+	conf.Host.Address.IP = net.IP{169, 254, 0, 1}
+	conf.Host.Address.Hardware, err = c.HardwareAddressGenerator.GenerateForHost(conf.Container.Address.IP)
 	if err != nil {
 		return nil, fmt.Errorf("generating host veth hardware address: %s", err)
 	}

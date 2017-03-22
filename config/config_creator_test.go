@@ -20,7 +20,7 @@ var _ = Describe("ConfigCreator", func() {
 			containerNS                  *fakes.NetNS
 			hostMAC                      net.HardwareAddr
 			containerMAC                 net.HardwareAddr
-			hostIPAddress                net.IPNet
+			hostIPAddress                net.IP
 			addCmdArgs                   *skel.CmdArgs
 			ipamResult                   *current.Result
 			fakeNamespaceAdapter         *fakes.NamespaceAdapter
@@ -46,10 +46,7 @@ var _ = Describe("ConfigCreator", func() {
 					},
 				},
 			}
-			hostIPAddress = net.IPNet{
-				IP:   []byte{169, 254, 0, 1},
-				Mask: []byte{255, 255, 255, 255},
-			}
+			hostIPAddress = net.IP{169, 254, 0, 1}
 			fakeNamespaceAdapter = &fakes.NamespaceAdapter{}
 			fakeHardwareAddressGenerator = &fakes.HardwareAddressGenerator{}
 			fakeDeviceNameGenerator = &fakes.DeviceNameGenerator{}
@@ -74,8 +71,8 @@ var _ = Describe("ConfigCreator", func() {
 
 			Expect(conf.Container.DeviceName).To(Equal("eth0"))
 			Expect(conf.Container.Namespace).To(Equal(containerNS))
-			Expect(conf.Container.IPAddress).To(Equal(ipamResult.IPs[0].Address))
-			Expect(conf.Container.HardwareAddress).To(Equal(containerMAC))
+			Expect(conf.Container.Address.IP).To(Equal(ipamResult.IPs[0].Address.IP))
+			Expect(conf.Container.Address.Hardware).To(Equal(containerMAC))
 			Expect(conf.Container.MTU).To(Equal(1500))
 			Expect(conf.Container.TemporaryDeviceName).To(Equal("c-010255030004"))
 		})
@@ -86,8 +83,8 @@ var _ = Describe("ConfigCreator", func() {
 
 			Expect(conf.Host.DeviceName).To(Equal("s-010255030004"))
 			Expect(conf.Host.Namespace).To(Equal(hostNS))
-			Expect(conf.Host.IPAddress).To(Equal(hostIPAddress))
-			Expect(conf.Host.HardwareAddress).To(Equal(hostMAC))
+			Expect(conf.Host.Address.IP).To(Equal(hostIPAddress))
+			Expect(conf.Host.Address.Hardware).To(Equal(hostMAC))
 		})
 
 		Context("when the args interface name is blank", func() {

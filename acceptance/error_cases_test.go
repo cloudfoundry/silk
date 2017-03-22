@@ -79,8 +79,8 @@ var _ = Describe("errors", func() {
 
 			Expect(session.Out.Contents()).To(MatchJSON(`{
 	"code": 100,
-	"msg": "deletion of veth pair failed",
-  "details": "Deleting link: failed to lookup \"some-bad-eth-name\": numerical result out of range"
+	"msg": "teardown failed",
+  "details": "failed to find link \"some-bad-eth-name\": numerical result out of range"
 }`))
 		})
 	})

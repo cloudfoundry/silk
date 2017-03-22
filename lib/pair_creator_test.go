@@ -1,11 +1,11 @@
-package veth2_test
+package lib_test
 
 import (
 	"fmt"
 	"math/rand"
 
 	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/cloudfoundry-incubator/silk/veth2"
+	"github.com/cloudfoundry-incubator/silk/lib"
 	"github.com/containernetworking/cni/pkg/ns"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -18,8 +18,8 @@ var _ = Describe("VethPairCreator", func() {
 		var (
 			containerNS ns.NetNS
 			hostNS      ns.NetNS
-			cfg         config.Config
-			creator     *veth2.VethPairCreator
+			cfg         *config.Config
+			creator     *lib.VethPairCreator
 		)
 
 		BeforeEach(func() {
@@ -29,14 +29,16 @@ var _ = Describe("VethPairCreator", func() {
 			hostNS, err = ns.NewNS()
 			Expect(err).NotTo(HaveOccurred())
 
-			cfg = config.Config{}
+			cfg = &config.Config{}
 			cfg.Container.TemporaryDeviceName = fmt.Sprintf("c-%x", rand.Int31())
 			cfg.Container.Namespace = containerNS
 			cfg.Container.MTU = 1234
 			cfg.Host.DeviceName = fmt.Sprintf("h-%x", rand.Int31())
 			cfg.Host.Namespace = hostNS
 
-			creator = &veth2.VethPairCreator{}
+			creator = &lib.VethPairCreator{
+				NetlinkAdapter: &lib.NetlinkAdapter{}, // TODO: replace with mock?
+			}
 		})
 
 		AfterEach(func() {

@@ -1,4 +1,4 @@
-package veth
+package lib
 
 import (
 	"net"
@@ -14,6 +14,11 @@ type netlinkAdapter interface {
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
 	NeighAdd(*netlink.Neigh) error
 	LinkSetARPOff(netlink.Link) error
+	LinkSetName(netlink.Link, string) error
+	LinkSetUp(netlink.Link) error
+	LinkDel(netlink.Link) error
+	LinkAdd(netlink.Link) error
+	LinkSetNsFd(netlink.Link, int) error
 }
 
 type NetlinkAdapter struct{}
@@ -40,4 +45,24 @@ func (*NetlinkAdapter) NeighAdd(neigh *netlink.Neigh) error {
 
 func (*NetlinkAdapter) LinkSetARPOff(link netlink.Link) error {
 	return netlink.LinkSetARPOff(link)
+}
+
+func (*NetlinkAdapter) LinkSetName(link netlink.Link, newName string) error {
+	return netlink.LinkSetName(link, newName)
+}
+
+func (*NetlinkAdapter) LinkSetUp(link netlink.Link) error {
+	return netlink.LinkSetUp(link)
+}
+
+func (*NetlinkAdapter) LinkDel(link netlink.Link) error {
+	return netlink.LinkDel(link)
+}
+
+func (*NetlinkAdapter) LinkAdd(link netlink.Link) error {
+	return netlink.LinkAdd(link)
+}
+
+func (*NetlinkAdapter) LinkSetNsFd(link netlink.Link, fd int) error {
+	return netlink.LinkSetNsFd(link, fd)
 }

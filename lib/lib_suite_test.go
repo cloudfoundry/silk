@@ -1,4 +1,4 @@
-package veth_test
+package lib_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestVeth(t *testing.T) {
+func TestLib(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Veth Suite")
+	RunSpecs(t, "Lib Suite")
 }

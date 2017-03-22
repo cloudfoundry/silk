@@ -44,6 +44,10 @@ var _ = Describe("Acceptance", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	AfterEach(func() {
+		containerNS.Close() // don't bother checking errors here
+	})
+
 	Describe("veth devices", func() {
 		BeforeEach(func() {
 			cniStdin = cniConfig("10.255.30.0/24", dataDir)
@@ -74,11 +78,11 @@ var _ = Describe("Acceptance", func() {
 						{
 								"version": "4",
 								"address": "10.255.30.1/32",
-								"gateway": "10.0.1.1",
+								"gateway": "169.254.0.1",
 								"interface": 1
 						}
 				],
-				"routes": [{"dst": "0.0.0.0/0"}],
+				"routes": [{"dst": "0.0.0.0/0", "gw": "169.254.0.1"}],
 				"dns": {}
 			}
 			`, inHost[0].Name, containerNS.Path())
@@ -250,7 +254,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.1/32"))
-			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
+			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
 			By("checking that the ip is reserved for the correct container id")
 			bytes, err := ioutil.ReadFile(filepath.Join(dataDir, "my-silk-network/10.255.30.1"))
@@ -269,19 +273,25 @@ var _ = Describe("Acceptance", func() {
 
 	Describe("Reserve all IPs", func() {
 		var (
-			containerNSList []string
+			containerNSList []ns.NetNS
 		)
 		BeforeEach(func() {
 			cniStdin = cniConfig("10.255.40.0/30", dataDir)
 			for i := 0; i < 3; i++ {
 				containerNS, err := ns.NewNS()
 				Expect(err).NotTo(HaveOccurred())
-				containerNSList = append(containerNSList, containerNS.Path())
+				containerNSList = append(containerNSList, containerNS)
 			}
 		})
+		AfterEach(func() {
+			for _, containerNS := range containerNSList {
+				containerNS.Close()
+			}
+		})
+
 		It("fails to allocate an IP if none is available", func() {
 			By("exhausting all ips")
-			cniEnv["CNI_NETNS"] = containerNSList[0]
+			cniEnv["CNI_NETNS"] = containerNSList[0].Path()
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -291,9 +301,9 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.1/32"))
-			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
+			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
-			cniEnv["CNI_NETNS"] = containerNSList[1]
+			cniEnv["CNI_NETNS"] = containerNSList[1].Path()
 			sess = startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -303,9 +313,9 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.2/32"))
-			Expect(result.IPs[0].Gateway.String()).To(Equal("10.0.1.1"))
+			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
-			cniEnv["CNI_NETNS"] = containerNSList[2]
+			cniEnv["CNI_NETNS"] = containerNSList[2].Path()
 			sess = startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(1))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
@@ -326,8 +336,8 @@ func cniConfig(subnet, dataDir string) string {
 				"ipam": {
 						"type": "host-local",
 						"subnet": "%s",
-						"routes": [ { "dst": "0.0.0.0/0" } ],
-            "gateway": "10.0.1.1",
+						"routes": [ { "dst": "0.0.0.0/0", "gw": "169.254.0.1" } ],
+            "gateway": "169.254.0.1",
 						"dataDir": "%s"
 				 }
 			}
