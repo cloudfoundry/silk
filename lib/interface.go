@@ -7,6 +7,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+//go:generate counterfeiter -o fakes/linkOperations.go --fake-name LinkOperations . linkOperations
 type linkOperations interface {
 	DisableIPv6(deviceName string) error
 	StaticNeighborNoARP(link netlink.Link, dstIP net.IP, mac net.HardwareAddr) error
