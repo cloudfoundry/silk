@@ -4,7 +4,7 @@ import (
 	"net"
 
 	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/cloudfoundry-incubator/silk/config/fakes"
 	"github.com/containernetworking/cni/pkg/types/current"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -16,7 +16,9 @@ var _ = Describe("Config", func() {
 	BeforeEach(func() {
 		cfg = &config.Config{}
 		cfg.Container.DeviceName = "container-device-name"
-		cfg.Container.Namespace, _ = ns.NewNS()
+		fakeNamespace := &fakes.NetNS{}
+		fakeNamespace.PathReturns("/some/namespace")
+		cfg.Container.Namespace = fakeNamespace
 		cfg.Container.Address.IP = net.IP{10, 255, 30, 5}
 		cfg.Container.Address.Hardware = net.HardwareAddr{0x01, 0x02, 0x03, 0x0A, 0xBC, 0xDE}
 		cfg.Container.MTU = 1234

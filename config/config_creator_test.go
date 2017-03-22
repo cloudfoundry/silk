@@ -70,11 +70,11 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(conf.Container.DeviceName).To(Equal("eth0"))
+			Expect(conf.Container.TemporaryDeviceName).To(Equal("c-010255030004"))
 			Expect(conf.Container.Namespace).To(Equal(containerNS))
 			Expect(conf.Container.Address.IP).To(Equal(ipamResult.IPs[0].Address.IP))
 			Expect(conf.Container.Address.Hardware).To(Equal(containerMAC))
 			Expect(conf.Container.MTU).To(Equal(1500))
-			Expect(conf.Container.TemporaryDeviceName).To(Equal("c-010255030004"))
 		})
 
 		It("creates a config with the desired host device metadata", func() {
