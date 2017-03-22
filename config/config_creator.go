@@ -28,28 +28,6 @@ type namespaceAdapter interface {
 	GetCurrentNS() (ns.NetNS, error)
 }
 
-//go:generate counterfeiter -o fakes/netNS.go --fake-name NetNS . netNS
-type netNS interface {
-	ns.NetNS
-}
-
-type Config struct {
-	Container struct {
-		DeviceName          string
-		TemporaryDeviceName string
-		Namespace           netNS
-		IPAddress           net.IPNet
-		HardwareAddress     net.HardwareAddr
-		MTU                 int
-	}
-	Host struct {
-		DeviceName      string
-		Namespace       netNS
-		IPAddress       net.IPNet
-		HardwareAddress net.HardwareAddr
-	}
-}
-
 type ConfigCreator struct {
 	HardwareAddressGenerator hardwareAddressGenerator
 	DeviceNameGenerator      deviceNameGenerator
