@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/cloudfoundry-incubator/silk/adapter"
 	"github.com/cloudfoundry-incubator/silk/config"
 	"github.com/cloudfoundry-incubator/silk/lib"
 	"github.com/containernetworking/cni/pkg/ipam"
@@ -30,11 +31,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	netlinkAdapter := &lib.NetlinkAdapter{}
+	netlinkAdapter := &adapter.NetlinkAdapter{}
 	commonSetup := lib.Common{
 		NetlinkAdapter: netlinkAdapter,
 		LinkOperations: &lib.LinkOperations{
-			SysctlAdapter:  &lib.SysctlAdapter{},
+			SysctlAdapter:  &adapter.SysctlAdapter{},
 			NetlinkAdapter: netlinkAdapter,
 		},
 	}
@@ -45,7 +46,7 @@ func main() {
 		ConfigCreator: &config.ConfigCreator{
 			HardwareAddressGenerator: &config.HardwareAddressGenerator{},
 			DeviceNameGenerator:      &config.DeviceNameGenerator{},
-			NamespaceAdapter:         &lib.NamespaceAdapter{},
+			NamespaceAdapter:         &adapter.NamespaceAdapter{},
 		},
 		VethPairCreator: &lib.VethPairCreator{
 			NetlinkAdapter: netlinkAdapter,

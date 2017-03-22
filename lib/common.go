@@ -2,19 +2,9 @@ package lib
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/vishvananda/netlink"
 )
-
-type linkOperations interface {
-	DisableIPv6(deviceName string) error
-	StaticNeighborNoARP(link netlink.Link, dstIP net.IP, mac net.HardwareAddr) error
-	SetPointToPointAddress(link netlink.Link, localIPAddr, peerIPAddr net.IP) error
-	RenameLink(oldName, newName string) error
-	DeleteLinkByName(deviceName string) error
-}
 
 // Common bevavior used by both the host-side and container-side Setup functions
 type Common struct {

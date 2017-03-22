@@ -30,13 +30,7 @@ func (s *LinkOperations) StaticNeighborNoARP(link netlink.Link, destIP net.IP, h
 		return fmt.Errorf("set ARP off: %s", err)
 	}
 
-	err = s.NetlinkAdapter.NeighAdd(&netlink.Neigh{
-		LinkIndex:    link.Attrs().Index,
-		Family:       netlink.FAMILY_V4,
-		State:        netlink.NUD_PERMANENT,
-		IP:           destIP,
-		HardwareAddr: hwAddr,
-	})
+	err = s.NetlinkAdapter.NeighAddPermanentIPv4(link.Attrs().Index, destIP, hwAddr)
 	if err != nil {
 		return fmt.Errorf("neigh add: %s", err)
 	}
@@ -58,10 +52,9 @@ func (s *LinkOperations) SetPointToPointAddress(link netlink.Link, localIPAddr, 
 		return fmt.Errorf("parsing address %s: %s", localAddr, err)
 	}
 
-	addr.Scope = int(netlink.SCOPE_LINK)
 	addr.Peer = peerAddr
 
-	err = s.NetlinkAdapter.AddrAdd(link, addr)
+	err = s.NetlinkAdapter.AddrAddScopeLink(link, addr)
 	if err != nil {
 		return fmt.Errorf("adding IP address %s: %s", localAddr, err)
 	}
