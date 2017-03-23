@@ -19,3 +19,12 @@
 [submodule "vendor/github.com/rubenv/sql-migrate"]
 	path = vendor/github.com/rubenv/sql-migrate
 	url = https://github.com/rubenv/sql-migrate.git
+[submodule "vendor/gopkg.in/gorp.v1"]
+	path = vendor/gopkg.in/gorp.v1
+	url = https://gopkg.in/go-gorp/gorp.v1
+[submodule "vendor/github.com/go-sql-driver/mysql"]
+	path = vendor/github.com/go-sql-driver/mysql
+	url = https://github.com/go-sql-driver/mysql
+[submodule "vendor/github.com/lib/pq"]
+	path = vendor/github.com/lib/pq
+	url = https://github.com/lib/pq
