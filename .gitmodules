@@ -16,3 +16,6 @@
 [submodule "vendor/github.com/vishvananda/netns"]
 	path = vendor/github.com/vishvananda/netns
 	url = https://github.com/vishvananda/netns
+[submodule "vendor/github.com/rubenv/sql-migrate"]
+	path = vendor/github.com/rubenv/sql-migrate
+	url = https://github.com/rubenv/sql-migrate.git
