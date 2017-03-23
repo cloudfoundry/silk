@@ -283,7 +283,7 @@ var _ = Describe("Acceptance", func() {
 			mustSucceed("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE")
 
 			By("attempting to reach the internet from the container")
-			mustSucceedInContainer(containerNS, "ping", "-c", "1", "8.8.8.8")
+			mustSucceedInContainer(containerNS, "curl", "-f", "example.com")
 		})
 	})
 
