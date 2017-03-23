@@ -1,103 +1,103 @@
 package integration_test
 
 import (
-	"errors"
+	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 
+	"github.com/cloudfoundry-incubator/silk/daemon/config"
+	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = Describe("Integration", func() {
-	It("establishes a connection with the database", func() {
+var DEFAULT_TIMEOUT = "5s"
+
+var _ = Describe("Daemon Integration", func() {
+	var (
+		conf         config.Config
+		testDatabase *testsupport.TestDatabase
+		session      *gexec.Session
+	)
+
+	BeforeEach(func() {
 		dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
-		dbConnectionInfo, err := GetDBConnectionInfo()
+		dbConnectionInfo, err := testsupport.GetDBConnectionInfo()
 		Expect(err).NotTo(HaveOccurred())
-		_ = dbConnectionInfo.CreateDatabase(dbName)
+		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+		conf = CreateTestConfig(testDatabase)
+
+		config, err := json.Marshal(conf)
+		Expect(err).NotTo(HaveOccurred())
+		tempDir, err := ioutil.TempDir("", "")
+		Expect(err).NotTo(HaveOccurred())
+		configFilePath := filepath.Join(tempDir, "config")
+
+		err = ioutil.WriteFile(configFilePath, config, os.ModePerm)
+		Expect(err).NotTo(HaveOccurred())
+
+		startCmd := exec.Command(daemonPath, "--config", configFilePath)
+		session, err = gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
+	AfterEach(func() {
+		if session != nil {
+			session.Interrupt()
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		}
+
+		if testDatabase != nil {
+			testDatabase.Destroy()
+		}
+	})
+
+	It("starts and stops normally", func() {
+		Eventually(session.Out.Contents, "5s").Should(ContainSubstring("connected to db"))
+
+		Consistently(session, "10s").ShouldNot(gexec.Exit())
+		session.Interrupt()
+		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+	})
+
+	It("runs the SQL migrations", func() {
+		Eventually(session.Out.Contents, "5s").Should(ContainSubstring("db migration complete"))
+
+		db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
+		Expect(err).NotTo(HaveOccurred())
+
+		rows, err := db.Query("SELECT * FROM subnets")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rows.Next()).To(BeFalse())
+
+		err = db.Close()
+		Expect(err).NotTo(HaveOccurred())
+	})
 })
 
-type DBConnectionInfo struct {
-	Type     string
-	Hostname string
-	Port     string
-	Username string
-	Password string
-}
-
-type TestDatabase struct {
-	Name     string
-	ConnInfo *DBConnectionInfo
-}
-
-func (c *DBConnectionInfo) CreateDatabase(dbName string) *TestDatabase {
-	testDB := &TestDatabase{Name: dbName, ConnInfo: c}
-	_, err := c.execSQL(fmt.Sprintf("CREATE DATABASE %s", dbName))
-	Expect(err).NotTo(HaveOccurred())
-	return testDB
-}
-
-func (c *DBConnectionInfo) execSQL(sqlCommand string) (string, error) {
-	var cmd *exec.Cmd
-
-	if c.Type == "mysql" {
-		cmd = exec.Command("mysql",
-			"-h", c.Hostname,
-			"-P", c.Port,
-			"-u", c.Username,
-			"-e", sqlCommand)
-		cmd.Env = append(os.Environ(), "MYSQL_PWD="+c.Password)
-	} else if c.Type == "postgres" {
-		cmd = exec.Command("psql",
-			"-h", c.Hostname,
-			"-p", c.Port,
-			"-U", c.Username,
-			"-c", sqlCommand)
-		cmd.Env = append(os.Environ(), "PGPASSWORD="+c.Password)
+func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
+	var connectionString string
+	if d.ConnInfo.Type == "mysql" {
+		connectionString = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+			d.ConnInfo.Username, d.ConnInfo.Password, d.ConnInfo.Hostname, d.ConnInfo.Port, d.Name)
+	} else if d.ConnInfo.Type == "postgres" {
+		connectionString = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+			d.ConnInfo.Username, d.ConnInfo.Password, d.ConnInfo.Hostname, d.ConnInfo.Port, d.Name)
 	} else {
-		panic("unsupported database type: " + c.Type)
+		connectionString = fmt.Sprintf("some unsupported db type connection string: %s\n", d.ConnInfo.Type)
 	}
 
-	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(session, "9s").Should(gexec.Exit())
-	if session.ExitCode() != 0 {
-		return "", fmt.Errorf("unexpected exit code: %d", session.ExitCode())
+	return config.Config{
+		Database: config.DatabaseConfig{
+			Type:             d.ConnInfo.Type,
+			ConnectionString: connectionString,
+		},
 	}
-	return string(session.Out.Contents()), nil
-}
-
-func GetPostgresDBConnectionInfo() *DBConnectionInfo {
-	return &DBConnectionInfo{
-		Type:     "postgres",
-		Hostname: "127.0.0.1",
-		Port:     "5432",
-		Username: "postgres",
-		Password: "",
-	}
-}
-
-func GetMySQLDBConnectionInfo() *DBConnectionInfo {
-	return &DBConnectionInfo{
-		Type:     "mysql",
-		Hostname: "127.0.0.1",
-		Port:     "3306",
-		Username: "root",
-		Password: "password",
-	}
-}
-
-func GetDBConnectionInfo() (*DBConnectionInfo, error) {
-	if os.Getenv("MYSQL") == "true" {
-		return GetMySQLDBConnectionInfo(), nil
-	}
-	if os.Getenv("POSTGRES") == "true" {
-		return GetPostgresDBConnectionInfo(), nil
-	}
-
-	return nil, errors.New("no database was configured")
 }

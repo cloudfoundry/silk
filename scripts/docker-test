@@ -16,7 +16,7 @@ if [ ${MYSQL:-"false"} = "true" ]; then
      c2cnetworking/dev-mysql \
      ./scripts/test.sh "$@"
 elif [ ${POSTGRES:-"false"} = "true" ]; then
-  echo "running tests with POSTRGRES"
+  echo "running tests with POSTGRES"
   docker run --privileged \
      --rm \
      -it \

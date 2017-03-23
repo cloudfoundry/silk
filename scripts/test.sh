@@ -51,7 +51,7 @@ go install ./vendor/github.com/onsi/ginkgo/ginkgo
 if [ "${1:-""}" = "" ]; then
   extraArgs=""
 else
-  extraArgs="$1"
+  extraArgs="${@}"
 fi
 
 
@@ -61,7 +61,7 @@ elif [ ${POSTGRES:-"false"} = "true" ]; then
   bootPostgres
 else
   echo "skipping database"
-  extraArgs="${extraArgs} -skipPackage=daemon"
+  extraArgs="-skipPackage=daemon ${extraArgs}"
 fi
 
 ginkgo -r --race -randomizeAllSpecs -randomizeSuites -ldflags="-extldflags=-Wl,--allow-multiple-definition" ${extraArgs}
