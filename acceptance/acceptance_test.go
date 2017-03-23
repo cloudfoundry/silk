@@ -47,7 +47,7 @@ var _ = Describe("Acceptance", func() {
 
 	AfterEach(func() {
 		containerNS.Close() // don't bother checking errors here
-		execAndExpectSuccess("iptables", "-t", "nat", "-F")
+		mustSucceed("iptables", "-t", "nat", "-F")
 	})
 
 	Describe("veth devices", func() {
@@ -175,16 +175,10 @@ var _ = Describe("Acceptance", func() {
 			// This does *not* fail as expected on Docker, but
 			// does properly fail in Concourse (Garden).
 			// see: https://github.com/docker/for-mac/issues/57
-			cmd := exec.Command("ping", "-c", "1", "10.255.50.1")
-			sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			mustSucceed("ping", "-c", "1", "10.255.50.1")
 
 			By("enabling connectivity from the container to the host")
-			cmd = exec.Command("ip", "netns", "exec", filepath.Base(containerNS.Path()), "ping", "-c", "1", "169.254.0.1")
-			sess, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			mustSucceedInContainer(containerNS, "ping", "-c", "1", "169.254.0.1")
 		})
 
 		It("turns off ARP for veth devices", func() {
@@ -268,21 +262,10 @@ var _ = Describe("Acceptance", func() {
 			const ipOnTheHost = "169.254.50.50"
 
 			By("creating a endpoint on the host")
-			cmd := exec.Command("ip", "addr", "add", ipOnTheHost, "dev", "lo")
-			sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
-
-			cmd = exec.Command("ip", "netns", "exec", filepath.Base(containerNS.Path()), "ip", "route")
-			sess, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			mustSucceed("ip", "addr", "add", ipOnTheHost, "dev", "lo")
 
 			By("checking that the container can reach that endpoint")
-			cmd = exec.Command("ip", "netns", "exec", filepath.Base(containerNS.Path()), "ping", "-c", "1", ipOnTheHost)
-			sess, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			mustSucceedInContainer(containerNS, "ping", "-c", "1", ipOnTheHost)
 		})
 
 		It("allows the container to reach IP addresses on the internet", func() {
@@ -297,10 +280,10 @@ var _ = Describe("Acceptance", func() {
 			sourceIP := fmt.Sprintf("%s/32", cniResult.IPs[0].Address.IP.String())
 
 			By("installing the requisite iptables rule")
-			execAndExpectSuccess("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE")
+			mustSucceed("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE")
 
 			By("attempting to reach the internet from the container")
-			execInsideContainer(containerNS, "ping", "-c", "1", "8.8.8.8")
+			mustSucceedInContainer(containerNS, "ping", "-c", "1", "8.8.8.8")
 		})
 	})
 
@@ -455,7 +438,7 @@ func cniResultForCurrentVersion(output []byte) *current.Result {
 	return result
 }
 
-func execAndExpectSuccess(binary string, args ...string) string {
+func mustSucceed(binary string, args ...string) string {
 	cmd := exec.Command(binary, args...)
 	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
@@ -463,8 +446,8 @@ func execAndExpectSuccess(binary string, args ...string) string {
 	return string(sess.Out.Contents())
 }
 
-func execInsideContainer(containerNS ns.NetNS, binary string, args ...string) string {
+func mustSucceedInContainer(containerNS ns.NetNS, binary string, args ...string) string {
 	cmdArgs := []string{"netns", "exec", filepath.Base(containerNS.Path()), binary}
 	cmdArgs = append(cmdArgs, args...)
-	return execAndExpectSuccess("ip", cmdArgs...)
+	return mustSucceed("ip", cmdArgs...)
 }
