@@ -15,6 +15,7 @@ type linkOperations interface {
 	SetPointToPointAddress(link netlink.Link, localIPAddr, peerIPAddr net.IP) error
 	RenameLink(oldName, newName string) error
 	DeleteLinkByName(deviceName string) error
+	RouteAdd(route netlink.Route) error
 }
 
 //go:generate counterfeiter -o fakes/common.go --fake-name Common . common
@@ -42,6 +43,7 @@ type netlinkAdapter interface {
 	LinkDel(netlink.Link) error
 	LinkAdd(netlink.Link) error
 	LinkSetNsFd(netlink.Link, int) error
+	RouteAdd(route netlink.Route) error
 }
 
 //go:generate counterfeiter -o fakes/netNS.go --fake-name NetNS . netNS

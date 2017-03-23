@@ -25,6 +25,7 @@ type Config struct {
 		Namespace           netNS
 		Address             DualAddress
 		MTU                 int
+		Routes              []types.Route
 	}
 	Host struct {
 		DeviceName string

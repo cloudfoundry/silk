@@ -58,3 +58,7 @@ func (*NetlinkAdapter) LinkAdd(link netlink.Link) error {
 func (*NetlinkAdapter) LinkSetNsFd(link netlink.Link, fd int) error {
 	return netlink.LinkSetNsFd(link, fd)
 }
+
+func (*NetlinkAdapter) RouteAdd(route netlink.Route) error {
+	return netlink.RouteAdd(&route)
+}

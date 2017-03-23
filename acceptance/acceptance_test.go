@@ -225,6 +225,63 @@ var _ = Describe("Acceptance", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 		})
+
+		It("adds routes to the container", func() {
+			cniStdin = cniConfig("10.255.70.0/24", dataDir)
+
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			By("checking the routes are present inside the container")
+			err := containerNS.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
+
+				link, err := netlink.LinkByName("eth0")
+				Expect(err).NotTo(HaveOccurred())
+
+				routes, err := netlink.RouteList(link, netlink.FAMILY_V4)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(routes).To(HaveLen(2))
+
+				// the route returned by the IPAM result
+				Expect(routes[0].Dst).To(BeNil()) // same as 0.0.0.0/0
+				Expect(routes[0].Gw.String()).To(Equal("169.254.0.1"))
+
+				// the route created when the address is assigned
+				Expect(routes[1].Dst.String()).To(Equal("169.254.0.1/32"))
+				Expect(routes[1].Gw).To(BeNil())
+
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("allows the container to reach IP addresses on the host namespace", func() {
+			cniStdin = cniConfig("10.255.70.0/24", dataDir)
+
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			const ipOnTheHost = "169.254.50.50"
+
+			By("creating a endpoint on the host")
+			cmd := exec.Command("ip", "addr", "add", ipOnTheHost, "dev", "lo")
+			sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			cmd = exec.Command("ip", "netns", "exec", filepath.Base(containerNS.Path()), "ip", "route")
+			sess, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			By("checking that the container can reach that endpoint")
+			cmd = exec.Command("ip", "netns", "exec", filepath.Base(containerNS.Path()), "ping", "-c", "1", ipOnTheHost)
+			sess, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+		})
 	})
 
 	Describe("CNI version support", func() {
@@ -337,7 +394,6 @@ func cniConfig(subnet, dataDir string) string {
 						"type": "host-local",
 						"subnet": "%s",
 						"routes": [ { "dst": "0.0.0.0/0", "gw": "169.254.0.1" } ],
-            "gateway": "169.254.0.1",
 						"dataDir": "%s"
 				 }
 			}

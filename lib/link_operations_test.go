@@ -2,6 +2,7 @@ package lib_test
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
 	"github.com/cloudfoundry-incubator/silk/lib"
@@ -21,6 +22,7 @@ var _ = Describe("Link Operations", func() {
 		ipAddr             net.IP
 		peerIP             net.IP
 		hwAddr             net.HardwareAddr
+		route              netlink.Route
 	)
 
 	BeforeEach(func() {
@@ -42,6 +44,14 @@ var _ = Describe("Link Operations", func() {
 		peerIP = net.IP{169, 254, 0, 1}
 		hwAddr, err = net.ParseMAC("aa:aa:12:34:56:78")
 		Expect(err).NotTo(HaveOccurred())
+
+		route = netlink.Route{
+			Dst: &net.IPNet{
+				IP:   []byte{200, 201, 202, 203},
+				Mask: []byte{255, 255, 255, 255},
+			},
+			Gw: net.IP{10, 255, 30, 5},
+		}
 	})
 
 	Describe("Disable IPv6", func() {
@@ -229,4 +239,26 @@ var _ = Describe("Link Operations", func() {
 		})
 	})
 
+	Describe("RouteAdd", func() {
+		BeforeEach(func() {
+			fakeNetlinkAdapter.RouteAddReturns(nil)
+		})
+		It("adds the route", func() {
+			err := linkOperations.RouteAdd(route)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(fakeNetlinkAdapter.RouteAddCallCount()).To(Equal(1))
+			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(0)).To(Equal(route))
+		})
+
+		Context("when the route cannot be added", func() {
+			BeforeEach(func() {
+				fakeNetlinkAdapter.RouteAddReturns(errors.New("kiwi"))
+			})
+			It("returns a meaningful error", func() {
+				err := linkOperations.RouteAdd(route)
+				Expect(err).To(MatchError(fmt.Errorf("failed to add route %s: kiwi", route)))
+			})
+		})
+	})
 })

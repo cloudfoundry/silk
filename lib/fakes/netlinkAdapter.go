@@ -140,6 +140,17 @@ type NetlinkAdapter struct {
 	linkSetNsFdReturnsOnCall map[int]struct {
 		result1 error
 	}
+	RouteAddStub        func(route netlink.Route) error
+	routeAddMutex       sync.RWMutex
+	routeAddArgsForCall []struct {
+		route netlink.Route
+	}
+	routeAddReturns struct {
+		result1 error
+	}
+	routeAddReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -684,6 +695,54 @@ func (fake *NetlinkAdapter) LinkSetNsFdReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) RouteAdd(route netlink.Route) error {
+	fake.routeAddMutex.Lock()
+	ret, specificReturn := fake.routeAddReturnsOnCall[len(fake.routeAddArgsForCall)]
+	fake.routeAddArgsForCall = append(fake.routeAddArgsForCall, struct {
+		route netlink.Route
+	}{route})
+	fake.recordInvocation("RouteAdd", []interface{}{route})
+	fake.routeAddMutex.Unlock()
+	if fake.RouteAddStub != nil {
+		return fake.RouteAddStub(route)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.routeAddReturns.result1
+}
+
+func (fake *NetlinkAdapter) RouteAddCallCount() int {
+	fake.routeAddMutex.RLock()
+	defer fake.routeAddMutex.RUnlock()
+	return len(fake.routeAddArgsForCall)
+}
+
+func (fake *NetlinkAdapter) RouteAddArgsForCall(i int) netlink.Route {
+	fake.routeAddMutex.RLock()
+	defer fake.routeAddMutex.RUnlock()
+	return fake.routeAddArgsForCall[i].route
+}
+
+func (fake *NetlinkAdapter) RouteAddReturns(result1 error) {
+	fake.RouteAddStub = nil
+	fake.routeAddReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) RouteAddReturnsOnCall(i int, result1 error) {
+	fake.RouteAddStub = nil
+	if fake.routeAddReturnsOnCall == nil {
+		fake.routeAddReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.routeAddReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -709,6 +768,8 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.linkAddMutex.RUnlock()
 	fake.linkSetNsFdMutex.RLock()
 	defer fake.linkSetNsFdMutex.RUnlock()
+	fake.routeAddMutex.RLock()
+	defer fake.routeAddMutex.RUnlock()
 	return fake.invocations
 }
 

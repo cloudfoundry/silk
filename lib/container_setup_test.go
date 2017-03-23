@@ -7,8 +7,10 @@ import (
 	"github.com/cloudfoundry-incubator/silk/config"
 	"github.com/cloudfoundry-incubator/silk/lib"
 	"github.com/cloudfoundry-incubator/silk/lib/fakes"
+	"github.com/containernetworking/cni/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/vishvananda/netlink"
 )
 
 var _ = Describe("Container Setup", func() {
@@ -38,6 +40,28 @@ var _ = Describe("Container Setup", func() {
 		cfg.Container.TemporaryDeviceName = "someTemporaryDeviceName"
 		cfg.Container.Address = containerAddr
 		cfg.Host.Address = hostAddr
+		cfg.Container.Routes = []types.Route{
+			types.Route{
+				Dst: net.IPNet{
+					IP:   []byte{50, 51, 52, 53},
+					Mask: []byte{255, 255, 255, 255},
+				},
+			},
+			types.Route{
+				Dst: net.IPNet{
+					IP:   []byte{150, 151, 152, 153},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				GW: net.IP{10, 150, 25, 2},
+			},
+			types.Route{
+				Dst: net.IPNet{
+					IP:   []byte{250, 251, 252, 0},
+					Mask: []byte{255, 255, 255, 0},
+				},
+				GW: net.IP{10, 250, 25, 2},
+			},
+		}
 
 		containerSetup = &lib.Container{
 			Common:         fakeCommon,
@@ -60,6 +84,32 @@ var _ = Describe("Container Setup", func() {
 			Expect(device).To(Equal("eth0"))
 			Expect(local).To(Equal(containerAddr))
 			Expect(peer).To(Equal(hostAddr))
+
+			By("Adding all the routes")
+			Expect(fakeLinkOperations.RouteAddCallCount()).To(Equal(3))
+			Expect(fakeLinkOperations.RouteAddArgsForCall(0)).To(Equal(netlink.Route{
+				Src: containerAddr.IP,
+				Dst: &net.IPNet{
+					IP:   []byte{50, 51, 52, 53},
+					Mask: []byte{255, 255, 255, 255},
+				},
+			}))
+			Expect(fakeLinkOperations.RouteAddArgsForCall(1)).To(Equal(netlink.Route{
+				Src: containerAddr.IP,
+				Dst: &net.IPNet{
+					IP:   []byte{150, 151, 152, 153},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				Gw: net.IP{10, 150, 25, 2},
+			}))
+			Expect(fakeLinkOperations.RouteAddArgsForCall(2)).To(Equal(netlink.Route{
+				Src: containerAddr.IP,
+				Dst: &net.IPNet{
+					IP:   []byte{250, 251, 252, 0},
+					Mask: []byte{255, 255, 255, 0},
+				},
+				Gw: net.IP{10, 250, 25, 2},
+			}))
 		})
 
 		Context("when renaming the link fails", func() {
@@ -79,6 +129,23 @@ var _ = Describe("Container Setup", func() {
 			It("returns a meaningul error", func() {
 				err := containerSetup.Setup(cfg)
 				Expect(err).To(MatchError("setting up device in container: lettuce"))
+			})
+		})
+
+		Context("when adding one of the routes fails", func() {
+			BeforeEach(func() {
+				fakeLinkOperations.RouteAddStub = func(route netlink.Route) error {
+					if route.Gw.String() == "10.150.25.2" {
+						return errors.New("pickle")
+					}
+					return nil
+				}
+			})
+			It("returns a meaningul error", func() {
+				err := containerSetup.Setup(cfg)
+				Expect(err).To(MatchError("adding route in container: pickle"))
+
+				Expect(fakeLinkOperations.RouteAddCallCount()).To(Equal(2))
 			})
 		})
 	})
