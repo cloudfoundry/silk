@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os/exec"
@@ -46,6 +47,7 @@ var _ = Describe("Acceptance", func() {
 
 	AfterEach(func() {
 		containerNS.Close() // don't bother checking errors here
+		execAndExpectSuccess("iptables", "-t", "nat", "-F")
 	})
 
 	Describe("veth devices", func() {
@@ -282,6 +284,24 @@ var _ = Describe("Acceptance", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 		})
+
+		It("allows the container to reach IP addresses on the internet", func() {
+			By("running the CNI command")
+			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			By("discovering the container IP")
+			var cniResult current.Result
+			Expect(json.Unmarshal(sess.Out.Contents(), &cniResult)).To(Succeed())
+			sourceIP := fmt.Sprintf("%s/32", cniResult.IPs[0].Address.IP.String())
+
+			By("installing the requisite iptables rule")
+			execAndExpectSuccess("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE")
+
+			By("attempting to reach the internet from the container")
+			execInsideContainer(containerNS, "ping", "-c", "1", "8.8.8.8")
+		})
 	})
 
 	Describe("CNI version support", func() {
@@ -433,4 +453,18 @@ func cniResultForCurrentVersion(output []byte) *current.Result {
 	Expect(err).NotTo(HaveOccurred())
 
 	return result
+}
+
+func execAndExpectSuccess(binary string, args ...string) string {
+	cmd := exec.Command(binary, args...)
+	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+	return string(sess.Out.Contents())
+}
+
+func execInsideContainer(containerNS ns.NetNS, binary string, args ...string) string {
+	cmdArgs := []string{"netns", "exec", filepath.Base(containerNS.Path()), binary}
+	cmdArgs = append(cmdArgs, args...)
+	return execAndExpectSuccess("ip", cmdArgs...)
 }

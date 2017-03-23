@@ -82,6 +82,15 @@ type LinkOperations struct {
 	routeAddAllReturnsOnCall map[int]struct {
 		result1 error
 	}
+	EnableIPv4ForwardingStub        func() error
+	enableIPv4ForwardingMutex       sync.RWMutex
+	enableIPv4ForwardingArgsForCall []struct{}
+	enableIPv4ForwardingReturns     struct {
+		result1 error
+	}
+	enableIPv4ForwardingReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -385,6 +394,46 @@ func (fake *LinkOperations) RouteAddAllReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *LinkOperations) EnableIPv4Forwarding() error {
+	fake.enableIPv4ForwardingMutex.Lock()
+	ret, specificReturn := fake.enableIPv4ForwardingReturnsOnCall[len(fake.enableIPv4ForwardingArgsForCall)]
+	fake.enableIPv4ForwardingArgsForCall = append(fake.enableIPv4ForwardingArgsForCall, struct{}{})
+	fake.recordInvocation("EnableIPv4Forwarding", []interface{}{})
+	fake.enableIPv4ForwardingMutex.Unlock()
+	if fake.EnableIPv4ForwardingStub != nil {
+		return fake.EnableIPv4ForwardingStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.enableIPv4ForwardingReturns.result1
+}
+
+func (fake *LinkOperations) EnableIPv4ForwardingCallCount() int {
+	fake.enableIPv4ForwardingMutex.RLock()
+	defer fake.enableIPv4ForwardingMutex.RUnlock()
+	return len(fake.enableIPv4ForwardingArgsForCall)
+}
+
+func (fake *LinkOperations) EnableIPv4ForwardingReturns(result1 error) {
+	fake.EnableIPv4ForwardingStub = nil
+	fake.enableIPv4ForwardingReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *LinkOperations) EnableIPv4ForwardingReturnsOnCall(i int, result1 error) {
+	fake.EnableIPv4ForwardingStub = nil
+	if fake.enableIPv4ForwardingReturnsOnCall == nil {
+		fake.enableIPv4ForwardingReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.enableIPv4ForwardingReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *LinkOperations) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -400,6 +449,8 @@ func (fake *LinkOperations) Invocations() map[string][][]interface{} {
 	defer fake.deleteLinkByNameMutex.RUnlock()
 	fake.routeAddAllMutex.RLock()
 	defer fake.routeAddAllMutex.RUnlock()
+	fake.enableIPv4ForwardingMutex.RLock()
+	defer fake.enableIPv4ForwardingMutex.RUnlock()
 	return fake.invocations
 }
 

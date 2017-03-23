@@ -93,6 +93,29 @@ var _ = Describe("Link Operations", func() {
 		})
 	})
 
+	Describe("EnableIPv4Forwarding", func() {
+		It("calls the sysctl adapter to enable IPv4 forwarding", func() {
+			err := linkOperations.EnableIPv4Forwarding()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(fakeSysctlAdapter.SysctlCallCount()).To(Equal(1))
+			name, params := fakeSysctlAdapter.SysctlArgsForCall(0)
+			Expect(name).To(Equal("net.ipv4.ip_forward"))
+			Expect(len(params)).To(Equal(1))
+			Expect(params[0]).To(Equal("1"))
+		})
+
+		Context("when the sysctl command fails", func() {
+			BeforeEach(func() {
+				fakeSysctlAdapter.SysctlReturns("", errors.New("cuttlefish"))
+			})
+			It("returns a meaningful error", func() {
+				err := linkOperations.EnableIPv4Forwarding()
+				Expect(err).To(MatchError("enabling IPv4 forwarding: cuttlefish"))
+			})
+		})
+	})
+
 	Describe("StaticNeighborNoARP", func() {
 		It("calls the netlink adapter to disable ARP", func() {
 			err := linkOperations.StaticNeighborNoARP(fakeLink, ipAddr, hwAddr)

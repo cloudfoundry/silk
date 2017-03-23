@@ -23,6 +23,14 @@ func (s *LinkOperations) DisableIPv6(deviceName string) error {
 	return nil
 }
 
+func (s *LinkOperations) EnableIPv4Forwarding() error {
+	_, err := s.SysctlAdapter.Sysctl("net.ipv4.ip_forward", "1")
+	if err != nil {
+		return fmt.Errorf("enabling IPv4 forwarding: %s", err)
+	}
+	return nil
+}
+
 // StaticNeighborNoARP disables ARP on the link and installs a single permanent neighbor rule
 // that resolves the given destIP to the given hardware address
 func (s *LinkOperations) StaticNeighborNoARP(link netlink.Link, destIP net.IP, hwAddr net.HardwareAddr) error {

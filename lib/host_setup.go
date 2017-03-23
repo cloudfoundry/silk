@@ -8,7 +8,8 @@ import (
 )
 
 type Host struct {
-	Common common
+	Common         common
+	LinkOperations linkOperations
 }
 
 // Setup will configure the network stack on the host
@@ -21,6 +22,10 @@ func (h *Host) Setup(cfg *config.Config) error {
 	return cfg.Host.Namespace.Do(func(_ ns.NetNS) error {
 		if err := h.Common.BasicSetup(deviceName, local, peer); err != nil {
 			return fmt.Errorf("setting up device in host: %s", err)
+		}
+
+		if err := h.LinkOperations.EnableIPv4Forwarding(); err != nil {
+			return fmt.Errorf("enabling packet forwarding on host: %s", err)
 		}
 		return nil
 	})

@@ -53,7 +53,8 @@ func main() {
 			NetlinkAdapter: netlinkAdapter,
 		},
 		Host: &lib.Host{
-			Common: commonSetup,
+			Common:         commonSetup,
+			LinkOperations: linkOperations,
 		},
 		Container: &lib.Container{
 			Common:         commonSetup,

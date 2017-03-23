@@ -31,8 +31,9 @@ else
   docker run --privileged \
      --rm \
      -it \
+     -e GOPATH=/go \
      -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
      -w /go/src/github.com/cloudfoundry-incubator/silk \
-     golang \
+     c2cnetworking/dev-postgres \
      ./scripts/test.sh "$@"
 fi

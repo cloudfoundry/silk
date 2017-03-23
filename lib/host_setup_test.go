@@ -18,6 +18,7 @@ var _ = Describe("Host Setup", func() {
 		cfg                *config.Config
 		fakeLinkOperations *fakes.LinkOperations
 		fakeCommon         *fakes.Common
+		fakeIPAdapter      *fakes.IPAdapter
 		hostSetup          *lib.Host
 		containerAddr      config.DualAddress
 		hostAddr           config.DualAddress
@@ -26,6 +27,7 @@ var _ = Describe("Host Setup", func() {
 	BeforeEach(func() {
 		fakeLinkOperations = &fakes.LinkOperations{}
 		fakeCommon = &fakes.Common{}
+		fakeIPAdapter = &fakes.IPAdapter{}
 		hostNS = &fakes.NetNS{}
 		hostNS.DoStub = lib.NetNsDoStub
 
@@ -39,7 +41,8 @@ var _ = Describe("Host Setup", func() {
 		cfg.Host.Address = hostAddr
 
 		hostSetup = &lib.Host{
-			Common: fakeCommon,
+			Common:         fakeCommon,
+			LinkOperations: fakeLinkOperations,
 		}
 	})
 
@@ -55,13 +58,30 @@ var _ = Describe("Host Setup", func() {
 			Expect(peer).To(Equal(containerAddr))
 		})
 
+		It("enables IPv4 forwarding on the host", func() {
+			err := hostSetup.Setup(cfg)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(fakeLinkOperations.EnableIPv4ForwardingCallCount()).To(Equal(1))
+		})
+
 		Context("when the basic device setup fails", func() {
 			BeforeEach(func() {
 				fakeCommon.BasicSetupReturns(errors.New("beans"))
 			})
-			It("returns a meaningul error", func() {
+			It("returns a meaningful error", func() {
 				err := hostSetup.Setup(cfg)
 				Expect(err).To(MatchError("setting up device in host: beans"))
+			})
+		})
+
+		Context("when enabling packet forwarding fails", func() {
+			BeforeEach(func() {
+				fakeLinkOperations.EnableIPv4ForwardingReturns(errors.New("beans"))
+			})
+			It("returns a meaningful error", func() {
+				err := hostSetup.Setup(cfg)
+				Expect(err).To(MatchError("enabling packet forwarding on host: beans"))
 			})
 		})
 	})
