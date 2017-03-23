@@ -166,7 +166,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("enables connectivity between the host and container", func() {
-			cniStdin = cniConfig("10.255.50.0/24", dataDir)
+			cniStdin = cniConfig("10.255.30.0/24", dataDir)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -175,14 +175,14 @@ var _ = Describe("Acceptance", func() {
 			// This does *not* fail as expected on Docker, but
 			// does properly fail in Concourse (Garden).
 			// see: https://github.com/docker/for-mac/issues/57
-			mustSucceed("ping", "-c", "1", "10.255.50.1")
+			mustSucceed("ping", "-c", "1", "10.255.30.1")
 
 			By("enabling connectivity from the container to the host")
 			mustSucceedInContainer(containerNS, "ping", "-c", "1", "169.254.0.1")
 		})
 
 		It("turns off ARP for veth devices", func() {
-			cniStdin = cniConfig("10.255.60.0/24", dataDir)
+			cniStdin = cniConfig("10.255.30.0/24", dataDir)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -195,8 +195,8 @@ var _ = Describe("Acceptance", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(neighs).To(HaveLen(1))
-			Expect(neighs[0].IP.String()).To(Equal("10.255.60.1"))
-			Expect(neighs[0].HardwareAddr.String()).To(Equal("ee:ee:0a:ff:3c:01"))
+			Expect(neighs[0].IP.String()).To(Equal("10.255.30.1"))
+			Expect(neighs[0].HardwareAddr.String()).To(Equal("ee:ee:0a:ff:1e:01"))
 			Expect(neighs[0].State).To(Equal(netlink.NUD_PERMANENT))
 
 			By("checking the container side")
@@ -212,7 +212,7 @@ var _ = Describe("Acceptance", func() {
 
 				Expect(neighs).To(HaveLen(1))
 				Expect(neighs[0].IP.String()).To(Equal("169.254.0.1"))
-				Expect(neighs[0].HardwareAddr.String()).To(Equal("aa:aa:0a:ff:3c:01"))
+				Expect(neighs[0].HardwareAddr.String()).To(Equal("aa:aa:0a:ff:1e:01"))
 				Expect(neighs[0].State).To(Equal(netlink.NUD_PERMANENT))
 
 				Expect(err).NotTo(HaveOccurred())
@@ -223,7 +223,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("adds routes to the container", func() {
-			cniStdin = cniConfig("10.255.70.0/24", dataDir)
+			cniStdin = cniConfig("10.255.30.0/24", dataDir)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -254,7 +254,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("allows the container to reach IP addresses on the host namespace", func() {
-			cniStdin = cniConfig("10.255.70.0/24", dataDir)
+			cniStdin = cniConfig("10.255.30.0/24", dataDir)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -336,7 +336,7 @@ var _ = Describe("Acceptance", func() {
 			containerNSList []ns.NetNS
 		)
 		BeforeEach(func() {
-			cniStdin = cniConfig("10.255.40.0/30", dataDir)
+			cniStdin = cniConfig("10.255.30.0/30", dataDir)
 			for i := 0; i < 3; i++ {
 				containerNS, err := ns.NewNS()
 				Expect(err).NotTo(HaveOccurred())
@@ -360,7 +360,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
-			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.1/32"))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.1/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
 			cniEnv["CNI_NETNS"] = containerNSList[1].Path()
@@ -372,7 +372,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Interface).To(Equal(1))
-			Expect(result.IPs[0].Address.String()).To(Equal("10.255.40.2/32"))
+			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.2/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
 			cniEnv["CNI_NETNS"] = containerNSList[2].Path()
