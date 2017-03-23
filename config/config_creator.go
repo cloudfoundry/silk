@@ -7,7 +7,6 @@ import (
 
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
-	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
@@ -80,12 +79,7 @@ func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResul
 		return nil, fmt.Errorf("generating host veth hardware address: %s", err)
 	}
 
-	for _, r := range ipamResult.Routes {
-		conf.Container.Routes = append(conf.Container.Routes, types.Route{
-			Dst: r.Dst,
-			GW:  r.GW,
-		})
-	}
+	conf.Container.Routes = ipamResult.Routes
 
 	return &conf, nil
 }

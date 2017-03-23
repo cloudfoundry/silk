@@ -25,7 +25,7 @@ type Config struct {
 		Namespace           netNS
 		Address             DualAddress
 		MTU                 int
-		Routes              []types.Route
+		Routes              []*types.Route
 	}
 	Host struct {
 		DeviceName string
@@ -59,15 +59,7 @@ func (c *Config) AsCNIResult() *current.Result {
 				Gateway: c.Host.Address.IP,
 			},
 		},
-		Routes: []*types.Route{
-			&types.Route{
-				Dst: net.IPNet{
-					IP:   net.IPv4zero,
-					Mask: net.IPv4Mask(0, 0, 0, 0),
-				},
-				GW: c.Host.Address.IP,
-			},
-		},
-		DNS: types.DNS{},
+		Routes: c.Container.Routes,
+		DNS:    types.DNS{},
 	}
 }

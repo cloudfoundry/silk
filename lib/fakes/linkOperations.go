@@ -5,6 +5,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
 )
 
@@ -69,15 +70,16 @@ type LinkOperations struct {
 	deleteLinkByNameReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RouteAddStub        func(route netlink.Route) error
-	routeAddMutex       sync.RWMutex
-	routeAddArgsForCall []struct {
-		route netlink.Route
+	RouteAddAllStub        func(route []*types.Route, sourceIP net.IP) error
+	routeAddAllMutex       sync.RWMutex
+	routeAddAllArgsForCall []struct {
+		route    []*types.Route
+		sourceIP net.IP
 	}
-	routeAddReturns struct {
+	routeAddAllReturns struct {
 		result1 error
 	}
-	routeAddReturnsOnCall map[int]struct {
+	routeAddAllReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
@@ -329,50 +331,56 @@ func (fake *LinkOperations) DeleteLinkByNameReturnsOnCall(i int, result1 error) 
 	}{result1}
 }
 
-func (fake *LinkOperations) RouteAdd(route netlink.Route) error {
-	fake.routeAddMutex.Lock()
-	ret, specificReturn := fake.routeAddReturnsOnCall[len(fake.routeAddArgsForCall)]
-	fake.routeAddArgsForCall = append(fake.routeAddArgsForCall, struct {
-		route netlink.Route
-	}{route})
-	fake.recordInvocation("RouteAdd", []interface{}{route})
-	fake.routeAddMutex.Unlock()
-	if fake.RouteAddStub != nil {
-		return fake.RouteAddStub(route)
+func (fake *LinkOperations) RouteAddAll(route []*types.Route, sourceIP net.IP) error {
+	var routeCopy []*types.Route
+	if route != nil {
+		routeCopy = make([]*types.Route, len(route))
+		copy(routeCopy, route)
+	}
+	fake.routeAddAllMutex.Lock()
+	ret, specificReturn := fake.routeAddAllReturnsOnCall[len(fake.routeAddAllArgsForCall)]
+	fake.routeAddAllArgsForCall = append(fake.routeAddAllArgsForCall, struct {
+		route    []*types.Route
+		sourceIP net.IP
+	}{routeCopy, sourceIP})
+	fake.recordInvocation("RouteAddAll", []interface{}{routeCopy, sourceIP})
+	fake.routeAddAllMutex.Unlock()
+	if fake.RouteAddAllStub != nil {
+		return fake.RouteAddAllStub(route, sourceIP)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.routeAddReturns.result1
+	return fake.routeAddAllReturns.result1
 }
 
-func (fake *LinkOperations) RouteAddCallCount() int {
-	fake.routeAddMutex.RLock()
-	defer fake.routeAddMutex.RUnlock()
-	return len(fake.routeAddArgsForCall)
+func (fake *LinkOperations) RouteAddAllCallCount() int {
+	fake.routeAddAllMutex.RLock()
+	defer fake.routeAddAllMutex.RUnlock()
+	return len(fake.routeAddAllArgsForCall)
 }
 
-func (fake *LinkOperations) RouteAddArgsForCall(i int) netlink.Route {
-	fake.routeAddMutex.RLock()
-	defer fake.routeAddMutex.RUnlock()
-	return fake.routeAddArgsForCall[i].route
+func (fake *LinkOperations) RouteAddAllArgsForCall(i int) ([]*types.Route, net.IP) {
+	fake.routeAddAllMutex.RLock()
+	defer fake.routeAddAllMutex.RUnlock()
+	return fake.routeAddAllArgsForCall[i].route, fake.routeAddAllArgsForCall[i].sourceIP
 }
 
-func (fake *LinkOperations) RouteAddReturns(result1 error) {
-	fake.RouteAddStub = nil
-	fake.routeAddReturns = struct {
+func (fake *LinkOperations) RouteAddAllReturns(result1 error) {
+	fake.RouteAddAllStub = nil
+	fake.routeAddAllReturns = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *LinkOperations) RouteAddReturnsOnCall(i int, result1 error) {
-	fake.RouteAddStub = nil
-	if fake.routeAddReturnsOnCall == nil {
-		fake.routeAddReturnsOnCall = make(map[int]struct {
+func (fake *LinkOperations) RouteAddAllReturnsOnCall(i int, result1 error) {
+	fake.RouteAddAllStub = nil
+	if fake.routeAddAllReturnsOnCall == nil {
+		fake.routeAddAllReturnsOnCall = make(map[int]struct {
 			result1 error
 		})
 	}
-	fake.routeAddReturnsOnCall[i] = struct {
+	fake.routeAddAllReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -390,8 +398,8 @@ func (fake *LinkOperations) Invocations() map[string][][]interface{} {
 	defer fake.renameLinkMutex.RUnlock()
 	fake.deleteLinkByNameMutex.RLock()
 	defer fake.deleteLinkByNameMutex.RUnlock()
-	fake.routeAddMutex.RLock()
-	defer fake.routeAddMutex.RUnlock()
+	fake.routeAddAllMutex.RLock()
+	defer fake.routeAddAllMutex.RUnlock()
 	return fake.invocations
 }
 

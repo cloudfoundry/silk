@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
 )
 
@@ -89,6 +90,21 @@ func (s *LinkOperations) RouteAdd(route netlink.Route) error {
 	err := s.NetlinkAdapter.RouteAdd(route)
 	if err != nil {
 		return fmt.Errorf("failed to add route %s: %s", route, err)
+	}
+	return nil
+}
+
+func (s *LinkOperations) RouteAddAll(routes []*types.Route, sourceIP net.IP) error {
+	for _, r := range routes {
+		dst := r.Dst
+		err := s.NetlinkAdapter.RouteAdd(netlink.Route{
+			Src: sourceIP,
+			Dst: &dst,
+			Gw:  r.GW,
+		})
+		if err != nil {
+			return fmt.Errorf("adding route in container: %s", err)
+		}
 	}
 	return nil
 }

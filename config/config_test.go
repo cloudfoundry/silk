@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/silk/config"
 	"github.com/cloudfoundry-incubator/silk/config/fakes"
+	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,6 +26,16 @@ var _ = Describe("Config", func() {
 		cfg.Host.DeviceName = "host-device-name"
 		cfg.Host.Address.IP = net.IP{169, 254, 0, 1}
 		cfg.Host.Address.Hardware = net.HardwareAddr{0xdd, 0xdd, 0x03, 0x0A, 0xBC, 0xDE}
+
+		cfg.Container.Routes = []*types.Route{
+			&types.Route{
+				Dst: net.IPNet{
+					IP:   net.IP{1, 1, 0, 0},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				GW: net.IP{1, 1, 0, 0},
+			},
+		}
 	})
 
 	AfterEach(func() {
@@ -52,9 +63,7 @@ var _ = Describe("Config", func() {
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.5/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
-			Expect(result.Routes).To(HaveLen(1))
-			Expect(result.Routes[0].Dst.String()).To(Equal("0.0.0.0/0"))
-			Expect(result.Routes[0].GW).To(Equal(cfg.Host.Address.IP))
+			Expect(result.Routes).To(ConsistOf(cfg.Container.Routes))
 		})
 	})
 })

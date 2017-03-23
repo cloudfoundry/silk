@@ -393,6 +393,7 @@ func cniConfig(subnet, dataDir string) string {
 				"ipam": {
 						"type": "host-local",
 						"subnet": "%s",
+						"gateway": "169.254.0.1",
 						"routes": [ { "dst": "0.0.0.0/0", "gw": "169.254.0.1" } ],
 						"dataDir": "%s"
 				 }

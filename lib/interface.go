@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/silk/config"
 	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
 )
 
@@ -15,7 +16,7 @@ type linkOperations interface {
 	SetPointToPointAddress(link netlink.Link, localIPAddr, peerIPAddr net.IP) error
 	RenameLink(oldName, newName string) error
 	DeleteLinkByName(deviceName string) error
-	RouteAdd(route netlink.Route) error
+	RouteAddAll(route []*types.Route, sourceIP net.IP) error
 }
 
 //go:generate counterfeiter -o fakes/common.go --fake-name Common . common

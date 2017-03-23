@@ -2,11 +2,11 @@ package lib_test
 
 import (
 	"errors"
-	"fmt"
 	"net"
 
 	"github.com/cloudfoundry-incubator/silk/lib"
 	"github.com/cloudfoundry-incubator/silk/lib/fakes"
+	"github.com/containernetworking/cni/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
@@ -22,7 +22,7 @@ var _ = Describe("Link Operations", func() {
 		ipAddr             net.IP
 		peerIP             net.IP
 		hwAddr             net.HardwareAddr
-		route              netlink.Route
+		routes             []*types.Route
 	)
 
 	BeforeEach(func() {
@@ -45,12 +45,28 @@ var _ = Describe("Link Operations", func() {
 		hwAddr, err = net.ParseMAC("aa:aa:12:34:56:78")
 		Expect(err).NotTo(HaveOccurred())
 
-		route = netlink.Route{
-			Dst: &net.IPNet{
-				IP:   []byte{200, 201, 202, 203},
-				Mask: []byte{255, 255, 255, 255},
+		routes = []*types.Route{
+			&types.Route{
+				Dst: net.IPNet{
+					IP:   []byte{200, 201, 202, 203},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				GW: net.IP{10, 255, 30, 2},
 			},
-			Gw: net.IP{10, 255, 30, 5},
+			&types.Route{
+				Dst: net.IPNet{
+					IP:   []byte{100, 101, 102, 103},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				GW: net.IP{10, 255, 30, 1},
+			},
+			&types.Route{
+				Dst: net.IPNet{
+					IP:   []byte{0, 1, 2, 3},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				GW: net.IP{10, 255, 30, 0},
+			},
 		}
 	})
 
@@ -70,7 +86,7 @@ var _ = Describe("Link Operations", func() {
 			BeforeEach(func() {
 				fakeSysctlAdapter.SysctlReturns("", errors.New("cuttlefish"))
 			})
-			It("returns a meaningul error", func() {
+			It("returns a meaningful error", func() {
 				err := linkOperations.DisableIPv6("someDevice")
 				Expect(err).To(MatchError("disabling IPv6: cuttlefish"))
 			})
@@ -239,25 +255,55 @@ var _ = Describe("Link Operations", func() {
 		})
 	})
 
-	Describe("RouteAdd", func() {
+	Describe("RouteAddAll", func() {
 		BeforeEach(func() {
 			fakeNetlinkAdapter.RouteAddReturns(nil)
 		})
-		It("adds the route", func() {
-			err := linkOperations.RouteAdd(route)
+		It("adds all routes", func() {
+			err := linkOperations.RouteAddAll(routes, ipAddr)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(fakeNetlinkAdapter.RouteAddCallCount()).To(Equal(1))
-			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(0)).To(Equal(route))
+			Expect(fakeNetlinkAdapter.RouteAddCallCount()).To(Equal(3))
+			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(0)).To(Equal(netlink.Route{
+				Src: ipAddr,
+				Dst: &net.IPNet{
+					IP:   []byte{200, 201, 202, 203},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				Gw: net.IP{10, 255, 30, 2},
+			}))
+			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(1)).To(Equal(netlink.Route{
+				Src: ipAddr,
+				Dst: &net.IPNet{
+					IP:   []byte{100, 101, 102, 103},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				Gw: net.IP{10, 255, 30, 1},
+			}))
+			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(2)).To(Equal(netlink.Route{
+				Src: ipAddr,
+				Dst: &net.IPNet{
+					IP:   []byte{0, 1, 2, 3},
+					Mask: []byte{255, 255, 255, 255},
+				},
+				Gw: net.IP{10, 255, 30, 0},
+			}))
 		})
 
-		Context("when the route cannot be added", func() {
+		Context("when adding on of the routes fails", func() {
 			BeforeEach(func() {
-				fakeNetlinkAdapter.RouteAddReturns(errors.New("kiwi"))
+				fakeNetlinkAdapter.RouteAddStub = func(route netlink.Route) error {
+					if route.Gw.String() == "10.255.30.1" {
+						return errors.New("pickle")
+					}
+					return nil
+				}
 			})
 			It("returns a meaningful error", func() {
-				err := linkOperations.RouteAdd(route)
-				Expect(err).To(MatchError(fmt.Errorf("failed to add route %s: kiwi", route)))
+				err := linkOperations.RouteAddAll(routes, ipAddr)
+				Expect(err).To(MatchError("adding route in container: pickle"))
+
+				Expect(fakeNetlinkAdapter.RouteAddCallCount()).To(Equal(2))
 			})
 		})
 	})

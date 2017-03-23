@@ -90,21 +90,7 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.Container.Namespace).To(Equal(containerNS))
 			Expect(conf.Container.Address.IP).To(Equal(ipamResult.IPs[0].Address.IP))
 			Expect(conf.Container.Address.Hardware).To(Equal(containerMAC))
-			Expect(conf.Container.Routes).To(Equal([]types.Route{
-				types.Route{
-					Dst: net.IPNet{
-						IP:   []byte{100, 101, 102, 103},
-						Mask: []byte{255, 255, 255, 255},
-					},
-				},
-				types.Route{
-					Dst: net.IPNet{
-						IP:   []byte{200, 201, 202, 203},
-						Mask: []byte{255, 255, 255, 255},
-					},
-					GW: net.IP{10, 255, 30, 5},
-				},
-			}))
+			Expect(conf.Container.Routes).To(Equal(ipamResult.Routes))
 			Expect(conf.Container.MTU).To(Equal(1500))
 		})
 

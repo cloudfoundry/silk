@@ -5,7 +5,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/silk/config"
 	"github.com/containernetworking/cni/pkg/ns"
-	"github.com/vishvananda/netlink"
 )
 
 type Container struct {
@@ -43,17 +42,10 @@ func (c *Container) Setup(cfg *config.Config) error {
 			return fmt.Errorf("setting up device in container: %s", err)
 		}
 
-		for _, route := range cfg.Container.Routes {
-			dst := route.Dst
-			err := c.LinkOperations.RouteAdd(netlink.Route{
-				Src: cfg.Container.Address.IP,
-				Dst: &dst,
-				Gw:  route.GW,
-			})
-			if err != nil {
-				return fmt.Errorf("adding route in container: %s", err)
-			}
+		if err := c.LinkOperations.RouteAddAll(cfg.Container.Routes, cfg.Container.Address.IP); err != nil {
+			return fmt.Errorf("adding route in container: %s", err)
 		}
+
 		return nil
 	})
 }
