@@ -3,7 +3,7 @@ platform: linux
 
 image_resource:
   type: docker-image
-  source: { repository: golang }
+  source: { repository: c2cnetworking/dev-postgres }
 
 inputs:
   - name: silk
@@ -16,4 +16,5 @@ run:
     - |
       export GOPATH=${PWD}/go && \
       export PATH=$PATH:$GOPATH/bin && \
+      export POSTGRES=true && \
       $GOPATH/src/github.com/cloudfoundry-incubator/silk/scripts/test.sh

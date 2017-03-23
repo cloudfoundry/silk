@@ -4,10 +4,35 @@ set -e -u
 ROOT_DIR_PATH=$(cd $(dirname $0)/.. && pwd)
 cd $ROOT_DIR_PATH
 
-docker run --privileged \
-   --rm \
-   -it \
-   -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
-   -w /go/src/github.com/cloudfoundry-incubator/silk \
-   golang \
-   ./scripts/test.sh "$@"
+if [ ${MYSQL:-"false"} = "true" ]; then
+  echo "running tests with MYSQL"
+  docker run --privileged \
+     --rm \
+     -it \
+     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -e GOPATH=/go \
+     -e MYSQL=true \
+     -w /go/src/github.com/cloudfoundry-incubator/silk \
+     c2cnetworking/dev-mysql \
+     ./scripts/test.sh "$@"
+elif [ ${POSTGRES:-"false"} = "true" ]; then
+  echo "running tests with POSTRGRES"
+  docker run --privileged \
+     --rm \
+     -it \
+     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -e GOPATH=/go \
+     -e POSTGRES=true \
+     -w /go/src/github.com/cloudfoundry-incubator/silk \
+     c2cnetworking/dev-postgres \
+     ./scripts/test.sh "$@"
+else
+  echo "running tests with no DB"
+  docker run --privileged \
+     --rm \
+     -it \
+     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -w /go/src/github.com/cloudfoundry-incubator/silk \
+     golang \
+     ./scripts/test.sh "$@"
+fi
