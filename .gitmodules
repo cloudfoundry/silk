@@ -28,3 +28,6 @@
 [submodule "vendor/github.com/lib/pq"]
 	path = vendor/github.com/lib/pq
 	url = https://github.com/lib/pq
+[submodule "vendor/github.com/ziutek/utils"]
+	path = vendor/github.com/ziutek/utils
+	url = https://github.com/ziutek/utils

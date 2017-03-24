@@ -1,7 +1,10 @@
 package config
 
 type Config struct {
-	Database DatabaseConfig `json:"database"`
+	UnderlayIP  string         `json:"underlay_ip"`
+	SubnetRange string         `json:"subnet_range"`
+	SubnetMask  string         `json:"subnet_mask"`
+	Database    DatabaseConfig `json:"database"`
 }
 
 type DatabaseConfig struct {

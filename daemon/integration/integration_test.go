@@ -18,7 +18,10 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var DEFAULT_TIMEOUT = "5s"
+var (
+	DEFAULT_TIMEOUT = "5s"
+	underlayIP      string
+)
 
 var _ = Describe("Daemon Integration", func() {
 	var (
@@ -28,6 +31,8 @@ var _ = Describe("Daemon Integration", func() {
 	)
 
 	BeforeEach(func() {
+		underlayIP = "10.244.4.4"
+
 		dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
 		dbConnectionInfo, err := testsupport.GetDBConnectionInfo()
 		Expect(err).NotTo(HaveOccurred())
@@ -67,18 +72,23 @@ var _ = Describe("Daemon Integration", func() {
 		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
 	})
 
-	It("runs the SQL migrations", func() {
+	It("assigns a subnet to the vm and stores it in the database", func() {
 		Eventually(session.Out.Contents, "5s").Should(ContainSubstring("db migration complete"))
 
 		db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
 		Expect(err).NotTo(HaveOccurred())
+		defer db.Close()
 
-		rows, err := db.Query("SELECT * FROM subnets")
+		rows, err := db.Query(fmt.Sprintf("SELECT subnet FROM subnets WHERE underlay_ip='%s'", underlayIP))
+		Expect(err).NotTo(HaveOccurred())
+		defer rows.Close()
+
+		Expect(rows.Next()).To(BeTrue())
+		var subnet string
+		err = rows.Scan(&subnet)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rows.Next()).To(BeFalse())
-
-		err = db.Close()
-		Expect(err).NotTo(HaveOccurred())
+		Expect(subnet).To(Equal("10.255.2.0/24"))
 	})
 })
 
@@ -95,6 +105,9 @@ func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
 	}
 
 	return config.Config{
+		UnderlayIP:  underlayIP,
+		SubnetRange: "10.255.0.0/16",
+		SubnetMask:  "24",
 		Database: config.DatabaseConfig{
 			Type:             d.ConnInfo.Type,
 			ConnectionString: connectionString,

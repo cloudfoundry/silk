@@ -8,13 +8,13 @@ import (
 	"github.com/rubenv/sql-migrate"
 )
 
-type Migrator struct {
+type DatabaseHandler struct {
 	migrations *migrate.MemoryMigrationSource
 	db         *sql.DB
 	dbType     string
 }
 
-func NewMigrator(databaseConfig config.DatabaseConfig) (*Migrator, error) {
+func NewDatabaseHandler(databaseConfig config.DatabaseConfig) (*DatabaseHandler, error) {
 	db, err := sql.Open(databaseConfig.Type, databaseConfig.ConnectionString)
 	if err != nil {
 		panic(err)
@@ -30,15 +30,20 @@ func NewMigrator(databaseConfig config.DatabaseConfig) (*Migrator, error) {
 		},
 	}
 
-	return &Migrator{
+	return &DatabaseHandler{
 		migrations: migrations,
 		db:         db,
 		dbType:     databaseConfig.Type,
 	}, nil
 }
 
-func (m *Migrator) Migrate() (int, error) {
-	return migrate.Exec(m.db, m.dbType, m.migrations, migrate.Up)
+func (d *DatabaseHandler) Migrate() (int, error) {
+	return migrate.Exec(d.db, d.dbType, d.migrations, migrate.Up)
+}
+
+func (d *DatabaseHandler) AddEntry(underlayIP, subnet string) error {
+	_, err := d.db.Exec(fmt.Sprintf("INSERT INTO subnets (underlay_ip, subnet) VALUES ('%s', '%s')", underlayIP, subnet))
+	return err
 }
 
 func createSubnetTable(dbType string) string {

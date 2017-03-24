@@ -5,10 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
 	"github.com/cloudfoundry-incubator/silk/daemon/database"
+	"github.com/cloudfoundry-incubator/silk/daemon/lib"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 )
@@ -28,19 +31,44 @@ func main() {
 		panic(err)
 	}
 
-	migrator, err := database.NewMigrator(cfg.Database)
+	databaseHandler, err := database.NewDatabaseHandler(cfg.Database)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("connected to db")
 
-	n, err := migrator.Migrate()
+	n, err := databaseHandler.Migrate()
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("db migration complete: applied %d migrations.\n", n)
 
+	subnet, err := getSubnet(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	err = databaseHandler.AddEntry(cfg.UnderlayIP, subnet)
+	if err != nil {
+		panic(err)
+	}
+
 	for {
 		time.Sleep(10 * time.Second)
 	}
+}
+
+func getSubnet(cfg config.Config) (string, error) {
+	ip, ipCIDR, err := net.ParseCIDR(cfg.SubnetRange)
+	if err != nil {
+		panic(err)
+	}
+	cidrMask, _ := ipCIDR.Mask.Size()
+	cidrMaskBlock, err := strconv.Atoi(cfg.SubnetMask)
+	if err != nil {
+		panic(err)
+	}
+	pool := lib.NewCIDRPool(ip.String(), uint(cidrMask), uint(cidrMaskBlock))
+
+	return pool.Get(0)
 }
