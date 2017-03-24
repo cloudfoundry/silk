@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -21,10 +23,13 @@ import (
 const cmdTimeout = 10 * time.Second
 
 var (
-	cniEnv      map[string]string
-	containerNS ns.NetNS
-	cniStdin    string
-	dataDir     string
+	cniEnv        map[string]string
+	containerNS   ns.NetNS
+	cniStdin      string
+	dataDir       string
+	flannelSubnet *net.IPNet
+	fullNetwork   *net.IPNet
+	subnetEnvFile string
 )
 
 var _ = Describe("Acceptance", func() {
@@ -43,16 +48,26 @@ var _ = Describe("Acceptance", func() {
 
 		dataDir, err = ioutil.TempDir("", "cni-data-dir-")
 		Expect(err).NotTo(HaveOccurred())
+
+		flannelSubnetBaseIP, flannelSubnetCIDR, _ := net.ParseCIDR("10.255.30.0/24")
+		_, fullNetwork, _ = net.ParseCIDR("10.255.0.0/16")
+		flannelSubnet = &net.IPNet{
+			IP:   flannelSubnetBaseIP,
+			Mask: flannelSubnetCIDR.Mask,
+		}
+		subnetEnvFile = writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
 	})
 
 	AfterEach(func() {
 		containerNS.Close() // don't bother checking errors here
 		mustSucceed("iptables", "-t", "nat", "-F")
+		Expect(os.RemoveAll(subnetEnvFile)).To(Succeed())
+		Expect(os.RemoveAll(dataDir)).To(Succeed())
 	})
 
 	Describe("veth devices", func() {
 		BeforeEach(func() {
-			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 		})
 
 		It("returns the expected CNI result", func() {
@@ -166,7 +181,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("enables connectivity between the host and container", func() {
-			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -182,7 +197,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("turns off ARP for veth devices", func() {
-			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -223,7 +238,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("adds routes to the container", func() {
-			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -254,7 +269,7 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("allows the container to reach IP addresses on the host namespace", func() {
-			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -270,7 +285,7 @@ var _ = Describe("Acceptance", func() {
 
 		It("allows the container to reach IP addresses on the internet", func() {
 			By("running the CNI command")
-			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -300,7 +315,7 @@ var _ = Describe("Acceptance", func() {
 
 	Describe("Lifecycle", func() {
 		BeforeEach(func() {
-			cniStdin = cniConfig("10.255.30.0/24", dataDir)
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 		})
 		It("allocates and frees ips", func() {
 			By("calling ADD")
@@ -317,7 +332,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
 			By("checking that the ip is reserved for the correct container id")
-			bytes, err := ioutil.ReadFile(filepath.Join(dataDir, "my-silk-network/10.255.30.1"))
+			bytes, err := ioutil.ReadFile(filepath.Join(dataDir, "ipam/my-silk-network/10.255.30.1"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(bytes)).To(Equal("apricot"))
 
@@ -327,7 +342,7 @@ var _ = Describe("Acceptance", func() {
 			Expect(sess.Out.Contents()).To(BeEmpty())
 
 			By("checking that the ip reserved is freed")
-			Expect(filepath.Join(dataDir, "my-silk-network/10.255.30.1")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dataDir, "ipam/my-silk-network/10.255.30.1")).NotTo(BeAnExistingFile())
 		})
 	})
 
@@ -336,7 +351,8 @@ var _ = Describe("Acceptance", func() {
 			containerNSList []ns.NetNS
 		)
 		BeforeEach(func() {
-			cniStdin = cniConfig("10.255.30.0/30", dataDir)
+			subnetEnvFile = writeSubnetEnvFile("10.255.30.0/30", fullNetwork.String())
+			cniStdin = cniConfig(dataDir, subnetEnvFile)
 			for i := 0; i < 3; i++ {
 				containerNS, err := ns.NewNS()
 				Expect(err).NotTo(HaveOccurred())
@@ -380,28 +396,35 @@ var _ = Describe("Acceptance", func() {
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(1))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
-	"msg": "ipam plugin failed",
-  "details": "no IP addresses available in network: my-silk-network"
-}`))
+				"msg": "ipam plugin failed",
+				"details": "no IP addresses available in network: my-silk-network"
+				}`))
 		})
 	})
 })
 
-func cniConfig(subnet, dataDir string) string {
-	return fmt.Sprintf(`
-			{
-				"cniVersion": "0.3.0",
-				"name": "my-silk-network",
-				"type": "silk",
-				"ipam": {
-						"type": "host-local",
-						"subnet": "%s",
-						"gateway": "169.254.0.1",
-						"routes": [ { "dst": "0.0.0.0/0", "gw": "169.254.0.1" } ],
-						"dataDir": "%s"
-				 }
-			}
-			`, subnet, dataDir)
+func writeSubnetEnvFile(subnet, fullNetwork string) string {
+	tempFile, err := ioutil.TempFile("", "subnet.env")
+	defer tempFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+	_, err = fmt.Fprintf(tempFile, `
+FLANNEL_SUBNET=%s
+FLANNEL_NETWORK=%s
+FLANNEL_MTU=1472      # we'll handle this field in the next story
+FLANNEL_IPMASQ=false  # we'll ignore this field
+`, subnet, fullNetwork)
+	Expect(err).NotTo(HaveOccurred())
+	return tempFile.Name()
+}
+
+func cniConfig(dataDir, subnetFile string) string {
+	return fmt.Sprintf(`{
+	"cniVersion": "0.3.0",
+	"name": "my-silk-network",
+	"type": "silk",
+	"dataDir": "%s",
+	"subnetFile": "%s"
+}`, dataDir, subnetFile)
 }
 
 func startCommand(cniCommand, cniStdin string) *gexec.Session {
