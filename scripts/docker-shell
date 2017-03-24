@@ -29,7 +29,8 @@ else
      --rm \
      -it \
      -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -e GOPATH=/go \
      -w /go/src/github.com/cloudfoundry-incubator/silk \
-     golang \
+     c2cnetworking/dev-postgres \
      /bin/bash
 fi
