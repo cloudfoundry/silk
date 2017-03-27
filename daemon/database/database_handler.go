@@ -46,8 +46,14 @@ func (d *DatabaseHandler) AddEntry(underlayIP, subnet string) error {
 	return err
 }
 
+func (d *DatabaseHandler) EntryExists(entry, value string) (bool, error) {
+	var exists bool
+	err := d.db.QueryRow(fmt.Sprintf("SELECT IF(COUNT(*),'true','false') FROM subnets WHERE %s = '%s'", entry, value)).Scan(&exists)
+	return exists, err
+}
+
 func createSubnetTable(dbType string) string {
-	baseCreateTable := "CREATE TABLE subnets ( " +
+	baseCreateTable := "CREATE TABLE IF NOT EXISTS subnets ( " +
 		" %s, " +
 		" underlay_ip varchar(15), " +
 		" subnet varchar(18), " +

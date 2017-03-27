@@ -43,22 +43,37 @@ func main() {
 	}
 	fmt.Printf("db migration complete: applied %d migrations.\n", n)
 
-	subnet, err := getSubnet(cfg)
-	if err != nil {
-		panic(err)
-	}
+	entryAdded := false
+	i := 0
+	for !entryAdded {
+		subnet, err := getSubnet(cfg, i)
+		if err != nil {
+			panic(err)
+		}
 
-	err = databaseHandler.AddEntry(cfg.UnderlayIP, subnet)
-	if err != nil {
-		panic(err)
+		subnetExists, err := databaseHandler.EntryExists("underlay_ip", subnet)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("found the subnet exist is: %+v", subnetExists)
+
+		if !subnetExists {
+			err = databaseHandler.AddEntry(cfg.UnderlayIP, subnet)
+			if err != nil {
+				panic(err)
+			}
+			entryAdded = true
+		}
+		i++
 	}
+	fmt.Printf("set subnet for vm")
 
 	for {
 		time.Sleep(10 * time.Second)
 	}
 }
 
-func getSubnet(cfg config.Config) (string, error) {
+func getSubnet(cfg config.Config, index int) (string, error) {
 	ip, ipCIDR, err := net.ParseCIDR(cfg.SubnetRange)
 	if err != nil {
 		panic(err)
@@ -70,5 +85,5 @@ func getSubnet(cfg config.Config) (string, error) {
 	}
 	pool := lib.NewCIDRPool(ip.String(), uint(cidrMask), uint(cidrMaskBlock))
 
-	return pool.Get(0)
+	return pool.Get(index)
 }

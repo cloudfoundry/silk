@@ -20,76 +20,107 @@ import (
 
 var (
 	DEFAULT_TIMEOUT = "5s"
-	underlayIP      string
 )
 
 var _ = Describe("Daemon Integration", func() {
 	var (
 		conf         config.Config
 		testDatabase *testsupport.TestDatabase
-		session      *gexec.Session
+		sessions     []*gexec.Session
 	)
 
 	BeforeEach(func() {
-		underlayIP = "10.244.4.4"
-
 		dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
 		dbConnectionInfo, err := testsupport.GetDBConnectionInfo()
 		Expect(err).NotTo(HaveOccurred())
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
-		conf = CreateTestConfig(testDatabase)
 
-		config, err := json.Marshal(conf)
-		Expect(err).NotTo(HaveOccurred())
-		tempDir, err := ioutil.TempDir("", "")
-		Expect(err).NotTo(HaveOccurred())
-		configFilePath := filepath.Join(tempDir, "config")
-
-		err = ioutil.WriteFile(configFilePath, config, os.ModePerm)
-		Expect(err).NotTo(HaveOccurred())
-
-		startCmd := exec.Command(daemonPath, "--config", configFilePath)
-		session, err = gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		if session != nil {
-			session.Interrupt()
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
-		}
+		stopDaemons(sessions)
 
 		if testDatabase != nil {
 			testDatabase.Destroy()
 		}
 	})
 
-	It("starts and stops normally", func() {
-		Eventually(session.Out.Contents, "5s").Should(ContainSubstring("connected to db"))
+	Context("when one daemon is running", func() {
+		var (
+			session *gexec.Session
+		)
+		BeforeEach(func() {
+			conf = CreateTestConfig(testDatabase)
+			daemonConfs := configureDaemons(conf, 1)
+			sessions = startDaemons(daemonConfs)
+			session = sessions[0]
+		})
 
-		Consistently(session, "10s").ShouldNot(gexec.Exit())
-		session.Interrupt()
-		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		It("starts and stops normally", func() {
+			Eventually(session.Out.Contents, "5s").Should(ContainSubstring("connected to db"))
+
+			Consistently(session, "10s").ShouldNot(gexec.Exit())
+			session.Interrupt()
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		})
+
+		It("assigns a subnet to the vm and stores it in the database", func() {
+			Eventually(session.Out.Contents, "5s").Should(ContainSubstring("db migration complete"))
+			Eventually(session.Out.Contents, "5s").Should(ContainSubstring("set subnet for vm"))
+
+			db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
+			Expect(err).NotTo(HaveOccurred())
+			defer db.Close()
+
+			rows, err := db.Query("SELECT subnet FROM subnets WHERE underlay_ip='10.244.4.0'")
+			Expect(err).NotTo(HaveOccurred())
+			defer rows.Close()
+
+			Expect(rows.Next()).To(BeTrue())
+			var subnet string
+			err = rows.Scan(&subnet)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rows.Next()).To(BeFalse())
+			Expect(subnet).To(Equal("10.255.2.0/24"))
+		})
 	})
 
-	It("assigns a subnet to the vm and stores it in the database", func() {
-		Eventually(session.Out.Contents, "5s").Should(ContainSubstring("db migration complete"))
+	FContext("when many daemons are running", func() {
+		BeforeEach(func() {
+			conf = CreateTestConfig(testDatabase)
+			// TODO this test fails
+			daemonConfs := configureDaemons(conf, 2)
+			sessions = startDaemons(daemonConfs)
+		})
 
-		db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
-		Expect(err).NotTo(HaveOccurred())
-		defer db.Close()
+		It("assigns a subnet to the vm and stores it in the database", func() {
+			By("all daemons exiting with status code 0")
+			for _, s := range sessions {
+				Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+			}
 
-		rows, err := db.Query(fmt.Sprintf("SELECT subnet FROM subnets WHERE underlay_ip='%s'", underlayIP))
-		Expect(err).NotTo(HaveOccurred())
-		defer rows.Close()
+			By("opening the database")
+			db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
+			Expect(err).NotTo(HaveOccurred())
+			defer db.Close()
 
-		Expect(rows.Next()).To(BeTrue())
-		var subnet string
-		err = rows.Scan(&subnet)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(rows.Next()).To(BeFalse())
-		Expect(subnet).To(Equal("10.255.2.0/24"))
+			By("getting the subnets from the database")
+			rows, err := db.Query("SELECT subnet FROM subnets")
+			Expect(err).NotTo(HaveOccurred())
+			defer rows.Close()
+
+			By("checking that each daemon got a subnet")
+			numRows := 0
+			for rows.Next() {
+				var subnet string
+				err = rows.Scan(&subnet)
+				Expect(err).NotTo(HaveOccurred())
+				numRows += 1
+			}
+			Expect(numRows).To(Equal(len(sessions)))
+		})
 	})
+
 })
 
 func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
@@ -105,12 +136,50 @@ func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
 	}
 
 	return config.Config{
-		UnderlayIP:  underlayIP,
 		SubnetRange: "10.255.0.0/16",
 		SubnetMask:  "24",
 		Database: config.DatabaseConfig{
 			Type:             d.ConnInfo.Type,
 			ConnectionString: connectionString,
 		},
+	}
+}
+
+func configureDaemons(template config.Config, instances int) []config.Config {
+	var configs []config.Config
+	for i := 0; i < instances; i++ {
+		conf := template
+		conf.UnderlayIP = fmt.Sprintf("10.244.4.%d", i)
+		configs = append(configs, conf)
+	}
+	return configs
+}
+
+func startDaemons(configs []config.Config) []*gexec.Session {
+	var sessions []*gexec.Session
+	var session *gexec.Session
+	for _, conf := range configs {
+		config, err := json.Marshal(conf)
+		Expect(err).NotTo(HaveOccurred())
+		tempDir, err := ioutil.TempDir("", "")
+		Expect(err).NotTo(HaveOccurred())
+		configFilePath := filepath.Join(tempDir, "config")
+
+		err = ioutil.WriteFile(configFilePath, config, os.ModePerm)
+		Expect(err).NotTo(HaveOccurred())
+
+		startCmd := exec.Command(daemonPath, "--config", configFilePath)
+		session, err = gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
+		Expect(err).NotTo(HaveOccurred())
+
+		sessions = append(sessions, session)
+	}
+	return sessions
+}
+
+func stopDaemons(sessions []*gexec.Session) {
+	for _, session := range sessions {
+		session.Interrupt()
+		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
 	}
 }
