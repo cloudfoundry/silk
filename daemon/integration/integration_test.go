@@ -52,7 +52,7 @@ var _ = Describe("Daemon Integration", func() {
 
 		By("waiting for each daemon to acquire a subnet")
 		for _, s := range sessions {
-			Eventually(s.Out).Should(gbytes.Say("acquired subnet .* for underlay ip .*"))
+			Eventually(s.Out, "4s").Should(gbytes.Say("acquired subnet .* for underlay ip .*"))
 		}
 
 		By("signaling all sessions to terminate")
