@@ -1,8 +1,13 @@
 package lib
 
 import (
+	cryptoRand "crypto/rand"
 	"fmt"
+	"math"
+	"math/big"
+	mathRand "math/rand"
 	"net"
+	"strconv"
 
 	"github.com/ziutek/utils/netaddr"
 )
@@ -14,24 +19,34 @@ type CIDRPool struct {
 	pool          []string
 }
 
-func NewCIDRPool(ipStart string, cidrMask, cidrMaskBlock uint) CIDRPool {
-	return CIDRPool{
-		ipStart:       ipStart,
-		cidrMask:      cidrMask,
-		cidrMaskBlock: cidrMaskBlock,
-		pool:          generateCIDRPool(ipStart, cidrMask, cidrMaskBlock),
+func NewCIDRPool(subnetRange, subnetMask string) *CIDRPool {
+	ip, ipCIDR, err := net.ParseCIDR(subnetRange)
+	if err != nil {
+		panic(err)
+	}
+	cidrMask, _ := ipCIDR.Mask.Size()
+	cidrMaskBlock, err := strconv.Atoi(subnetMask)
+	if err != nil {
+		panic(err)
+	}
+
+	mathRand.Seed(getRandomSeed())
+
+	return &CIDRPool{
+		ipStart:       ip.String(),
+		cidrMask:      uint(cidrMask),
+		cidrMaskBlock: uint(cidrMaskBlock),
+		pool:          generateCIDRPool(ip.String(), uint(cidrMask), uint(cidrMaskBlock)),
 	}
 }
 
-func (c *CIDRPool) Get(index int) (string, error) {
-	if index < 0 {
-		return "", fmt.Errorf("invalid index: %d", index)
-	}
-	if len(c.pool) <= index {
-		return "", fmt.Errorf("cannot get cidr of index %d when pool size is size of %d", index, len(c.pool))
-	}
+func (c *CIDRPool) Size() int {
+	return len(c.pool)
+}
 
-	return c.pool[index], nil
+func (c *CIDRPool) GetRandom() string {
+	i := mathRand.Intn(c.Size())
+	return c.pool[i]
 }
 
 func generateCIDRPool(ipStart string, cidrMask, cidrMaskBlock uint) []string {
@@ -44,4 +59,12 @@ func generateCIDRPool(ipStart string, cidrMask, cidrMaskBlock uint) []string {
 		pool = append(pool, fmt.Sprintf("%s/%d", newIP.String(), cidrMaskBlock))
 	}
 	return pool
+}
+
+func getRandomSeed() int64 {
+	num, err := cryptoRand.Int(cryptoRand.Reader, big.NewInt(math.MaxInt64))
+	if err != nil {
+		panic("generating random seed: " + err.Error())
+	}
+	return num.Int64()
 }

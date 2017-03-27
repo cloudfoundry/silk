@@ -36,7 +36,7 @@ var _ = Describe("Daemon Integration", func() {
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
 		conf := CreateTestConfig(testDatabase)
-		daemonConfs = configureDaemons(conf, 2)
+		daemonConfs = configureDaemons(conf, 20)
 		sessions = startDaemons(daemonConfs)
 	})
 

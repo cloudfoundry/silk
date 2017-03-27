@@ -46,9 +46,9 @@ func (d *DatabaseHandler) AddEntry(underlayIP, subnet string) error {
 	return err
 }
 
-func (d *DatabaseHandler) EntryExists(entry, value string) (bool, error) {
+func (d *DatabaseHandler) SubnetExists(subnet string) (bool, error) {
 	var exists int
-	err := d.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM subnets WHERE %s = '%s'", entry, value)).Scan(&exists)
+	err := d.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM subnets WHERE subnet = '%s'", subnet)).Scan(&exists)
 	if exists == 1 {
 		return true, err
 	} else {
