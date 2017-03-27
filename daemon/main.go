@@ -37,27 +37,64 @@ func main() {
 	}
 	fmt.Println("connected to db")
 
+	leaseController := LeaseController{
+		DatabaseHandler:               databaseHandler,
+		MaxMigrationAttempts:          5,
+		MigrationAttemptSleepDuration: time.Second,
+	}
+	if err := leaseController.TryMigrations(); err != nil {
+		panic(err)
+	}
+
+	subnet, err := leaseController.AcquireSubnetLease(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("acquired subnet %s for underlay ip %s", subnet, cfg.UnderlayIP)
+
+	for {
+		time.Sleep(10 * time.Second)
+	}
+}
+
+type LeaseController struct {
+	DatabaseHandler               *database.DatabaseHandler
+	MaxMigrationAttempts          int
+	MigrationAttemptSleepDuration time.Duration
+}
+
+func (c *LeaseController) TryMigrations() error {
 	nErrors := 0
-	for nErrors < 5 {
+	var err error
+	for nErrors < c.MaxMigrationAttempts {
 		var n int
-		n, err = databaseHandler.Migrate()
+		n, err = c.DatabaseHandler.Migrate()
 		if err == nil {
 			fmt.Printf("db migration complete: applied %d migrations.\n", n)
 			break
 		}
 
 		nErrors++
-		time.Sleep(time.Second)
+		time.Sleep(c.MigrationAttemptSleepDuration)
 	}
+
+	return err
+}
+
+func (c *LeaseController) AcquireSubnetLease(cfg config.Config) (string, error) {
+	subnet, err := getFreeSubnet(c.DatabaseHandler, cfg)
 	if err != nil {
 		panic(err)
 	}
 
-	entryAdded := false
+	return subnet, c.DatabaseHandler.AddEntry(cfg.UnderlayIP, subnet)
+}
+
+func getFreeSubnet(databaseHandler *database.DatabaseHandler, cfg config.Config) (string, error) {
 	i := 0
-	var subnet string
-	for !entryAdded {
-		subnet, err = getSubnet(cfg, i)
+	for {
+		subnet, err := getSubnet(cfg, i)
 		if err != nil {
 			panic(err)
 		}
@@ -66,22 +103,13 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("found the subnet exist is: %+v", subnetExists)
 
 		if !subnetExists {
-			err = databaseHandler.AddEntry(cfg.UnderlayIP, subnet)
-			if err != nil {
-				panic(err)
-			}
-			entryAdded = true
+			return subnet, nil
 		}
 		i++
 	}
-	fmt.Printf("acquired subnet %s for underlay ip %s", subnet, cfg.UnderlayIP)
 
-	for {
-		time.Sleep(10 * time.Second)
-	}
 }
 
 func getSubnet(cfg config.Config, index int) (string, error) {
