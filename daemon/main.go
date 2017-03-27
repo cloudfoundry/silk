@@ -55,8 +55,9 @@ func main() {
 
 	entryAdded := false
 	i := 0
+	var subnet string
 	for !entryAdded {
-		subnet, err := getSubnet(cfg, i)
+		subnet, err = getSubnet(cfg, i)
 		if err != nil {
 			panic(err)
 		}
@@ -76,7 +77,7 @@ func main() {
 		}
 		i++
 	}
-	fmt.Printf("set subnet for vm")
+	fmt.Printf("acquired subnet %s for underlay ip %s", subnet, cfg.UnderlayIP)
 
 	for {
 		time.Sleep(10 * time.Second)

@@ -1,12 +1,12 @@
 package integration_test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
 	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
@@ -14,6 +14,7 @@ import (
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -23,7 +24,7 @@ var (
 
 var _ = Describe("Daemon Integration", func() {
 	var (
-		conf         config.Config
+		daemonConfs  []config.Config
 		testDatabase *testsupport.TestDatabase
 		sessions     []*gexec.Session
 	)
@@ -34,8 +35,8 @@ var _ = Describe("Daemon Integration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
-		conf = CreateTestConfig(testDatabase)
-		daemonConfs := configureDaemons(conf, 2)
+		conf := CreateTestConfig(testDatabase)
+		daemonConfs = configureDaemons(conf, 2)
 		sessions = startDaemons(daemonConfs)
 	})
 
@@ -48,32 +49,28 @@ var _ = Describe("Daemon Integration", func() {
 	})
 
 	It("assigns a subnet to the vm and stores it in the database", func() {
-		By("all daemons exiting with status code 0")
+
+		By("waiting for each daemon to acquire a subnet")
 		for _, s := range sessions {
-			Consistently(s, "10s").ShouldNot(gexec.Exit())
+			Eventually(s.Out).Should(gbytes.Say("acquired subnet .* for underlay ip .*"))
+		}
+
+		By("signaling all sessions to terminate")
+		for _, s := range sessions {
 			s.Interrupt()
+		}
+		By("verifying all daemons exit with status 0")
+		for _, s := range sessions {
 			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
 		}
 
-		By("opening the database")
-		db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
-		Expect(err).NotTo(HaveOccurred())
-		defer db.Close()
-
-		By("getting the subnets from the database")
-		rows, err := db.Query("SELECT subnet FROM subnets")
-		Expect(err).NotTo(HaveOccurred())
-		defer rows.Close()
-
-		By("checking that each daemon got a subnet")
-		numRows := 0
-		for rows.Next() {
-			var subnet string
-			err = rows.Scan(&subnet)
-			Expect(err).NotTo(HaveOccurred())
-			numRows += 1
+		By("checking that subnets do not overlap")
+		var subnets []string
+		for i, s := range sessions {
+			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
+			subnets = append(subnets, subnet)
+			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
 		}
-		Expect(numRows).To(Equal(len(sessions)))
 	})
 
 })
@@ -98,6 +95,13 @@ func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
 			ConnectionString: connectionString,
 		},
 	}
+}
+
+func discoverLeaseFromLogs(output []byte) (string, string) {
+	leaseLogLineRegex := `acquired subnet ((?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}) for underlay ip ((?:[0-9]{1,3}\.){3}[0-9]{1,3})`
+	matches := regexp.MustCompile(leaseLogLineRegex).FindStringSubmatch(string(output))
+	Expect(matches).To(HaveLen(3))
+	return matches[1], matches[2]
 }
 
 func configureDaemons(template config.Config, instances int) []config.Config {
