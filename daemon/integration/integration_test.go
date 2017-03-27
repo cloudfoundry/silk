@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
 	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
@@ -35,6 +34,9 @@ var _ = Describe("Daemon Integration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
+		conf = CreateTestConfig(testDatabase)
+		daemonConfs := configureDaemons(conf, 2)
+		sessions = startDaemons(daemonConfs)
 	})
 
 	AfterEach(func() {
@@ -45,82 +47,33 @@ var _ = Describe("Daemon Integration", func() {
 		}
 	})
 
-	Context("when one daemon is running", func() {
-		var (
-			session *gexec.Session
-		)
-		BeforeEach(func() {
-			conf = CreateTestConfig(testDatabase)
-			daemonConfs := configureDaemons(conf, 1)
-			sessions = startDaemons(daemonConfs)
-			session = sessions[0]
-		})
+	It("assigns a subnet to the vm and stores it in the database", func() {
+		By("all daemons exiting with status code 0")
+		for _, s := range sessions {
+			Consistently(s, "10s").ShouldNot(gexec.Exit())
+			s.Interrupt()
+			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		}
 
-		It("starts and stops normally", func() {
-			Eventually(session.Out.Contents, "5s").Should(ContainSubstring("connected to db"))
+		By("opening the database")
+		db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
+		Expect(err).NotTo(HaveOccurred())
+		defer db.Close()
 
-			Consistently(session, "10s").ShouldNot(gexec.Exit())
-			session.Interrupt()
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
-		})
+		By("getting the subnets from the database")
+		rows, err := db.Query("SELECT subnet FROM subnets")
+		Expect(err).NotTo(HaveOccurred())
+		defer rows.Close()
 
-		It("assigns a subnet to the vm and stores it in the database", func() {
-			Eventually(session.Out.Contents, "5s").Should(ContainSubstring("db migration complete"))
-			Eventually(session.Out.Contents, "5s").Should(ContainSubstring("set subnet for vm"))
-
-			db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
-			Expect(err).NotTo(HaveOccurred())
-			defer db.Close()
-
-			rows, err := db.Query("SELECT subnet FROM subnets WHERE underlay_ip='10.244.4.0'")
-			Expect(err).NotTo(HaveOccurred())
-			defer rows.Close()
-
-			Expect(rows.Next()).To(BeTrue())
+		By("checking that each daemon got a subnet")
+		numRows := 0
+		for rows.Next() {
 			var subnet string
 			err = rows.Scan(&subnet)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rows.Next()).To(BeFalse())
-			Expect(subnet).To(Equal("10.255.2.0/24"))
-		})
-	})
-
-	Context("when many daemons are running", func() {
-		BeforeEach(func() {
-			conf = CreateTestConfig(testDatabase)
-			// TODO this test fails
-			daemonConfs := configureDaemons(conf, 2)
-			sessions = startDaemons(daemonConfs)
-		})
-
-		It("assigns a subnet to the vm and stores it in the database", func() {
-			By("all daemons exiting with status code 0")
-			for _, s := range sessions {
-				Consistently(s, "10s").ShouldNot(gexec.Exit())
-				s.Interrupt()
-				Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
-			}
-
-			By("opening the database")
-			db, err := sql.Open(conf.Database.Type, conf.Database.ConnectionString)
-			Expect(err).NotTo(HaveOccurred())
-			defer db.Close()
-
-			By("getting the subnets from the database")
-			rows, err := db.Query("SELECT subnet FROM subnets")
-			Expect(err).NotTo(HaveOccurred())
-			defer rows.Close()
-
-			By("checking that each daemon got a subnet")
-			numRows := 0
-			for rows.Next() {
-				var subnet string
-				err = rows.Scan(&subnet)
-				Expect(err).NotTo(HaveOccurred())
-				numRows += 1
-			}
-			Expect(numRows).To(Equal(len(sessions)))
-		})
+			numRows += 1
+		}
+		Expect(numRows).To(Equal(len(sessions)))
 	})
 
 })
@@ -157,21 +110,26 @@ func configureDaemons(template config.Config, instances int) []config.Config {
 	return configs
 }
 
+func writeConfigFile(config config.Config) string {
+	configFile, err := ioutil.TempFile("", "test-config")
+	Expect(err).NotTo(HaveOccurred())
+
+	configBytes, err := json.Marshal(config)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = ioutil.WriteFile(configFile.Name(), configBytes, os.ModePerm)
+	Expect(err).NotTo(HaveOccurred())
+
+	return configFile.Name()
+}
+
 func startDaemons(configs []config.Config) []*gexec.Session {
 	var sessions []*gexec.Session
-	var session *gexec.Session
 	for _, conf := range configs {
-		config, err := json.Marshal(conf)
-		Expect(err).NotTo(HaveOccurred())
-		tempDir, err := ioutil.TempDir("", "")
-		Expect(err).NotTo(HaveOccurred())
-		configFilePath := filepath.Join(tempDir, "config")
-
-		err = ioutil.WriteFile(configFilePath, config, os.ModePerm)
-		Expect(err).NotTo(HaveOccurred())
+		configFilePath := writeConfigFile(conf)
 
 		startCmd := exec.Command(daemonPath, "--config", configFilePath)
-		session, err = gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
+		session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
 		Expect(err).NotTo(HaveOccurred())
 
 		sessions = append(sessions, session)
