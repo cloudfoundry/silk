@@ -85,7 +85,7 @@ var _ = Describe("Daemon Integration", func() {
 		})
 	})
 
-	FContext("when many daemons are running", func() {
+	Context("when many daemons are running", func() {
 		BeforeEach(func() {
 			conf = CreateTestConfig(testDatabase)
 			// TODO this test fails
@@ -96,7 +96,9 @@ var _ = Describe("Daemon Integration", func() {
 		It("assigns a subnet to the vm and stores it in the database", func() {
 			By("all daemons exiting with status code 0")
 			for _, s := range sessions {
-				Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+				Consistently(s, "10s").ShouldNot(gexec.Exit())
+				s.Interrupt()
+				Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
 			}
 
 			By("opening the database")

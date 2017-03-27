@@ -47,9 +47,13 @@ func (d *DatabaseHandler) AddEntry(underlayIP, subnet string) error {
 }
 
 func (d *DatabaseHandler) EntryExists(entry, value string) (bool, error) {
-	var exists bool
-	err := d.db.QueryRow(fmt.Sprintf("SELECT IF(COUNT(*),'true','false') FROM subnets WHERE %s = '%s'", entry, value)).Scan(&exists)
-	return exists, err
+	var exists int
+	err := d.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM subnets WHERE %s = '%s'", entry, value)).Scan(&exists)
+	if exists == 1 {
+		return true, err
+	} else {
+		return false, err
+	}
 }
 
 func createSubnetTable(dbType string) string {

@@ -37,11 +37,21 @@ func main() {
 	}
 	fmt.Println("connected to db")
 
-	n, err := databaseHandler.Migrate()
+	nErrors := 0
+	for nErrors < 5 {
+		var n int
+		n, err = databaseHandler.Migrate()
+		if err == nil {
+			fmt.Printf("db migration complete: applied %d migrations.\n", n)
+			break
+		}
+
+		nErrors++
+		time.Sleep(time.Second)
+	}
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("db migration complete: applied %d migrations.\n", n)
 
 	entryAdded := false
 	i := 0
@@ -51,7 +61,7 @@ func main() {
 			panic(err)
 		}
 
-		subnetExists, err := databaseHandler.EntryExists("underlay_ip", subnet)
+		subnetExists, err := databaseHandler.EntryExists("subnet", subnet)
 		if err != nil {
 			panic(err)
 		}
