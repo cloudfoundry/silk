@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e -u
+export PIPELINE=silk
+export TARGET=c2c
+
+repo_root=$(cd $(dirname $0)/.. && pwd)
+
+fly -t $TARGET \
+  set-pipeline -p $PIPELINE \
+  -c $repo_root/ci/pipeline.yml \
+  -l $HOME/workspace/container-networking-deployments/pipeline-credentials.yml
