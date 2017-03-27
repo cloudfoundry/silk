@@ -34,7 +34,7 @@ type ConfigCreator struct {
 	NamespaceAdapter         namespaceAdapter
 }
 
-func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResult *current.Result) (*Config, error) {
+func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResult *current.Result, mtu int) (*Config, error) {
 	var conf Config
 	var err error
 
@@ -66,7 +66,7 @@ func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResul
 		return nil, fmt.Errorf("generating container veth hardware address: %s", err)
 	}
 
-	conf.Container.MTU = 1500
+	conf.Container.MTU = mtu
 	conf.Host.DeviceName, err = c.DeviceNameGenerator.GenerateForHost(conf.Container.Address.IP)
 	if err != nil {
 		return nil, fmt.Errorf("generating host device name: %s", err)

@@ -18,13 +18,12 @@ import (
 )
 
 type CNIPlugin struct {
-	HostNSPath       string
-	HostNS           ns.NetNS
-	ConfigCreator    *config.ConfigCreator
-	VethPairCreator  *lib.VethPairCreator
-	Host             *lib.Host
-	Container        *lib.Container
-	SubnetDiscoverer *legacy_flannel.NetworkInfo
+	HostNSPath      string
+	HostNS          ns.NetNS
+	ConfigCreator   *config.ConfigCreator
+	VethPairCreator *lib.VethPairCreator
+	Host            *lib.Host
+	Container       *lib.Container
 }
 
 func main() {
@@ -62,7 +61,6 @@ func main() {
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
 		},
-		SubnetDiscoverer: &legacy_flannel.NetworkInfo{},
 	}
 
 	skel.PluginMain(plugin.cmdAdd, plugin.cmdDel, version.PluginSupports("0.3.0"))
@@ -72,6 +70,7 @@ type NetConf struct {
 	types.NetConf
 	DataDir    string `json:"dataDir"`
 	SubnetFile string `json:"subnetFile"`
+	MTU        int    `json:"mtu"`
 }
 
 type HostLocalIPAM struct {
@@ -103,13 +102,13 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 		return err // impossible, skel package asserts JSON is valid
 	}
 
-	subnet, _, err := p.SubnetDiscoverer.DiscoverNetworkInfo(netConf.SubnetFile)
+	networkInfo, err := legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
 	if err != nil {
 		return typedError("discovering network info", err)
 	}
 
 	generator := config.IPAMConfigGenerator{}
-	ipamConfig := generator.GenerateConfig(subnet, netConf.Name, netConf.DataDir)
+	ipamConfig := generator.GenerateConfig(networkInfo.Subnet, netConf.Name, netConf.DataDir)
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	result, err := ipam.ExecAdd("host-local", ipamConfigBytes)
@@ -122,7 +121,7 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to convert result to current CNI version: %s", err) // not tested
 	}
 
-	cfg, err := p.ConfigCreator.Create(p.HostNS, args, cniResult)
+	cfg, err := p.ConfigCreator.Create(p.HostNS, args, cniResult, networkInfo.MTU)
 	if err != nil {
 		return typedError("creating config", err)
 	}
@@ -152,13 +151,13 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 		return err // impossible, skel package asserts JSON is valid
 	}
 
-	subnet, _, err := p.SubnetDiscoverer.DiscoverNetworkInfo(netConf.SubnetFile)
+	networkInfo, err := legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
 	if err != nil {
 		return typedError("discovering network info", err)
 	}
 
 	generator := config.IPAMConfigGenerator{}
-	ipamConfig := generator.GenerateConfig(subnet, netConf.Name, netConf.DataDir)
+	ipamConfig := generator.GenerateConfig(networkInfo.Subnet, netConf.Name, netConf.DataDir)
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	err = ipam.ExecDel("host-local", ipamConfigBytes)

@@ -82,7 +82,7 @@ var _ = Describe("ConfigCreator", func() {
 		})
 
 		It("creates a config with the desired container device metadata", func() {
-			conf, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+			conf, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(conf.Container.DeviceName).To(Equal("eth0"))
@@ -91,11 +91,11 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.Container.Address.IP).To(Equal(ipamResult.IPs[0].Address.IP))
 			Expect(conf.Container.Address.Hardware).To(Equal(containerMAC))
 			Expect(conf.Container.Routes).To(Equal(ipamResult.Routes))
-			Expect(conf.Container.MTU).To(Equal(1500))
+			Expect(conf.Container.MTU).To(Equal(1450))
 		})
 
 		It("creates a config with the desired host device metadata", func() {
-			conf, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+			conf, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(conf.Host.DeviceName).To(Equal("s-010255030004"))
@@ -109,7 +109,7 @@ var _ = Describe("ConfigCreator", func() {
 				addCmdArgs.IfName = ""
 			})
 			It("returns an error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("IfName cannot be empty"))
 			})
 		})
@@ -119,7 +119,7 @@ var _ = Describe("ConfigCreator", func() {
 				addCmdArgs.IfName = "1234567890123456"
 			})
 			It("returns an error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("IfName cannot be longer than 15 characters"))
 			})
 		})
@@ -129,7 +129,7 @@ var _ = Describe("ConfigCreator", func() {
 				fakeNamespaceAdapter.GetNSReturns(nil, errors.New("banana"))
 			})
 			It("returns an error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("getting container namespace: banana"))
 			})
 		})
@@ -139,7 +139,7 @@ var _ = Describe("ConfigCreator", func() {
 				fakeHardwareAddressGenerator.GenerateForContainerReturns(nil, errors.New("potato"))
 			})
 			It("wraps and returns the error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("generating container veth hardware address: potato"))
 			})
 		})
@@ -149,7 +149,7 @@ var _ = Describe("ConfigCreator", func() {
 				fakeHardwareAddressGenerator.GenerateForHostReturns(nil, errors.New("potato"))
 			})
 			It("wraps and returns the error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("generating host veth hardware address: potato"))
 			})
 		})
@@ -159,7 +159,7 @@ var _ = Describe("ConfigCreator", func() {
 				fakeDeviceNameGenerator.GenerateForHostReturns("", errors.New("potato"))
 			})
 			It("wraps and returns the error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("generating host device name: potato"))
 			})
 		})
@@ -169,7 +169,7 @@ var _ = Describe("ConfigCreator", func() {
 				fakeDeviceNameGenerator.GenerateTemporaryForContainerReturns("", errors.New("potato"))
 			})
 			It("wraps and returns the error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("generating temporary container device name: potato"))
 			})
 		})
@@ -179,7 +179,7 @@ var _ = Describe("ConfigCreator", func() {
 				ipamResult.IPs = []*current.IPConfig{}
 			})
 			It("returns an error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult)
+				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
 				Expect(err).To(MatchError("no IP address in IPAM result"))
 			})
 		})

@@ -300,6 +300,63 @@ var _ = Describe("Acceptance", func() {
 			By("attempting to reach the internet from the container")
 			mustSucceedInContainer(containerNS, "curl", "-f", "example.com")
 		})
+
+		Context("when MTU is not specified on the input", func() {
+			It("sets the MTU based on the subnet file", func() {
+				By("calling ADD")
+				sess := startCommand("ADD", cniStdin)
+				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+				By("checking the host side")
+				hostLink := hostLinkFromResult(sess.Out.Contents())
+				Expect(hostLink.Attrs().MTU).To(Equal(1472))
+
+				By("checking the container side")
+				err := containerNS.Do(func(_ ns.NetNS) error {
+					defer GinkgoRecover()
+
+					link, err := netlink.LinkByName("eth0")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(link.Attrs().MTU).To(Equal(1472))
+					return nil
+				})
+
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when MTU is specified on the input", func() {
+			It("sets the MTU based on the input", func() {
+				By("calling ADD")
+				cniStdin = fmt.Sprintf(`{
+					"cniVersion": "0.3.0",
+					"name": "my-silk-network",
+					"type": "silk",
+					"mtu": 1350,
+					"dataDir": "%s",
+					"subnetFile": "%s"
+				}`, dataDir, subnetEnvFile)
+				sess := startCommand("ADD", cniStdin)
+				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+				By("checking the host side")
+				hostLink := hostLinkFromResult(sess.Out.Contents())
+				Expect(hostLink.Attrs().MTU).To(Equal(1350))
+
+				By("checking the container side")
+				err := containerNS.Do(func(_ ns.NetNS) error {
+					defer GinkgoRecover()
+
+					link, err := netlink.LinkByName("eth0")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(link.Attrs().MTU).To(Equal(1350))
+					return nil
+				})
+
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
 	})
 
 	Describe("CNI version support", func() {
@@ -410,7 +467,7 @@ func writeSubnetEnvFile(subnet, fullNetwork string) string {
 	_, err = fmt.Fprintf(tempFile, `
 FLANNEL_SUBNET=%s
 FLANNEL_NETWORK=%s
-FLANNEL_MTU=1472      # we'll handle this field in the next story
+FLANNEL_MTU=1472
 FLANNEL_IPMASQ=false  # we'll ignore this field
 `, subnet, fullNetwork)
 	Expect(err).NotTo(HaveOccurred())
