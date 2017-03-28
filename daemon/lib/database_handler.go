@@ -1,4 +1,4 @@
-package database
+package lib
 
 import (
 	"database/sql"
@@ -17,7 +17,7 @@ type DatabaseHandler struct {
 func NewDatabaseHandler(databaseConfig config.DatabaseConfig) (*DatabaseHandler, error) {
 	db, err := sql.Open(databaseConfig.Type, databaseConfig.ConnectionString)
 	if err != nil {
-		panic(err)
+		return &DatabaseHandler{}, fmt.Errorf("connecting to database: %s", err)
 	}
 
 	migrations := &migrate.MemoryMigrationSource{

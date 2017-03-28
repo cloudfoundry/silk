@@ -14,12 +14,17 @@ type databaseHandler interface {
 	SubnetExists(string) (bool, error)
 }
 
+//go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
+type cidrPool interface {
+	GetRandom() string
+}
+
 type LeaseController struct {
 	DatabaseHandler               databaseHandler
 	MaxMigrationAttempts          int
 	MigrationAttemptSleepDuration time.Duration
 	AcquireSubnetLeaseAttempts    int
-	CIDRPool                      *CIDRPool
+	CIDRPool                      cidrPool
 	UnderlayIP                    string
 	Logger                        lager.Logger
 }
@@ -32,25 +37,27 @@ func (c *LeaseController) TryMigrations() error {
 		n, err = c.DatabaseHandler.Migrate()
 		if err == nil {
 			c.Logger.Info("db-migration-complete", lager.Data{"num-applied": n})
-			break
+			return nil
 		}
 
 		nErrors++
 		time.Sleep(c.MigrationAttemptSleepDuration)
 	}
 
-	return err
+	return fmt.Errorf("creating table: %s", err)
 }
 
 func (c *LeaseController) AcquireSubnetLease() (string, error) {
 	var err error
 	for numErrs := 0; numErrs < c.AcquireSubnetLeaseAttempts; numErrs++ {
-		var lease string
-		lease, err = c.tryAcquireLease()
+		var subnet string
+		subnet, err = c.tryAcquireLease()
 		if err == nil {
-			return lease, nil
+			c.Logger.Info("subnet-acquired", lager.Data{"subnet": subnet,
+				"underlay ip": c.UnderlayIP,
+			})
+			return subnet, nil
 		}
-		fmt.Printf("tried to acquire %s but failed, attempt %d for underlay ip %s\n", lease, numErrs, c.UnderlayIP)
 	}
 
 	return "", err
@@ -59,24 +66,27 @@ func (c *LeaseController) AcquireSubnetLease() (string, error) {
 func (c *LeaseController) tryAcquireLease() (string, error) {
 	subnet, err := c.getFreeSubnet()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	return subnet, c.DatabaseHandler.AddEntry(c.UnderlayIP, subnet)
+	err = c.DatabaseHandler.AddEntry(c.UnderlayIP, subnet)
+	if err != nil {
+		return "", fmt.Errorf("adding lease entry: %s", err)
+	}
+
+	return subnet, nil
 }
 
 func (c *LeaseController) getFreeSubnet() (string, error) {
-	i := 0
 	for {
 		subnet := c.CIDRPool.GetRandom()
 		subnetExists, err := c.DatabaseHandler.SubnetExists(subnet)
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("checking if subnet is available: %s", err)
 		}
 
 		if !subnetExists {
 			return subnet, nil
 		}
-		i++
 	}
 }

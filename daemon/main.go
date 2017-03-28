@@ -3,14 +3,14 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
+	"log"
+	"os"
 	"time"
 
 	"code.cloudfoundry.org/lager"
 
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
-	"github.com/cloudfoundry-incubator/silk/daemon/database"
 	"github.com/cloudfoundry-incubator/silk/daemon/lib"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -22,20 +22,23 @@ func main() {
 
 	contents, err := ioutil.ReadFile(*configFilePath)
 	if err != nil {
-		panic(err)
+		log.Fatalf("could not read config file %s: %s", *configFilePath, err)
 	}
 
 	var cfg config.Config
 	err = json.Unmarshal(contents, &cfg)
 	if err != nil {
-		panic(err)
+		log.Fatalf("could not unmarshal config file contents")
 	}
 
-	databaseHandler, err := database.NewDatabaseHandler(cfg.Database)
+	databaseHandler, err := lib.NewDatabaseHandler(cfg.Database)
 	if err != nil {
-		panic(err)
+		log.Fatalf("could not create database handler: %s", err)
 	}
-	fmt.Println("connected to db")
+
+	logger := lager.NewLogger("silk-daemon")
+	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
+	logger.RegisterSink(sink)
 
 	leaseController := lib.LeaseController{
 		DatabaseHandler:               databaseHandler,
@@ -44,18 +47,16 @@ func main() {
 		AcquireSubnetLeaseAttempts:    10,
 		CIDRPool:                      lib.NewCIDRPool(cfg.SubnetRange, cfg.SubnetMask),
 		UnderlayIP:                    cfg.UnderlayIP,
-		Logger:                        lager.NewLogger("silk-daemon"),
+		Logger:                        logger,
 	}
-	if err := leaseController.TryMigrations(); err != nil {
-		panic(err)
+	if err = leaseController.TryMigrations(); err != nil {
+		log.Fatalf("could not migrate database: %s", err)
 	}
 
-	subnet, err := leaseController.AcquireSubnetLease()
+	_, err = leaseController.AcquireSubnetLease()
 	if err != nil {
-		panic(err)
+		log.Fatalf("could not acquire subnet: %s", err)
 	}
-
-	fmt.Printf("acquired subnet %s for underlay ip %s\n", subnet, cfg.UnderlayIP)
 
 	for {
 		time.Sleep(10 * time.Second)

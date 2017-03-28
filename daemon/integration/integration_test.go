@@ -51,7 +51,7 @@ var _ = Describe("Daemon Integration", func() {
 	It("assigns a subnet to each vm and stores it in the database", func() {
 		By("waiting for each daemon to acquire a subnet")
 		for _, s := range sessions {
-			Eventually(s.Out, "4s").Should(gbytes.Say("acquired subnet .* for underlay ip .*"))
+			Eventually(s.Out, "4s").Should(gbytes.Say("subnet-acquired.*subnet.*underlay ip.*"))
 		}
 
 		By("signaling all sessions to terminate")
@@ -98,7 +98,7 @@ func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
 }
 
 func discoverLeaseFromLogs(output []byte) (string, string) {
-	leaseLogLineRegex := `acquired subnet ((?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}) for underlay ip ((?:[0-9]{1,3}\.){3}[0-9]{1,3})`
+	leaseLogLineRegex := `subnet-acquired.*"subnet":"((?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2})".*"underlay ip":"((?:[0-9]{1,3}\.){3}[0-9]{1,3})"`
 	matches := regexp.MustCompile(leaseLogLineRegex).FindStringSubmatch(string(output))
 	Expect(matches).To(HaveLen(3))
 	return matches[1], matches[2]
