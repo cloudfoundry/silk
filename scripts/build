@@ -2,16 +2,20 @@
 
 go build -o /tmp/cni/silk -ldflags="-extldflags=-Wl,--allow-multiple-definition" -race .
 go build -o /tmp/cni/host-local -race github.com/cloudfoundry-incubator/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local
+mdkdir -p /tmp/cni/data
 echo '{
   "cniVersion": "0.3.0",
   "name": "my-silk-network",
   "type": "silk",
-  "ipam": {
-      "type": "host-local",
-      "subnet": "10.255.30.0/24",
-      "routes": [ { "dst": "0.0.0.0/0", "gw": "169.254.0.1" } ]
-   }
+  "dataDir": "/tmp/cni/data",
+  "subnetFile": "/tmp/cni/subnet.env"
 }' > /tmp/cni/silk.conf
+
+echo 'FLANNEL_SUBNET=10.255.30.0/24
+FLANNEL_NETWORK=10.255.0.0/16
+FLANNEL_MTU=1472
+FLANNEL_IPMASQ=false
+' > /tmp/cni/subnet.env
 
 echo '
 export CNI_PATH=/tmp/cni
