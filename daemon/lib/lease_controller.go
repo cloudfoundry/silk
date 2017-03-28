@@ -4,16 +4,24 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cloudfoundry-incubator/silk/daemon/database"
+	"code.cloudfoundry.org/lager"
 )
 
+//go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
+type databaseHandler interface {
+	Migrate() (int, error)
+	AddEntry(string, string) error
+	SubnetExists(string) (bool, error)
+}
+
 type LeaseController struct {
-	DatabaseHandler               *database.DatabaseHandler
+	DatabaseHandler               databaseHandler
 	MaxMigrationAttempts          int
 	MigrationAttemptSleepDuration time.Duration
 	AcquireSubnetLeaseAttempts    int
 	CIDRPool                      *CIDRPool
 	UnderlayIP                    string
+	Logger                        lager.Logger
 }
 
 func (c *LeaseController) TryMigrations() error {
@@ -23,7 +31,7 @@ func (c *LeaseController) TryMigrations() error {
 		var n int
 		n, err = c.DatabaseHandler.Migrate()
 		if err == nil {
-			fmt.Printf("db migration complete: applied %d migrations.\n", n)
+			c.Logger.Info("db-migration-complete", lager.Data{"num-applied": n})
 			break
 		}
 
@@ -49,7 +57,7 @@ func (c *LeaseController) AcquireSubnetLease() (string, error) {
 }
 
 func (c *LeaseController) tryAcquireLease() (string, error) {
-	subnet, err := c.getFreeSubnet(c.DatabaseHandler)
+	subnet, err := c.getFreeSubnet()
 	if err != nil {
 		panic(err)
 	}
@@ -57,11 +65,11 @@ func (c *LeaseController) tryAcquireLease() (string, error) {
 	return subnet, c.DatabaseHandler.AddEntry(c.UnderlayIP, subnet)
 }
 
-func (c *LeaseController) getFreeSubnet(databaseHandler *database.DatabaseHandler) (string, error) {
+func (c *LeaseController) getFreeSubnet() (string, error) {
 	i := 0
 	for {
 		subnet := c.CIDRPool.GetRandom()
-		subnetExists, err := databaseHandler.SubnetExists(subnet)
+		subnetExists, err := c.DatabaseHandler.SubnetExists(subnet)
 		if err != nil {
 			panic(err)
 		}

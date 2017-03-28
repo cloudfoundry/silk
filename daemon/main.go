@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"time"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
 	"github.com/cloudfoundry-incubator/silk/daemon/database"
 	"github.com/cloudfoundry-incubator/silk/daemon/lib"
@@ -42,6 +44,7 @@ func main() {
 		AcquireSubnetLeaseAttempts:    10,
 		CIDRPool:                      lib.NewCIDRPool(cfg.SubnetRange, cfg.SubnetMask),
 		UnderlayIP:                    cfg.UnderlayIP,
+		Logger:                        lager.NewLogger("silk-daemon"),
 	}
 	if err := leaseController.TryMigrations(); err != nil {
 		panic(err)
