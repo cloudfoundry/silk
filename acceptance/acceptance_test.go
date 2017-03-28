@@ -108,7 +108,6 @@ var _ = Describe("Acceptance", func() {
 		})
 
 		It("creates and destroys a veth pair", func() {
-			By("calling ADD")
 			sess := startCommand("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -130,6 +129,17 @@ var _ = Describe("Acceptance", func() {
 
 			link, err = netlink.LinkByName(inHost[0].Name)
 			Expect(err).To(MatchError(ContainSubstring("not found")))
+		})
+
+		It("can be deleted multiple times without an error status", func() {
+			sess := startCommand("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			sess = startCommand("DEL", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			sess = startCommand("DEL", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 		})
 
 		hostLinkFromResult := func(cniResult []byte) netlink.Link {

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net"
 
+	"code.cloudfoundry.org/lager/lagertest"
+
 	"github.com/cloudfoundry-incubator/silk/lib"
 	"github.com/cloudfoundry-incubator/silk/lib/fakes"
 	"github.com/containernetworking/cni/pkg/types"
@@ -23,14 +25,17 @@ var _ = Describe("Link Operations", func() {
 		peerIP             net.IP
 		hwAddr             net.HardwareAddr
 		routes             []*types.Route
+		logger             *lagertest.TestLogger
 	)
 
 	BeforeEach(func() {
+		logger = lagertest.NewTestLogger("test")
 		fakeSysctlAdapter = &fakes.SysctlAdapter{}
 		fakeNetlinkAdapter = &fakes.NetlinkAdapter{}
 		linkOperations = &lib.LinkOperations{
 			SysctlAdapter:  fakeSysctlAdapter,
 			NetlinkAdapter: fakeNetlinkAdapter,
+			Logger:         logger,
 		}
 		fakeLink = &netlink.Bridge{
 			LinkAttrs: netlink.LinkAttrs{
@@ -259,11 +264,19 @@ var _ = Describe("Link Operations", func() {
 
 		Context("when finding the link fails", func() {
 			BeforeEach(func() {
-				fakeNetlinkAdapter.LinkByNameReturns(nil, errors.New("eel"))
+				fakeNetlinkAdapter.LinkByNameReturns(nil, errors.New("some error returned by LinkByName"))
 			})
-			It("returns a meaningful error", func() {
+			It("swallows the error and return success", func() {
 				err := linkOperations.DeleteLinkByName("someName")
-				Expect(err).To(MatchError("failed to find link \"someName\": eel"))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("logs an informational message with the failure", func() {
+				linkOperations.DeleteLinkByName("someName")
+
+				Expect(logger.Logs()).To(HaveLen(1))
+				Expect(logger.Logs()[0].Data).To(HaveKeyWithValue("deviceName", "someName"))
+				Expect(logger.Logs()[0].Data).To(HaveKeyWithValue("message", "some error returned by LinkByName"))
 			})
 		})
 

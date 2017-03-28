@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
 )
@@ -13,6 +15,7 @@ import (
 type LinkOperations struct {
 	SysctlAdapter  sysctlAdapter
 	NetlinkAdapter netlinkAdapter
+	Logger         lager.Logger
 }
 
 func (s *LinkOperations) DisableIPv6(deviceName string) error {
@@ -88,7 +91,12 @@ func (s *LinkOperations) RenameLink(oldName, newName string) error {
 func (s *LinkOperations) DeleteLinkByName(deviceName string) error {
 	link, err := s.NetlinkAdapter.LinkByName(deviceName)
 	if err != nil {
-		return fmt.Errorf("failed to find link %q: %s", deviceName, err)
+		s.Logger.Info("DeleteLinkByName", lager.Data{
+			"deviceName": deviceName,
+			"message":    err.Error(),
+		})
+
+		return nil
 	}
 
 	return s.NetlinkAdapter.LinkDel(link)

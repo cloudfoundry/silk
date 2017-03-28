@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+
+	"code.cloudfoundry.org/lager"
 
 	"github.com/cloudfoundry-incubator/silk/adapter"
 	"github.com/cloudfoundry-incubator/silk/config"
@@ -32,10 +35,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	logger := lager.NewLogger("silk-cni")
+	sink := lager.NewWriterSink(os.Stderr, lager.INFO)
+	logger.RegisterSink(sink)
+
 	netlinkAdapter := &adapter.NetlinkAdapter{}
 	linkOperations := &lib.LinkOperations{
 		SysctlAdapter:  &adapter.SysctlAdapter{},
 		NetlinkAdapter: netlinkAdapter,
+		Logger:         logger,
 	}
 	commonSetup := &lib.Common{
 		NetlinkAdapter: netlinkAdapter,

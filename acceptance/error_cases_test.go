@@ -123,18 +123,13 @@ var _ = Describe("errors", func() {
 			})
 		})
 
-		Context("when the veth manager fails to destroy a veth pair", func() {
-			It("exits with nonzero status and prints a CNI error", func() {
-				cniEnv["CNI_IFNAME"] = "some-bad-eth-name"
+		Context("when the interface isn't present inside the container", func() {
+			It("exits with zero status, but logs the error", func() {
+				cniEnv["CNI_IFNAME"] = "not-there"
 				cniStdin = cniConfig(dataDir, subnetEnvFile)
 				session := startCommand("DEL", cniStdin)
-				Eventually(session, cmdTimeout).Should(gexec.Exit(1))
-
-				Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
-				"msg": "teardown failed",
-				"details": "deleting link: failed to find link \"some-bad-eth-name\": numerical result out of range"
-			}`))
+				Eventually(session, cmdTimeout).Should(gexec.Exit(0))
+				Expect(string(session.Err.Contents())).To(ContainSubstring(`"deviceName":"not-there","message":"Link not found"`))
 			})
 		})
 

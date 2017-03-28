@@ -1,8 +1,12 @@
 #!/bin/bash
 
+set -e -u
+set -o pipefail
+
 go build -o /tmp/cni/silk -ldflags="-extldflags=-Wl,--allow-multiple-definition" -race .
 go build -o /tmp/cni/host-local -race github.com/cloudfoundry-incubator/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local
-mdkdir -p /tmp/cni/data
+mkdir -p /tmp/cni/data
+
 echo '{
   "cniVersion": "0.3.0",
   "name": "my-silk-network",
