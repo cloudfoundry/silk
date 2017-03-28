@@ -48,8 +48,7 @@ var _ = Describe("Daemon Integration", func() {
 		}
 	})
 
-	It("assigns a subnet to the vm and stores it in the database", func() {
-
+	It("assigns a subnet to each vm and stores it in the database", func() {
 		By("waiting for each daemon to acquire a subnet")
 		for _, s := range sessions {
 			Eventually(s.Out, "4s").Should(gbytes.Say("acquired subnet .* for underlay ip .*"))
@@ -65,10 +64,11 @@ var _ = Describe("Daemon Integration", func() {
 		}
 
 		By("checking that subnets do not overlap")
-		var subnets []string
+		subnets := map[string]int{}
 		for i, s := range sessions {
 			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
-			subnets = append(subnets, subnet)
+			Expect(subnets[subnet]).To(Equal(0))
+			subnets[subnet]++
 			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
 		}
 	})
