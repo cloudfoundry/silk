@@ -56,6 +56,7 @@ var _ = Describe("Acceptance", func() {
 			Mask: flannelSubnetCIDR.Mask,
 		}
 		subnetEnvFile = writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
+		cniStdin = cniConfig(dataDir, subnetEnvFile)
 	})
 
 	AfterEach(func() {

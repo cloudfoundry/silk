@@ -3,10 +3,12 @@ package acceptance_test
 import (
 	"io/ioutil"
 	"net"
+	"os"
 
 	"github.com/containernetworking/cni/pkg/ns"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -34,6 +36,14 @@ var _ = Describe("errors", func() {
 			Mask: flannelSubnetCIDR.Mask,
 		}
 		subnetEnvFile = writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
+		cniStdin = cniConfig(dataDir, subnetEnvFile)
+	})
+
+	AfterEach(func() {
+		containerNS.Close() // don't bother checking errors here
+		mustSucceed("iptables", "-t", "nat", "-F")
+		Expect(os.RemoveAll(subnetEnvFile)).To(Succeed())
+		Expect(os.RemoveAll(dataDir)).To(Succeed())
 	})
 
 	Describe("errors on ADD", func() {
@@ -111,22 +121,30 @@ var _ = Describe("errors", func() {
 				subnetEnvFile = writeSubnetEnvFile("10.255.30.0/33", fullNetwork.String())
 				cniStdin = cniConfig(dataDir, subnetEnvFile)
 			})
-			It("exits with nonzero status and prints a CNI error result as JSON to stdout", func() {
-				session := startCommand("DEL", cniStdin)
-				Eventually(session, cmdTimeout).Should(gexec.Exit(1))
 
-				Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
-				"msg": "ipam plugin failed",
-				"details": "invalid CIDR address: 10.255.30.0/33"
-			}`))
+			It("exits with zero status but logs the error", func() {
+				session := startCommand("DEL", cniStdin)
+				Eventually(session, cmdTimeout).Should(gexec.Exit(0))
+
+				Expect(string(session.Err.Contents())).To(ContainSubstring(`invalid CIDR address: 10.255.30.0/33`))
+			})
+		})
+
+		Context("when the network namespace doesn't exist", func() {
+			BeforeEach(func() {
+				cniEnv["CNI_NETNS"] = "/tmp/not/there"
+			})
+			It("exits with zero status but logs the error", func() {
+				session := startCommand("DEL", cniStdin)
+				Eventually(session, cmdTimeout).Should(gexec.Exit(0))
+
+				Expect(session.Err).To(gbytes.Say(`opening-netns.*/tmp/not/there.*no such file or directory`))
 			})
 		})
 
 		Context("when the interface isn't present inside the container", func() {
 			It("exits with zero status, but logs the error", func() {
 				cniEnv["CNI_IFNAME"] = "not-there"
-				cniStdin = cniConfig(dataDir, subnetEnvFile)
 				session := startCommand("DEL", cniStdin)
 				Eventually(session, cmdTimeout).Should(gexec.Exit(0))
 				Expect(string(session.Err.Contents())).To(ContainSubstring(`"deviceName":"not-there","message":"Link not found"`))

@@ -27,6 +27,7 @@ type CNIPlugin struct {
 	VethPairCreator *lib.VethPairCreator
 	Host            *lib.Host
 	Container       *lib.Container
+	Logger          lager.Logger
 }
 
 func main() {
@@ -69,6 +70,7 @@ func main() {
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
 		},
+		Logger: logger,
 	}
 
 	skel.PluginMain(plugin.cmdAdd, plugin.cmdDel, version.PluginSupports("0.3.0"))
@@ -170,12 +172,14 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 
 	err = ipam.ExecDel("host-local", ipamConfigBytes)
 	if err != nil {
-		return typedError("ipam plugin failed", err)
+		p.Logger.Error("host-local-ipam", err)
+		// continue, keep trying to cleanup
 	}
 
 	containerNS, err := ns.GetNS(args.Netns)
 	if err != nil {
-		return typedError("opening container network namespace", err)
+		p.Logger.Error("opening-netns", err)
+		return nil // can't do teardown if no netns
 	}
 
 	err = p.Container.Teardown(containerNS, args.IfName)
