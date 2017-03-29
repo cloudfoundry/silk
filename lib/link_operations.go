@@ -110,14 +110,6 @@ func (s *LinkOperations) DeleteLinkByName(deviceName string) error {
 	return s.NetlinkAdapter.LinkDel(link)
 }
 
-func (s *LinkOperations) RouteAdd(route netlink.Route) error {
-	err := s.NetlinkAdapter.RouteAdd(route)
-	if err != nil {
-		return fmt.Errorf("failed to add route %s: %s", route, err)
-	}
-	return nil
-}
-
 func (s *LinkOperations) RouteAddAll(routes []*types.Route, sourceIP net.IP) error {
 	for _, r := range routes {
 		dst := r.Dst
