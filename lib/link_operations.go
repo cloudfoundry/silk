@@ -21,7 +21,7 @@ type LinkOperations struct {
 func (s *LinkOperations) DisableIPv6(deviceName string) error {
 	_, err := s.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", deviceName), "1")
 	if err != nil {
-		return fmt.Errorf("disabling IPv6: %s", err)
+		return fmt.Errorf("sysctl for %s: %s", deviceName, err)
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func (s *LinkOperations) RenameLink(oldName, newName string) error {
 
 	err = s.NetlinkAdapter.LinkSetName(link, newName)
 	if err != nil {
-		return fmt.Errorf("rename link: %s", err)
+		return fmt.Errorf("set link name: %s", err)
 	}
 
 	return nil
@@ -119,7 +119,7 @@ func (s *LinkOperations) RouteAddAll(routes []*types.Route, sourceIP net.IP) err
 			Gw:  r.GW,
 		})
 		if err != nil {
-			return fmt.Errorf("adding route in container: %s", err)
+			return fmt.Errorf("adding route: %s", err)
 		}
 	}
 	return nil

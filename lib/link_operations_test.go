@@ -93,7 +93,7 @@ var _ = Describe("Link Operations", func() {
 			})
 			It("returns a meaningful error", func() {
 				err := linkOperations.DisableIPv6("someDevice")
-				Expect(err).To(MatchError("disabling IPv6: cuttlefish"))
+				Expect(err).To(MatchError("sysctl for someDevice: cuttlefish"))
 			})
 		})
 	})
@@ -265,7 +265,7 @@ var _ = Describe("Link Operations", func() {
 			})
 			It("returns a meaningful error", func() {
 				err := linkOperations.RenameLink("old", "new")
-				Expect(err).To(MatchError("rename link: starfish"))
+				Expect(err).To(MatchError("set link name: starfish"))
 			})
 		})
 	})
@@ -303,13 +303,13 @@ var _ = Describe("Link Operations", func() {
 			})
 		})
 
-		Context("when setting the link name fails", func() {
+		Context("when deleting the link fails", func() {
 			BeforeEach(func() {
-				fakeNetlinkAdapter.LinkSetNameReturns(errors.New("starfish"))
+				fakeNetlinkAdapter.LinkDelReturns(errors.New("starfish"))
 			})
-			It("returns a meaningful error", func() {
-				err := linkOperations.RenameLink("old", "new")
-				Expect(err).To(MatchError("rename link: starfish"))
+			It("returns the error", func() {
+				err := linkOperations.DeleteLinkByName("someName")
+				Expect(err).To(MatchError("starfish"))
 			})
 		})
 	})
@@ -349,7 +349,7 @@ var _ = Describe("Link Operations", func() {
 			}))
 		})
 
-		Context("when adding on of the routes fails", func() {
+		Context("when adding one of the routes fails", func() {
 			BeforeEach(func() {
 				fakeNetlinkAdapter.RouteAddStub = func(route netlink.Route) error {
 					if route.Gw.String() == "10.255.30.1" {
@@ -360,7 +360,7 @@ var _ = Describe("Link Operations", func() {
 			})
 			It("returns a meaningful error", func() {
 				err := linkOperations.RouteAddAll(routes, ipAddr)
-				Expect(err).To(MatchError("adding route in container: pickle"))
+				Expect(err).To(MatchError("adding route: pickle"))
 
 				Expect(fakeNetlinkAdapter.RouteAddCallCount()).To(Equal(2))
 			})
