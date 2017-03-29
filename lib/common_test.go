@@ -79,6 +79,9 @@ var _ = Describe("Common", func() {
 			Expect(localIP).To(Equal(local.IP))
 			Expect(peerIP).To(Equal(peer.IP))
 
+			Expect(fakeLinkOperations.EnableReversePathFilteringCallCount()).To(Equal(1))
+			Expect(fakeLinkOperations.EnableReversePathFilteringArgsForCall(0)).To(Equal("myDeviceName"))
+
 			Expect(fakeNetlinkAdapter.LinkSetUpCallCount()).To(Equal(1))
 			Expect(fakeNetlinkAdapter.LinkSetUpArgsForCall(0)).To(Equal(fakeLink))
 		})
@@ -131,6 +134,16 @@ var _ = Describe("Common", func() {
 			It("wraps and returns the error", func() {
 				err := common.BasicSetup(deviceName, local, peer)
 				Expect(err).To(Equal(errors.New("setting point to point address: dragonfruit")))
+			})
+		})
+
+		Context("when enabling reverse path filtering fails", func() {
+			BeforeEach(func() {
+				fakeLinkOperations.EnableReversePathFilteringReturns(errors.New("pomegranate"))
+			})
+			It("wraps and returns the error", func() {
+				err := common.BasicSetup(deviceName, local, peer)
+				Expect(err).To(Equal(errors.New("enable reverse path filtering: pomegranate")))
 			})
 		})
 

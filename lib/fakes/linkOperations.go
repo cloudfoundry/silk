@@ -91,6 +91,17 @@ type LinkOperations struct {
 	enableIPv4ForwardingReturnsOnCall map[int]struct {
 		result1 error
 	}
+	EnableReversePathFilteringStub        func(deviceName string) error
+	enableReversePathFilteringMutex       sync.RWMutex
+	enableReversePathFilteringArgsForCall []struct {
+		deviceName string
+	}
+	enableReversePathFilteringReturns struct {
+		result1 error
+	}
+	enableReversePathFilteringReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -434,6 +445,54 @@ func (fake *LinkOperations) EnableIPv4ForwardingReturnsOnCall(i int, result1 err
 	}{result1}
 }
 
+func (fake *LinkOperations) EnableReversePathFiltering(deviceName string) error {
+	fake.enableReversePathFilteringMutex.Lock()
+	ret, specificReturn := fake.enableReversePathFilteringReturnsOnCall[len(fake.enableReversePathFilteringArgsForCall)]
+	fake.enableReversePathFilteringArgsForCall = append(fake.enableReversePathFilteringArgsForCall, struct {
+		deviceName string
+	}{deviceName})
+	fake.recordInvocation("EnableReversePathFiltering", []interface{}{deviceName})
+	fake.enableReversePathFilteringMutex.Unlock()
+	if fake.EnableReversePathFilteringStub != nil {
+		return fake.EnableReversePathFilteringStub(deviceName)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.enableReversePathFilteringReturns.result1
+}
+
+func (fake *LinkOperations) EnableReversePathFilteringCallCount() int {
+	fake.enableReversePathFilteringMutex.RLock()
+	defer fake.enableReversePathFilteringMutex.RUnlock()
+	return len(fake.enableReversePathFilteringArgsForCall)
+}
+
+func (fake *LinkOperations) EnableReversePathFilteringArgsForCall(i int) string {
+	fake.enableReversePathFilteringMutex.RLock()
+	defer fake.enableReversePathFilteringMutex.RUnlock()
+	return fake.enableReversePathFilteringArgsForCall[i].deviceName
+}
+
+func (fake *LinkOperations) EnableReversePathFilteringReturns(result1 error) {
+	fake.EnableReversePathFilteringStub = nil
+	fake.enableReversePathFilteringReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *LinkOperations) EnableReversePathFilteringReturnsOnCall(i int, result1 error) {
+	fake.EnableReversePathFilteringStub = nil
+	if fake.enableReversePathFilteringReturnsOnCall == nil {
+		fake.enableReversePathFilteringReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.enableReversePathFilteringReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *LinkOperations) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -451,6 +510,8 @@ func (fake *LinkOperations) Invocations() map[string][][]interface{} {
 	defer fake.routeAddAllMutex.RUnlock()
 	fake.enableIPv4ForwardingMutex.RLock()
 	defer fake.enableIPv4ForwardingMutex.RUnlock()
+	fake.enableReversePathFilteringMutex.RLock()
+	defer fake.enableReversePathFilteringMutex.RUnlock()
 	return fake.invocations
 }
 

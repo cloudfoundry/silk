@@ -18,6 +18,7 @@ type linkOperations interface {
 	DeleteLinkByName(deviceName string) error
 	RouteAddAll(route []*types.Route, sourceIP net.IP) error
 	EnableIPv4Forwarding() error
+	EnableReversePathFiltering(deviceName string) error
 }
 
 //go:generate counterfeiter -o fakes/common.go --fake-name Common . common

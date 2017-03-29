@@ -26,6 +26,14 @@ func (s *LinkOperations) DisableIPv6(deviceName string) error {
 	return nil
 }
 
+func (s *LinkOperations) EnableReversePathFiltering(deviceName string) error {
+	_, err := s.SysctlAdapter.Sysctl(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", deviceName), "1")
+	if err != nil {
+		return fmt.Errorf("sysctl for %s: %s", deviceName, err)
+	}
+	return nil
+}
+
 func (s *LinkOperations) EnableIPv4Forwarding() error {
 	_, err := s.SysctlAdapter.Sysctl("net.ipv4.ip_forward", "1")
 	if err != nil {

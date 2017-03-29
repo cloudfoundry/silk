@@ -98,6 +98,29 @@ var _ = Describe("Link Operations", func() {
 		})
 	})
 
+	Describe("EnableReversePathFiltering", func() {
+		It("calls the sysctl adapter to set rp_filtering to strict mode", func() {
+			err := linkOperations.EnableReversePathFiltering("someDevice")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(fakeSysctlAdapter.SysctlCallCount()).To(Equal(1))
+			name, params := fakeSysctlAdapter.SysctlArgsForCall(0)
+			Expect(name).To(Equal("net.ipv4.conf.someDevice.rp_filter"))
+			Expect(len(params)).To(Equal(1))
+			Expect(params[0]).To(Equal("1"))
+		})
+
+		Context("when the sysctl command fails", func() {
+			BeforeEach(func() {
+				fakeSysctlAdapter.SysctlReturns("", errors.New("cuttlefish"))
+			})
+			It("returns a meaningful error", func() {
+				err := linkOperations.EnableReversePathFiltering("someDevice")
+				Expect(err).To(MatchError("sysctl for someDevice: cuttlefish"))
+			})
+		})
+	})
+
 	Describe("EnableIPv4Forwarding", func() {
 		It("calls the sysctl adapter to enable IPv4 forwarding", func() {
 			err := linkOperations.EnableIPv4Forwarding()

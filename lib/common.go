@@ -37,6 +37,10 @@ func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) e
 		return fmt.Errorf("setting point to point address: %s", err)
 	}
 
+	if err := s.LinkOperations.EnableReversePathFiltering(deviceName); err != nil {
+		return fmt.Errorf("enable reverse path filtering: %s", err)
+	}
+
 	if err := s.NetlinkAdapter.LinkSetUp(link); err != nil {
 		return fmt.Errorf("setting link %s up: %s", deviceName, err)
 	}
