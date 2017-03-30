@@ -67,7 +67,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			conf := config.Config{
 				SubnetRange: "10.255.0.0/16",
-				SubnetMask:  "24",
+				SubnetMask:  24,
 				UnderlayIP:  "10.244.4.6",
 				Database: config.DatabaseConfig{
 					Type:             "bad-type",
@@ -91,7 +91,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			conf := config.Config{
 				SubnetRange: "10.255.0.0/16",
-				SubnetMask:  "24",
+				SubnetMask:  24,
 				UnderlayIP:  "10.244.4.6",
 				Database: config.DatabaseConfig{
 					Type:             "postgres",

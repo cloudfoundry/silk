@@ -3,7 +3,7 @@ package config
 type Config struct {
 	UnderlayIP  string         `json:"underlay_ip"`
 	SubnetRange string         `json:"subnet_range"`
-	SubnetMask  string         `json:"subnet_mask"`
+	SubnetMask  int            `json:"subnet_mask"`
 	Database    DatabaseConfig `json:"database"`
 }
 

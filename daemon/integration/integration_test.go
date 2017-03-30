@@ -89,7 +89,7 @@ func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
 
 	return config.Config{
 		SubnetRange: "10.255.0.0/16",
-		SubnetMask:  "24",
+		SubnetMask:  24,
 		Database: config.DatabaseConfig{
 			Type:             d.ConnInfo.Type,
 			ConnectionString: connectionString,

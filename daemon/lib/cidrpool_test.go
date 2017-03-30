@@ -10,18 +10,18 @@ import (
 var _ = Describe("Cidrpool", func() {
 	Describe("Size", func() {
 		DescribeTable("returns the number of subnets that can be allocated",
-			func(subnetRange, subnetMask string, expectedSize int) {
+			func(subnetRange string, subnetMask, expectedSize int) {
 				cidrPool := lib.NewCIDRPool(subnetRange, subnetMask)
 				Expect(cidrPool.Size()).To(Equal(expectedSize))
 			},
-			Entry("when the range is /16 and mask is /24", "10.255.0.0/16", "24", 253),
-			Entry("when the range is /16 and mask is /20", "10.255.0.0/16", "20", 13),
+			Entry("when the range is /16 and mask is /24", "10.255.0.0/16", 24, 253),
+			Entry("when the range is /16 and mask is /20", "10.255.0.0/16", 20, 13),
 		)
 	})
 
 	Describe("GetRandom", func() {
 		It("returns a random subnet from the pool", func() {
-			cidrPool := lib.NewCIDRPool("10.255.0.0/16", "24")
+			cidrPool := lib.NewCIDRPool("10.255.0.0/16", 24)
 
 			results := map[string]int{}
 

@@ -7,7 +7,6 @@ import (
 	"math/big"
 	mathRand "math/rand"
 	"net"
-	"strconv"
 
 	"github.com/ziutek/utils/netaddr"
 )
@@ -19,24 +18,20 @@ type CIDRPool struct {
 	pool          []string
 }
 
-func NewCIDRPool(subnetRange, subnetMask string) *CIDRPool {
+func NewCIDRPool(subnetRange string, subnetMask int) *CIDRPool {
 	ip, ipCIDR, err := net.ParseCIDR(subnetRange)
 	if err != nil {
 		panic(err)
 	}
 	cidrMask, _ := ipCIDR.Mask.Size()
-	cidrMaskBlock, err := strconv.Atoi(subnetMask)
-	if err != nil {
-		panic(err)
-	}
 
 	mathRand.Seed(getRandomSeed())
 
 	return &CIDRPool{
 		ipStart:       ip.String(),
 		cidrMask:      uint(cidrMask),
-		cidrMaskBlock: uint(cidrMaskBlock),
-		pool:          generateCIDRPool(ip.String(), uint(cidrMask), uint(cidrMaskBlock)),
+		cidrMaskBlock: uint(subnetMask),
+		pool:          generateCIDRPool(ip.String(), uint(cidrMask), uint(subnetMask)),
 	}
 }
 
