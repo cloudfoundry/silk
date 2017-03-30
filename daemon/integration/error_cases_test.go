@@ -111,7 +111,9 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the lease controller fails to acquire a subnet lease", func() {
+	// TODO(gabe): unpend, figure out how to set up the test so that we can trigger
+	// this sort of failure and actually test the behavior in that case
+	XContext("when the lease controller fails to acquire a subnet lease", func() {
 		It("exits with status 1", func() {
 			conf := CreateTestConfig(testDatabase)
 			conf.UnderlayIP = "10.244.4.5"

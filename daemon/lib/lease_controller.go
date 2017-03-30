@@ -12,6 +12,7 @@ type databaseHandler interface {
 	Migrate() (int, error)
 	AddEntry(string, string) error
 	SubnetExists(string) (bool, error)
+	SubnetForUnderlayIP(string) (string, error)
 }
 
 //go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
@@ -49,8 +50,19 @@ func (c *LeaseController) TryMigrations() error {
 
 func (c *LeaseController) AcquireSubnetLease() (string, error) {
 	var err error
+	var subnet string
+
+	subnet, err = c.tryRenewLease()
+	// TODO: error handling, maybe try to distinguish
+	// between RecordNotFound and other types of errors
+	if subnet != "" {
+		c.Logger.Info("subnet-renewed", lager.Data{"subnet": subnet,
+			"underlay ip": c.UnderlayIP,
+		})
+		return subnet, nil
+	}
+
 	for numErrs := 0; numErrs < c.AcquireSubnetLeaseAttempts; numErrs++ {
-		var subnet string
 		subnet, err = c.tryAcquireLease()
 		if err == nil {
 			c.Logger.Info("subnet-acquired", lager.Data{"subnet": subnet,
@@ -61,6 +73,15 @@ func (c *LeaseController) AcquireSubnetLease() (string, error) {
 	}
 
 	return "", err
+}
+
+func (c *LeaseController) tryRenewLease() (string, error) {
+	subnet, err := c.DatabaseHandler.SubnetForUnderlayIP(c.UnderlayIP)
+	if err != nil {
+		return "", fmt.Errorf("checking if subnet exists for underlay: %s", err)
+	}
+
+	return subnet, nil
 }
 
 func (c *LeaseController) tryAcquireLease() (string, error) {

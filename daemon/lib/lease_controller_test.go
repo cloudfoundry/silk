@@ -2,6 +2,7 @@ package lib_test
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/lager/lagertest"
@@ -110,6 +111,40 @@ var _ = Describe("LeaseController", func() {
 				Expect(err).To(MatchError("adding lease entry: guava"))
 
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(10))
+			})
+		})
+
+		Context("when a lease has already been assigned", func() {
+			BeforeEach(func() {
+				databaseHandler.SubnetForUnderlayIPReturns("10.255.76.0/24", nil)
+			})
+
+			It("gets the previously assigned lease", func() {
+				_, err := leaseController.AcquireSubnetLease()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
+				Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
+				Expect(logger.Logs()[0].Message).To(Equal("test.subnet-renewed"))
+
+				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when checking for an existing lease fails", func() {
+			BeforeEach(func() {
+				databaseHandler.SubnetForUnderlayIPReturns("", fmt.Errorf("fruit"))
+				databaseHandler.SubnetExistsReturns(false, nil)
+			})
+			It("ignores the error and tries to get a new lease", func() {
+				cidrPool.GetRandomReturns("10.255.76.0/24")
+
+				_, err := leaseController.AcquireSubnetLease()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
+				Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
+				Expect(logger.Logs()[0].Message).To(Equal("test.subnet-acquired"))
+
+				Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
 			})
 		})
 	})

@@ -56,6 +56,16 @@ func (d *DatabaseHandler) SubnetExists(subnet string) (bool, error) {
 	}
 }
 
+func (d *DatabaseHandler) SubnetForUnderlayIP(underlayIP string) (string, error) {
+	var subnet string
+	result := d.db.QueryRow(fmt.Sprintf("SELECT subnet FROM subnets WHERE underlay_ip = '%s'", underlayIP))
+	err := result.Scan(&subnet)
+	if err != nil {
+		return "", err
+	}
+	return subnet, nil
+}
+
 func createSubnetTable(dbType string) string {
 	baseCreateTable := "CREATE TABLE IF NOT EXISTS subnets ( " +
 		" %s, " +

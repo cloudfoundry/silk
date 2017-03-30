@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"regexp"
@@ -63,16 +64,47 @@ var _ = Describe("Daemon Integration", func() {
 			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
 		}
 
-		By("checking that subnets do not overlap")
-		subnets := map[string]int{}
+		By("checking that subnets do not overlap, and recording the ip : subnet mappings")
+		type lease struct {
+			underlayIP string
+			subnet     string
+		}
+
+		subnetCounts := map[string]int{}
+		recordedLeases := []lease{}
 		for i, s := range sessions {
 			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
-			Expect(subnets[subnet]).To(Equal(0))
-			subnets[subnet]++
+			Expect(subnetCounts[subnet]).To(Equal(0))
+			subnetCounts[subnet]++
 			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
+			recordedLeases = append(recordedLeases, lease{underlayIP, subnet})
+		}
+
+		By("restarting the daemons")
+		sessions = startDaemons(daemonConfs)
+
+		By("wawiting for the subnets to be renewed")
+		for _, s := range sessions {
+			Eventually(s.Out, "4s").Should(gbytes.Say("subnet-renewed.*subnet.*underlay ip.*"))
+		}
+
+		By("signaling all sessions to terminate")
+		for _, s := range sessions {
+			s.Interrupt()
+		}
+		By("verifying all daemons exit with status 0")
+		for _, s := range sessions {
+			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		}
+
+		By("checking that subnets are the same as before")
+		for i, s := range sessions {
+			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
+			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
+			Expect(recordedLeases[i].underlayIP).To(Equal(underlayIP))
+			Expect(recordedLeases[i].subnet).To(Equal(subnet))
 		}
 	})
-
 })
 
 func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
@@ -98,10 +130,21 @@ func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
 }
 
 func discoverLeaseFromLogs(output []byte) (string, string) {
-	leaseLogLineRegex := `subnet-acquired.*"subnet":"((?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2})".*"underlay ip":"((?:[0-9]{1,3}\.){3}[0-9]{1,3})"`
+	leaseLogLineRegex := `subnet-.*"subnet":"((?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2})".*"underlay ip":"((?:[0-9]{1,3}\.){3}[0-9]{1,3})"`
 	matches := regexp.MustCompile(leaseLogLineRegex).FindStringSubmatch(string(output))
 	Expect(matches).To(HaveLen(3))
-	return matches[1], matches[2]
+
+	subnetString := matches[1]
+	_, subnet, err := net.ParseCIDR(subnetString)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(subnet.String()).To(Equal(subnetString))
+
+	ipString := matches[2]
+	ip := net.ParseIP(ipString)
+	Expect(ip).NotTo(BeNil())
+	Expect(ip.String()).To(Equal(ipString))
+
+	return subnetString, ipString
 }
 
 func configureDaemons(template config.Config, instances int) []config.Config {
