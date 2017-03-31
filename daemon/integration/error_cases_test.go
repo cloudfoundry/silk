@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"time"
 
+	"code.cloudfoundry.org/go-db-helpers/db"
+
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
 	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
 	. "github.com/onsi/ginkgo"
@@ -63,13 +65,13 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the database handler fails to be created", func() {
+	Context("when the database handler fails to be connect", func() {
 		It("exits with status 1", func() {
 			conf := config.Config{
 				SubnetRange: "10.255.0.0/16",
 				SubnetMask:  24,
 				UnderlayIP:  "10.244.4.6",
-				Database: config.DatabaseConfig{
+				Database: db.Config{
 					Type:             "bad-type",
 					ConnectionString: "some-bad-connection-string",
 				},
@@ -81,7 +83,7 @@ var _ = Describe("error cases", func() {
 			session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not create database handler:"))
+			Expect(session.Err.Contents()).To(ContainSubstring("could not connect to database:"))
 
 			session.Interrupt()
 		})
@@ -93,7 +95,7 @@ var _ = Describe("error cases", func() {
 				SubnetRange: "10.255.0.0/16",
 				SubnetMask:  24,
 				UnderlayIP:  "10.244.4.6",
-				Database: config.DatabaseConfig{
+				Database: db.Config{
 					Type:             "postgres",
 					ConnectionString: "some-bad-connection-string",
 				},
@@ -105,7 +107,7 @@ var _ = Describe("error cases", func() {
 			session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session, 10*time.Second).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not migrate database:"))
+			Expect(session.Err.Contents()).To(ContainSubstring("could not connect to database:"))
 
 			session.Interrupt()
 		})

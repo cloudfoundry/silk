@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"regexp"
 
+	"code.cloudfoundry.org/go-db-helpers/db"
+
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
 	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
 	_ "github.com/go-sql-driver/mysql"
@@ -64,45 +66,13 @@ var _ = Describe("Daemon Integration", func() {
 			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
 		}
 
-		By("checking that subnets do not overlap, and recording the ip : subnet mappings")
-		type lease struct {
-			underlayIP string
-			subnet     string
-		}
-
+		By("checking that subnets do not overlap")
 		subnetCounts := map[string]int{}
-		recordedLeases := []lease{}
 		for i, s := range sessions {
 			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
 			Expect(subnetCounts[subnet]).To(Equal(0))
 			subnetCounts[subnet]++
 			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
-			recordedLeases = append(recordedLeases, lease{underlayIP, subnet})
-		}
-
-		By("restarting the daemons")
-		sessions = startDaemons(daemonConfs)
-
-		By("wawiting for the subnets to be renewed")
-		for _, s := range sessions {
-			Eventually(s.Out, "4s").Should(gbytes.Say("subnet-renewed.*subnet.*underlay ip.*"))
-		}
-
-		By("signaling all sessions to terminate")
-		for _, s := range sessions {
-			s.Interrupt()
-		}
-		By("verifying all daemons exit with status 0")
-		for _, s := range sessions {
-			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
-		}
-
-		By("checking that subnets are the same as before")
-		for i, s := range sessions {
-			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
-			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
-			Expect(recordedLeases[i].underlayIP).To(Equal(underlayIP))
-			Expect(recordedLeases[i].subnet).To(Equal(subnet))
 		}
 	})
 })
@@ -122,7 +92,7 @@ func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
 	return config.Config{
 		SubnetRange: "10.255.0.0/16",
 		SubnetMask:  24,
-		Database: config.DatabaseConfig{
+		Database: db.Config{
 			Type:             d.ConnInfo.Type,
 			ConnectionString: connectionString,
 		},

@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/lager"
 
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
@@ -31,10 +32,12 @@ func main() {
 		log.Fatalf("could not unmarshal config file contents")
 	}
 
-	databaseHandler, err := lib.NewDatabaseHandler(cfg.Database)
+	sqlDB, err := db.GetConnectionPool(cfg.Database)
 	if err != nil {
-		log.Fatalf("could not create database handler: %s", err)
+		log.Fatalf("could not connect to database: %s", err)
 	}
+
+	databaseHandler := lib.NewDatabaseHandler(&lib.MigrateAdapter{}, sqlDB)
 
 	logger := lager.NewLogger("silk-daemon")
 	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
@@ -50,12 +53,12 @@ func main() {
 		Logger:                        logger,
 	}
 	if err = leaseController.TryMigrations(); err != nil {
-		log.Fatalf("could not migrate database: %s", err)
+		log.Fatalf("could not migrate database: %s", err) // not tested
 	}
 
 	_, err = leaseController.AcquireSubnetLease()
 	if err != nil {
-		log.Fatalf("could not acquire subnet: %s", err)
+		log.Fatalf("could not acquire subnet: %s", err) // not tested
 	}
 
 	for {

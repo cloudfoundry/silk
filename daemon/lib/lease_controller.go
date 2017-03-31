@@ -53,8 +53,6 @@ func (c *LeaseController) AcquireSubnetLease() (string, error) {
 	var subnet string
 
 	subnet, err = c.tryRenewLease()
-	// TODO: error handling, maybe try to distinguish
-	// between RecordNotFound and other types of errors
 	if subnet != "" {
 		c.Logger.Info("subnet-renewed", lager.Data{"subnet": subnet,
 			"underlay ip": c.UnderlayIP,

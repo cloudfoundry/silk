@@ -4,55 +4,70 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/cloudfoundry-incubator/silk/daemon/config"
-	"github.com/rubenv/sql-migrate"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
-type DatabaseHandler struct {
-	migrations *migrate.MemoryMigrationSource
-	db         *sql.DB
-	dbType     string
+//go:generate counterfeiter -o fakes/db.go --fake-name Db . Db
+type Db interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	DriverName() string
 }
 
-func NewDatabaseHandler(databaseConfig config.DatabaseConfig) (*DatabaseHandler, error) {
-	db, err := sql.Open(databaseConfig.Type, databaseConfig.ConnectionString)
-	if err != nil {
-		return &DatabaseHandler{}, fmt.Errorf("connecting to database: %s", err)
-	}
+//go:generate counterfeiter -o fakes/migrateAdapter.go --fake-name MigrateAdapter . migrateAdapter
+type migrateAdapter interface {
+	Exec(db Db, dialect string, m migrate.MigrationSource, dir migrate.MigrationDirection) (int, error)
+}
 
-	migrations := &migrate.MemoryMigrationSource{
-		Migrations: []*migrate.Migration{
-			&migrate.Migration{
-				Id:   "1",
-				Up:   []string{createSubnetTable(databaseConfig.Type)},
-				Down: []string{"DROP TABLE subnets"},
+type DatabaseHandler struct {
+	migrator   migrateAdapter
+	migrations *migrate.MemoryMigrationSource
+	db         Db
+}
+
+func NewDatabaseHandler(migrator migrateAdapter, db Db) *DatabaseHandler {
+	return &DatabaseHandler{
+		migrator: migrator,
+		migrations: &migrate.MemoryMigrationSource{
+			Migrations: []*migrate.Migration{
+				&migrate.Migration{
+					Id:   "1",
+					Up:   []string{createSubnetTable(db.DriverName())},
+					Down: []string{"DROP TABLE subnets"},
+				},
 			},
 		},
+		db: db,
 	}
-
-	return &DatabaseHandler{
-		migrations: migrations,
-		db:         db,
-		dbType:     databaseConfig.Type,
-	}, nil
 }
 
 func (d *DatabaseHandler) Migrate() (int, error) {
-	return migrate.Exec(d.db, d.dbType, d.migrations, migrate.Up)
+	migrations := d.migrations
+	numMigrations, err := d.migrator.Exec(d.db, d.db.DriverName(), *migrations, migrate.Up)
+	if err != nil {
+		return 0, fmt.Errorf("migrating: %s", err)
+	}
+	return numMigrations, nil
 }
 
 func (d *DatabaseHandler) AddEntry(underlayIP, subnet string) error {
 	_, err := d.db.Exec(fmt.Sprintf("INSERT INTO subnets (underlay_ip, subnet) VALUES ('%s', '%s')", underlayIP, subnet))
-	return err
+	if err != nil {
+		return fmt.Errorf("adding entry: %s", err)
+	}
+	return nil
 }
 
 func (d *DatabaseHandler) SubnetExists(subnet string) (bool, error) {
 	var exists int
 	err := d.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM subnets WHERE subnet = '%s'", subnet)).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("cannot get subnet: %s")
+	}
 	if exists == 1 {
-		return true, err
+		return true, nil
 	} else {
-		return false, err
+		return false, nil
 	}
 }
 
