@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"time"
 
-	"code.cloudfoundry.org/go-db-helpers/db"
-
 	"github.com/cloudfoundry-incubator/silk/daemon/config"
 	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
 	. "github.com/onsi/ginkgo"
@@ -20,6 +18,7 @@ import (
 var _ = Describe("error cases", func() {
 	var (
 		testDatabase *testsupport.TestDatabase
+		daemonConfig config.Config
 	)
 
 	BeforeEach(func() {
@@ -27,6 +26,9 @@ var _ = Describe("error cases", func() {
 		dbConnectionInfo, err := testsupport.GetDBConnectionInfo()
 		Expect(err).NotTo(HaveOccurred())
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+
+		daemonConfig = CreateTestConfig(testDatabase)
+		daemonConfig.UnderlayIP = "10.244.4.6"
 	})
 
 	AfterEach(func() {
@@ -65,19 +67,10 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the database handler fails to be connect", func() {
+	Context("when the config has an unsupported type", func() {
 		It("exits with status 1", func() {
-			conf := config.Config{
-				SubnetRange: "10.255.0.0/16",
-				SubnetMask:  24,
-				UnderlayIP:  "10.244.4.6",
-				Database: db.Config{
-					Type:             "bad-type",
-					ConnectionString: "some-bad-connection-string",
-				},
-			}
-
-			configFilePath := writeConfigFile(conf)
+			daemonConfig.Database.Type = "bad-type"
+			configFilePath := writeConfigFile(daemonConfig)
 
 			startCmd := exec.Command(daemonPath, "--config", configFilePath)
 			session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
@@ -89,19 +82,11 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the lease controller fails to migrate the database", func() {
+	Context("when the config has a bad connection string", func() {
 		It("exits with status 1", func() {
-			conf := config.Config{
-				SubnetRange: "10.255.0.0/16",
-				SubnetMask:  24,
-				UnderlayIP:  "10.244.4.6",
-				Database: db.Config{
-					Type:             "postgres",
-					ConnectionString: "some-bad-connection-string",
-				},
-			}
+			daemonConfig.Database.ConnectionString = "some-bad-connection-string"
 
-			configFilePath := writeConfigFile(conf)
+			configFilePath := writeConfigFile(daemonConfig)
 
 			startCmd := exec.Command(daemonPath, "--config", configFilePath)
 			session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
