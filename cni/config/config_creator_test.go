@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net"
 
-	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/cloudfoundry-incubator/silk/config/fakes"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
+	"github.com/cloudfoundry-incubator/silk/cni/config/fakes"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"

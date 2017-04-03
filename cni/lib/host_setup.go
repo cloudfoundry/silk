@@ -3,7 +3,7 @@ package lib
 import (
 	"fmt"
 
-	"github.com/cloudfoundry-incubator/silk/config"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
 	"github.com/containernetworking/cni/pkg/ns"
 )
 

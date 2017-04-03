@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cloudfoundry-incubator/silk/config"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/vishvananda/netlink"
 )

@@ -3,7 +3,7 @@ package config_test
 import (
 	"net"
 
-	"github.com/cloudfoundry-incubator/silk/config"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

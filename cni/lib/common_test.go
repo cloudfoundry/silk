@@ -4,13 +4,12 @@ import (
 	"errors"
 	"net"
 
+	"github.com/cloudfoundry-incubator/silk/cni/config"
+	"github.com/cloudfoundry-incubator/silk/cni/lib"
+	"github.com/cloudfoundry-incubator/silk/cni/lib/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
-
-	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/cloudfoundry-incubator/silk/lib"
-	"github.com/cloudfoundry-incubator/silk/lib/fakes"
 )
 
 var _ = Describe("Common", func() {

@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/cloudfoundry-incubator/silk/legacy_flannel"
+	"github.com/cloudfoundry-incubator/silk/cni/legacy_flannel"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

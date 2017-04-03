@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/cloudfoundry-incubator/silk/config"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
 )
 
 type Common struct {

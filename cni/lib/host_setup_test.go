@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net"
 
-	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/cloudfoundry-incubator/silk/lib"
-	"github.com/cloudfoundry-incubator/silk/lib/fakes"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
+	"github.com/cloudfoundry-incubator/silk/cni/lib"
+	"github.com/cloudfoundry-incubator/silk/cni/lib/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -18,7 +18,6 @@ var _ = Describe("Host Setup", func() {
 		cfg                *config.Config
 		fakeLinkOperations *fakes.LinkOperations
 		fakeCommon         *fakes.Common
-		fakeIPAdapter      *fakes.IPAdapter
 		hostSetup          *lib.Host
 		containerAddr      config.DualAddress
 		hostAddr           config.DualAddress
@@ -27,7 +26,6 @@ var _ = Describe("Host Setup", func() {
 	BeforeEach(func() {
 		fakeLinkOperations = &fakes.LinkOperations{}
 		fakeCommon = &fakes.Common{}
-		fakeIPAdapter = &fakes.IPAdapter{}
 		hostNS = &fakes.NetNS{}
 		hostNS.DoStub = lib.NetNsDoStub
 

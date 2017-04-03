@@ -3,8 +3,8 @@ package config_test
 import (
 	"net"
 
-	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/cloudfoundry-incubator/silk/config/fakes"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
+	"github.com/cloudfoundry-incubator/silk/cni/lib/fakes"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	. "github.com/onsi/ginkgo"

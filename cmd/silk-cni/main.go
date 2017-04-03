@@ -8,10 +8,10 @@ import (
 
 	"code.cloudfoundry.org/lager"
 
-	"github.com/cloudfoundry-incubator/silk/adapter"
-	"github.com/cloudfoundry-incubator/silk/config"
-	"github.com/cloudfoundry-incubator/silk/legacy_flannel"
-	"github.com/cloudfoundry-incubator/silk/lib"
+	"github.com/cloudfoundry-incubator/silk/cni/adapter"
+	"github.com/cloudfoundry-incubator/silk/cni/config"
+	"github.com/cloudfoundry-incubator/silk/cni/legacy_flannel"
+	"github.com/cloudfoundry-incubator/silk/cni/lib"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
