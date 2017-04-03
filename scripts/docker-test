@@ -27,13 +27,6 @@ elif [ ${POSTGRES:-"false"} = "true" ]; then
      c2cnetworking/dev-postgres \
      ./scripts/test.sh "$@"
 else
-  echo "running tests with no DB"
-  docker run --privileged \
-     --rm \
-     -it \
-     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
-     -e GOPATH=/go \
-     -w /go/src/github.com/cloudfoundry-incubator/silk \
-     c2cnetworking/dev-postgres \
-     ./scripts/test.sh "$@"
+  export POSTGRES=true
+  "$0" "$@"
 fi
