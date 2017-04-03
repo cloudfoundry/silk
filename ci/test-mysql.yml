@@ -7,7 +7,7 @@ image_resource:
 
 inputs:
   - name: silk
-    path: go/src/github.com/cloudfoundry-incubator/silk
+    path: go/src/code.cloudfoundry.org/silk
 
 run:
   path: /bin/bash
@@ -17,4 +17,4 @@ run:
       export GOPATH=${PWD}/go && \
       export PATH=$PATH:$GOPATH/bin && \
       export MYSQL=true && \
-      $GOPATH/src/github.com/cloudfoundry-incubator/silk/scripts/test.sh
+      $GOPATH/src/code.cloudfoundry.org/silk/scripts/test.sh
