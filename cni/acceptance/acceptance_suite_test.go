@@ -36,10 +36,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	hostNS, err = ns.GetCurrentNS()
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToSilkCNI, err := gexec.Build("github.com/cloudfoundry-incubator/silk/cmd/silk-cni", `-ldflags="-extldflags=-Wl,--allow-multiple-definition"`, "-race")
+	pathToSilkCNI, err := gexec.Build("code.cloudfoundry.org/silk/cmd/silk-cni", `-ldflags="-extldflags=-Wl,--allow-multiple-definition"`, "-race")
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToIPAM, err := gexec.Build("github.com/cloudfoundry-incubator/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local", "-race")
+	pathToIPAM, err := gexec.Build("code.cloudfoundry.org/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	paths = testPaths{

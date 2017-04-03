@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net"
 
-	"github.com/cloudfoundry-incubator/silk/cni/config"
-	"github.com/cloudfoundry-incubator/silk/cni/lib"
-	"github.com/cloudfoundry-incubator/silk/cni/lib/fakes"
+	"code.cloudfoundry.org/silk/cni/config"
+	"code.cloudfoundry.org/silk/cni/lib"
+	"code.cloudfoundry.org/silk/cni/lib/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

@@ -7,8 +7,8 @@ import (
 
 	"code.cloudfoundry.org/lager/lagertest"
 
-	"github.com/cloudfoundry-incubator/silk/daemon/lib"
-	"github.com/cloudfoundry-incubator/silk/daemon/lib/fakes"
+	"code.cloudfoundry.org/silk/daemon/lib"
+	"code.cloudfoundry.org/silk/daemon/lib/fakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

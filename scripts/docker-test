@@ -9,10 +9,10 @@ if [ ${MYSQL:-"false"} = "true" ]; then
   docker run --privileged \
      --rm \
      -it \
-     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -v $PWD:/go/src/code.cloudfoundry.org/silk \
      -e GOPATH=/go \
      -e MYSQL=true \
-     -w /go/src/github.com/cloudfoundry-incubator/silk \
+     -w /go/src/code.cloudfoundry.org/silk \
      c2cnetworking/dev-mysql \
      ./scripts/test.sh "$@"
 elif [ ${POSTGRES:-"false"} = "true" ]; then
@@ -20,10 +20,10 @@ elif [ ${POSTGRES:-"false"} = "true" ]; then
   docker run --privileged \
      --rm \
      -it \
-     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -v $PWD:/go/src/code.cloudfoundry.org/silk \
      -e GOPATH=/go \
      -e POSTGRES=true \
-     -w /go/src/github.com/cloudfoundry-incubator/silk \
+     -w /go/src/code.cloudfoundry.org/silk \
      c2cnetworking/dev-postgres \
      ./scripts/test.sh "$@"
 else

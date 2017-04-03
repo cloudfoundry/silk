@@ -8,20 +8,20 @@ if [ ${MYSQL:-"false"} = "true" ]; then
   docker run --privileged \
      --rm \
      -it \
-     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -v $PWD:/go/src/code.cloudfoundry.org/silk \
      -e GOPATH=/go \
      -e MYSQL=true \
-     -w /go/src/github.com/cloudfoundry-incubator/silk \
+     -w /go/src/code.cloudfoundry.org/silk \
      c2cnetworking/dev-mysql \
      /bin/bash
 elif [ ${POSTGRES:-"false"} = "true" ]; then
   docker run --privileged \
      --rm \
      -it \
-     -v $PWD:/go/src/github.com/cloudfoundry-incubator/silk \
+     -v $PWD:/go/src/code.cloudfoundry.org/silk \
      -e GOPATH=/go \
      -e POSTGRES=true \
-     -w /go/src/github.com/cloudfoundry-incubator/silk \
+     -w /go/src/code.cloudfoundry.org/silk \
      c2cnetworking/dev-postgres \
      /bin/bash
 else

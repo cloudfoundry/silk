@@ -10,9 +10,9 @@ import (
 	"regexp"
 
 	"code.cloudfoundry.org/go-db-helpers/db"
+	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	"code.cloudfoundry.org/silk/daemon/config"
 
-	"github.com/cloudfoundry-incubator/silk/daemon/config"
-	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
@@ -34,8 +34,7 @@ var _ = Describe("Daemon Integration", func() {
 
 	BeforeEach(func() {
 		dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
-		dbConnectionInfo, err := testsupport.GetDBConnectionInfo()
-		Expect(err).NotTo(HaveOccurred())
+		dbConnectionInfo := testsupport.GetDBConnectionInfo()
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
 		conf := CreateTestConfig(testDatabase)

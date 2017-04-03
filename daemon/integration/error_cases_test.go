@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/cloudfoundry-incubator/silk/daemon/config"
-	"github.com/cloudfoundry-incubator/silk/daemon/testsupport"
+	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	"code.cloudfoundry.org/silk/daemon/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -23,8 +23,7 @@ var _ = Describe("error cases", func() {
 
 	BeforeEach(func() {
 		dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
-		dbConnectionInfo, err := testsupport.GetDBConnectionInfo()
-		Expect(err).NotTo(HaveOccurred())
+		dbConnectionInfo := testsupport.GetDBConnectionInfo()
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
 		daemonConfig = CreateTestConfig(testDatabase)

@@ -3,7 +3,7 @@ package lib
 import (
 	"fmt"
 
-	"github.com/cloudfoundry-incubator/silk/cni/config"
+	"code.cloudfoundry.org/silk/cni/config"
 )
 
 // Common bevavior used by both the host-side and container-side Setup functions

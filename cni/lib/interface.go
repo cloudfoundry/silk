@@ -3,7 +3,7 @@ package lib
 import (
 	"net"
 
-	"github.com/cloudfoundry-incubator/silk/cni/config"
+	"code.cloudfoundry.org/silk/cni/config"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
