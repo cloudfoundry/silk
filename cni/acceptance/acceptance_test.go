@@ -32,7 +32,7 @@ var (
 	subnetEnvFile string
 )
 
-var _ = Describe("Acceptance", func() {
+var _ = Describe("Silk CNI Acceptance", func() {
 	BeforeEach(func() {
 		cniEnv = map[string]string{
 			"CNI_IFNAME":      "eth0",

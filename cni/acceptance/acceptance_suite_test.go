@@ -17,7 +17,7 @@ import (
 
 func TestAcceptance(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Acceptance Suite")
+	RunSpecs(t, "CNI Acceptance Suite")
 }
 
 var (

@@ -9,5 +9,5 @@ import (
 
 func TestLegacyFlannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LegacyFlannel Suite")
+	RunSpecs(t, "CNI LegacyFlannel Suite")
 }

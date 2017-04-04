@@ -9,5 +9,5 @@ import (
 
 func TestLib(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Lib Suite")
+	RunSpecs(t, "CNI Lib Suite")
 }
