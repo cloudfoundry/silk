@@ -29,7 +29,7 @@ var _ = Describe("DatabaseHandler", func() {
 		mockDb = &fakes.Db{}
 		mockMigrateAdapter = &fakes.MigrateAdapter{}
 
-		dbName := fmt.Sprintf("test_netman_database_%x", rand.Int())
+		dbName := fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
 		dbConnectionInfo := testsupport.GetDBConnectionInfo()
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
