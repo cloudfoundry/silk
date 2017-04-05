@@ -4,27 +4,20 @@ set -e -u
 ROOT_DIR_PATH=$(cd $(dirname $0)/.. && pwd)
 cd $ROOT_DIR_PATH
 
-if [ ${MYSQL:-"false"} = "true" ]; then
-  docker run --privileged \
-     --rm \
-     -it \
-     -v $PWD:/go/src/code.cloudfoundry.org/silk \
-     -e GOPATH=/go \
-     -e MYSQL=true \
-     -w /go/src/code.cloudfoundry.org/silk \
-     c2cnetworking/dev-mysql \
-     /bin/bash
-elif [ ${POSTGRES:-"false"} = "true" ]; then
-  docker run --privileged \
-     --rm \
-     -it \
-     -v $PWD:/go/src/code.cloudfoundry.org/silk \
-     -e GOPATH=/go \
-     -e POSTGRES=true \
-     -w /go/src/code.cloudfoundry.org/silk \
-     c2cnetworking/dev-postgres \
-     /bin/bash
-else
-  export POSTGRES=true
-  "$0" "$@"
+db=${DB:-"postgres"} # if not set, default to postgres
+
+docker_image=c2cnetworking/dev-$db
+if [ $db = "none" ]; then
+  docker_image=c2cnetworking/dev-postgres
 fi
+
+docker run \
+   --rm \
+   -it \
+   --privileged \
+   -v $PWD:/go/src/code.cloudfoundry.org/silk \
+   -e GOPATH=/go \
+   -e DB=$db \
+   -w /go/src/code.cloudfoundry.org/silk \
+   $docker_image \
+   /bin/bash "$@"

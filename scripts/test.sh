@@ -55,9 +55,9 @@ else
 fi
 
 
-if [ ${MYSQL:-"false"} = "true" ]; then
+if [ ${DB:-"none"} = "mysql" ]; then
   bootMysql
-elif [ ${POSTGRES:-"false"} = "true" ]; then
+elif [ ${DB:-"none"} = "postgres" ]; then
   bootPostgres
 else
   echo "skipping database"

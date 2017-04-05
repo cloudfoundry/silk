@@ -14,7 +14,7 @@ run:
   args:
     - -c
     - |
-      export GOPATH=${PWD}/go && \
-      export PATH=$PATH:$GOPATH/bin && \
-      export POSTGRES=true && \
+      export GOPATH=${PWD}/go
+      export PATH=$PATH:$GOPATH/bin
+      export DB=postgres
       $GOPATH/src/code.cloudfoundry.org/silk/scripts/test.sh
