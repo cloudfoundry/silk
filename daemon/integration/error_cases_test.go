@@ -26,8 +26,12 @@ var _ = Describe("error cases", func() {
 		dbConnectionInfo := testsupport.GetDBConnectionInfo()
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
-		daemonConfig = CreateTestConfig(testDatabase)
-		daemonConfig.UnderlayIP = "10.244.4.6"
+		daemonConfig = config.Config{
+			SubnetRange: "10.255.0.0/16",
+			SubnetMask:  24,
+			Database:    testDatabase.DBConfig(),
+			UnderlayIP:  "10.244.4.6",
+		}
 	})
 
 	AfterEach(func() {
@@ -101,8 +105,12 @@ var _ = Describe("error cases", func() {
 	// this sort of failure and actually test the behavior in that case
 	XContext("when the lease controller fails to acquire a subnet lease", func() {
 		It("exits with status 1", func() {
-			conf := CreateTestConfig(testDatabase)
-			conf.UnderlayIP = "10.244.4.5"
+			conf := config.Config{
+				SubnetRange: "10.255.0.0/16",
+				SubnetMask:  24,
+				Database:    testDatabase.DBConfig(),
+				UnderlayIP:  "10.244.4.5",
+			}
 
 			configFilePath := writeConfigFile(conf)
 			startCmd := exec.Command(daemonPath, "--config", configFilePath)

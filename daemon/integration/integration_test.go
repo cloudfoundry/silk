@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"regexp"
 
-	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 	"code.cloudfoundry.org/silk/daemon/config"
 
@@ -37,7 +36,12 @@ var _ = Describe("Daemon Integration", func() {
 		dbConnectionInfo := testsupport.GetDBConnectionInfo()
 		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
 
-		conf := CreateTestConfig(testDatabase)
+		conf := config.Config{
+			SubnetRange: "10.255.0.0/16",
+			SubnetMask:  24,
+			Database:    testDatabase.DBConfig(),
+		}
+
 		daemonConfs = configureDaemons(conf, 20)
 		sessions = startDaemons(daemonConfs)
 	})
@@ -75,28 +79,6 @@ var _ = Describe("Daemon Integration", func() {
 		}
 	})
 })
-
-func CreateTestConfig(d *testsupport.TestDatabase) config.Config {
-	var connectionString string
-	if d.ConnInfo.Type == "mysql" {
-		connectionString = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
-			d.ConnInfo.Username, d.ConnInfo.Password, d.ConnInfo.Hostname, d.ConnInfo.Port, d.Name)
-	} else if d.ConnInfo.Type == "postgres" {
-		connectionString = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-			d.ConnInfo.Username, d.ConnInfo.Password, d.ConnInfo.Hostname, d.ConnInfo.Port, d.Name)
-	} else {
-		connectionString = fmt.Sprintf("some unsupported db type connection string: %s\n", d.ConnInfo.Type)
-	}
-
-	return config.Config{
-		SubnetRange: "10.255.0.0/16",
-		SubnetMask:  24,
-		Database: db.Config{
-			Type:             d.ConnInfo.Type,
-			ConnectionString: connectionString,
-		},
-	}
-}
 
 func discoverLeaseFromLogs(output []byte) (string, string) {
 	leaseLogLineRegex := `subnet-.*"subnet":"((?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2})".*"underlay ip":"((?:[0-9]{1,3}\.){3}[0-9]{1,3})"`
