@@ -40,3 +40,9 @@
 [submodule "vendor/github.com/jmoiron/sqlx"]
 	path = vendor/github.com/jmoiron/sqlx
 	url = https://github.com/jmoiron/sqlx
+[submodule "vendor/github.com/tedsuo/ifrit"]
+	path = vendor/github.com/tedsuo/ifrit
+	url = https://github.com/tedsuo/ifrit
+[submodule "vendor/code.cloudfoundry.org/debugserver"]
+	path = vendor/code.cloudfoundry.org/debugserver
+	url = https://github.com/cloudfoundry/debugserver
