@@ -64,4 +64,4 @@ else
   extraArgs="-skipPackage=daemon ${extraArgs}"
 fi
 
-ginkgo -r --race -randomizeAllSpecs -randomizeSuites -ldflags="-extldflags=-Wl,--allow-multiple-definition" ${extraArgs}
+ginkgo -r -p --race -randomizeAllSpecs -randomizeSuites -ldflags="-extldflags=-Wl,--allow-multiple-definition" ${extraArgs}
