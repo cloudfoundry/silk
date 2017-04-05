@@ -22,36 +22,40 @@ import (
 
 var (
 	DEFAULT_TIMEOUT = "5s"
+
+	testDatabase *testsupport.TestDatabase
 )
+
+var _ = BeforeEach(func() {
+	dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
+	dbConnectionInfo := testsupport.GetDBConnectionInfo()
+	testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+})
+
+var _ = AfterEach(func() {
+	if testDatabase != nil {
+		testDatabase.Destroy()
+	}
+})
 
 var _ = Describe("Daemon Integration", func() {
 	var (
-		daemonConfs  []config.Config
-		testDatabase *testsupport.TestDatabase
-		sessions     []*gexec.Session
+		daemonConfs []config.Config
+		sessions    []*gexec.Session
 	)
 
 	BeforeEach(func() {
-		dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
-		dbConnectionInfo := testsupport.GetDBConnectionInfo()
-		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
-
-		conf := config.Config{
+		confTemplate := config.Config{
 			SubnetRange: "10.255.0.0/16",
 			SubnetMask:  24,
 			Database:    testDatabase.DBConfig(),
 		}
-
-		daemonConfs = configureDaemons(conf, 20)
+		daemonConfs = configureDaemons(confTemplate, 20)
 		sessions = startDaemons(daemonConfs)
 	})
 
 	AfterEach(func() {
 		stopDaemons(sessions)
-
-		if testDatabase != nil {
-			testDatabase.Destroy()
-		}
 	})
 
 	It("assigns a subnet to each vm and stores it in the database", func() {
@@ -69,13 +73,18 @@ var _ = Describe("Daemon Integration", func() {
 			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
 		}
 
-		By("checking that subnets do not overlap")
+		By("gathering all the subnet info")
 		subnetCounts := map[string]int{}
 		for i, s := range sessions {
 			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
 			Expect(subnetCounts[subnet]).To(Equal(0))
 			subnetCounts[subnet]++
 			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
+		}
+
+		By("checking that the subnets do not collide")
+		for _, count := range subnetCounts {
+			Expect(count).To(Equal(1))
 		}
 	})
 })
@@ -121,16 +130,17 @@ func writeConfigFile(config config.Config) string {
 	return configFile.Name()
 }
 
+func startDaemon(configFilePath string) *gexec.Session {
+	startCmd := exec.Command(daemonPath, "--config", configFilePath)
+	session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	return session
+}
+
 func startDaemons(configs []config.Config) []*gexec.Session {
 	var sessions []*gexec.Session
 	for _, conf := range configs {
-		configFilePath := writeConfigFile(conf)
-
-		startCmd := exec.Command(daemonPath, "--config", configFilePath)
-		session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
-		Expect(err).NotTo(HaveOccurred())
-
-		sessions = append(sessions, session)
+		sessions = append(sessions, startDaemon(writeConfigFile(conf)))
 	}
 	return sessions
 }
