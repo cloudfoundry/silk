@@ -3,36 +3,72 @@
 set -e -u
 set -o pipefail
 
-go build -o /tmp/cni/silk -ldflags="-extldflags=-Wl,--allow-multiple-definition" -race .
-go build -o /tmp/cni/host-local -race github.com/cloudfoundry-incubator/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local
+echo "building silk-setup"
+go build -o /tmp/client/silk-setup -race cmd/silk-setup/main.go
+
+echo "building silk-daemon"
+go build -o /tmp/client/silk-daemon -race cmd/silk-daemon/main.go
+
+echo "building silk-cni"
+go build -o /tmp/cni/silk -ldflags="-extldflags=-Wl,--allow-multiple-definition" -race cmd/silk-cni/main.go
+
+echo "building host-local ipam cni plugin"
+go build -o /tmp/cni/host-local -race code.cloudfoundry.org/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local
+
 mkdir -p /tmp/cni/data
 
-echo '{
-  "cniVersion": "0.3.0",
-  "name": "my-silk-network",
-  "type": "silk",
-  "dataDir": "/tmp/cni/data",
-  "subnetFile": "/tmp/cni/subnet.env"
-}' > /tmp/cni/silk.conf
+cp scripts/examples/subnet.env /tmp/cni/subnet.env
 
-echo 'FLANNEL_SUBNET=10.255.30.0/24
-FLANNEL_NETWORK=10.255.0.0/16
-FLANNEL_MTU=1472
-FLANNEL_IPMASQ=false
-' > /tmp/cni/subnet.env
+echo -n "booting postgres..."
+(/docker-entrypoint.sh postgres &> /var/log/postgres-boot.log) &
+exitcode=1
+for i in `seq 1 30`; do
+    set +e
+    psql -h localhost -U postgres -c '\conninfo' &>/dev/null
+    exitcode=$?
+    set -e
+    if [ "$exitcode" -eq 0 ]; then
+        echo "connection established to postgres"
+        break
+    fi
+    echo -n "."
+    sleep 1
+done
+if [ "$exitcode" -ne 0 ]; then
+    echo "unable to connect to postgres!!!"
+fi
 
-echo '
-export CNI_PATH=/tmp/cni
-export CNI_NETNS=/var/run/netns/apricot
-export CNI_CONTAINERID=apricot
-export CNI_COMMAND=ADD
-export CNI_IFNAME=eth0
-' > /tmp/cni/silk.env
 
+set +e
+test_database_exists=$(psql -h localhost -p 5432 -U postgres -l | grep test_database | wc -l)
+set -e
+if [ $test_database_exists -eq 0 ]; then
+    echo -n "creating database..."
+    exitcode=1
+    for i in `seq 1 30`; do
+        set +e
+        psql -h localhost -p 5432 -U postgres -c 'CREATE DATABASE test_database' &>/dev/null
+        exitcode=$?
+        set -e
+        if [ $exitcode -eq 0 ]; then
+            echo "created database test_database"
+            break
+        fi
+        echo -n "."
+        sleep 1
+    done
+    if [ "$exitcode" -ne 0 ]; then
+        echo "unable to create test_database! is it already created?"
+    fi
+else
+    echo "already have database test_database"
+fi
+
+echo ""
 echo "build succeeded, see: /tmp/cni"
-echo ""
-echo "to run:"
-echo ""
-echo "ip netns add apricot"
-echo "source /tmp/cni/silk.env"
-echo "/tmp/cni/silk < /tmp/cni/silk.conf"
+echo "to run silk-cni:"
+echo "  ip netns add apricot"
+echo "  source scripts/examples/silk-cni.env"
+echo "  /tmp/cni/silk < scripts/examples/silk-cni.conf"
+echo "to run silk-setup:"
+echo "  /tmp/client/silk-setup --config scripts/examples/silk-client.conf"
