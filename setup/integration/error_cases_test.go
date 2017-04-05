@@ -17,16 +17,21 @@ var _ = Describe("error cases", func() {
 	)
 
 	BeforeEach(func() {
+		stateFile, err := ioutil.TempFile("", "")
+		Expect(err).NotTo(HaveOccurred())
+
 		setupConfig = config.Config{
-			SubnetRange: "10.255.0.0/16",
-			SubnetMask:  24,
-			Database:    testDatabase.DBConfig(),
-			UnderlayIP:  "10.244.4.6",
+			SubnetRange:    "10.255.0.0/16",
+			SubnetMask:     24,
+			Database:       testDatabase.DBConfig(),
+			UnderlayIP:     "10.244.4.6",
+			LocalStateFile: stateFile.Name(),
 		}
 		configFilePath = writeConfigFile(setupConfig)
 	})
 
 	AfterEach(func() {
+		os.Remove(setupConfig.LocalStateFile)
 		os.Remove(configFilePath)
 	})
 
@@ -77,6 +82,14 @@ var _ = Describe("error cases", func() {
 			session := startSetup(configFilePath)
 			Eventually(session, "10s").Should(gexec.Exit(1))
 			Expect(session.Err.Contents()).To(ContainSubstring("could not connect to database:"))
+		})
+
+		It("deletes the local state file", func() {
+			session := startSetup(configFilePath)
+			Eventually(session, "10s").Should(gexec.Exit(1))
+			_, err := os.Stat(setupConfig.LocalStateFile)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no such file or directory"))
 		})
 	})
 

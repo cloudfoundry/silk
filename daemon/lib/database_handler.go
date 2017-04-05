@@ -58,6 +58,14 @@ func (d *DatabaseHandler) AddEntry(underlayIP, subnet string) error {
 	return nil
 }
 
+func (d *DatabaseHandler) DeleteEntry(underlayIP string) error {
+	_, err := d.db.Exec(fmt.Sprintf("DELETE FROM subnets WHERE underlay_ip = '%s'", underlayIP))
+	if err != nil {
+		return fmt.Errorf("deleting entry: %s", err)
+	}
+	return nil
+}
+
 func (d *DatabaseHandler) SubnetExists(subnet string) (bool, error) {
 	var exists int
 	err := d.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM subnets WHERE subnet = '%s'", subnet)).Scan(&exists)

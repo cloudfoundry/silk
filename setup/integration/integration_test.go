@@ -50,7 +50,6 @@ var _ = Describe("Setup Integration", func() {
 			Database:    testDatabase.DBConfig(),
 		}
 		setupConfs = configureSetups(confTemplate, 20)
-		sessions = startSetups(setupConfs)
 	})
 
 	AfterEach(func() {
@@ -61,6 +60,7 @@ var _ = Describe("Setup Integration", func() {
 	})
 
 	It("assigns a subnet to each vm and stores it in the database", func() {
+		sessions = startSetups(setupConfs)
 		By("waiting for each setup to acquire a subnet")
 		for _, s := range sessions {
 			Eventually(s.Out, "4s").Should(gbytes.Say("subnet-acquired.*subnet.*underlay ip.*"))
@@ -85,6 +85,32 @@ var _ = Describe("Setup Integration", func() {
 		for _, count := range subnetCounts {
 			Expect(count).To(Equal(1))
 		}
+	})
+
+	It("releases its old lease before acquiring a new one", func() {
+		conf := setupConfs[0]
+		configFilePath := writeConfigFile(conf)
+		session := startSetup(configFilePath)
+
+		By("verifying the setup exits with status 0")
+		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+
+		By("verifying the state file is updated")
+		oldState := readStateFile(conf.LocalStateFile)
+		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("subnet-acquired.*subnet.*%s.*underlay ip.*", oldState.Subnet)))
+
+		By("calling setup again")
+		session = startSetup(configFilePath)
+
+		By("checking that the setup released its lease")
+		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("subnet-released.*underlay ip.*")))
+
+		By("verifying the setup exits with status 0")
+		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+
+		By("verifying the state file is updated")
+		newState := readStateFile(conf.LocalStateFile)
+		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("subnet-acquired.*subnet.*%s.*underlay ip.*", newState.Subnet)))
 	})
 })
 

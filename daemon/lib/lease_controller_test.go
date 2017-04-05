@@ -15,23 +15,25 @@ import (
 )
 
 var _ = Describe("LeaseController", func() {
+	var (
+		logger          *lagertest.TestLogger
+		databaseHandler *fakes.DatabaseHandler
+		leaseController lib.LeaseController
+		cidrPool        *fakes.CIDRPool
+	)
+	BeforeEach(func() {
+		logger = lagertest.NewTestLogger("test")
+		databaseHandler = &fakes.DatabaseHandler{}
+		cidrPool = &fakes.CIDRPool{}
+		leaseController = lib.LeaseController{
+			DatabaseHandler: databaseHandler,
+			Logger:          logger,
+		}
+	})
 	Describe("TryMigrations", func() {
-		var (
-			logger          *lagertest.TestLogger
-			databaseHandler *fakes.DatabaseHandler
-			leaseController lib.LeaseController
-		)
-
 		BeforeEach(func() {
-			logger = lagertest.NewTestLogger("test")
-			databaseHandler = &fakes.DatabaseHandler{}
-
-			leaseController = lib.LeaseController{
-				DatabaseHandler:               databaseHandler,
-				MaxMigrationAttempts:          5,
-				MigrationAttemptSleepDuration: time.Nanosecond,
-				Logger: logger,
-			}
+			leaseController.MaxMigrationAttempts = 5
+			leaseController.MigrationAttemptSleepDuration = time.Nanosecond
 		})
 
 		It("calls migrate and logs the success", func() {
@@ -57,25 +59,10 @@ var _ = Describe("LeaseController", func() {
 	})
 
 	Describe("AcquireSubnetLease", func() {
-		var (
-			logger          *lagertest.TestLogger
-			databaseHandler *fakes.DatabaseHandler
-			leaseController lib.LeaseController
-			cidrPool        *fakes.CIDRPool
-		)
-
 		BeforeEach(func() {
-			logger = lagertest.NewTestLogger("test")
-			databaseHandler = &fakes.DatabaseHandler{}
-			cidrPool = &fakes.CIDRPool{}
-
-			leaseController = lib.LeaseController{
-				DatabaseHandler:            databaseHandler,
-				AcquireSubnetLeaseAttempts: 10,
-				CIDRPool:                   cidrPool,
-				UnderlayIP:                 "10.244.5.6",
-				Logger:                     logger,
-			}
+			leaseController.AcquireSubnetLeaseAttempts = 10
+			leaseController.CIDRPool = cidrPool
+			leaseController.UnderlayIP = "10.244.5.6"
 		})
 
 		It("acquires a lease and logs the success", func() {
@@ -145,6 +132,32 @@ var _ = Describe("LeaseController", func() {
 				Expect(logger.Logs()[0].Message).To(Equal("test.subnet-acquired"))
 
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
+			})
+		})
+	})
+
+	Describe("ReleaseSubnetLease", func() {
+		BeforeEach(func() {
+			leaseController.UnderlayIP = "10.244.5.6"
+			databaseHandler.DeleteEntryReturns(nil)
+		})
+		It("deletes the lease", func() {
+			err := leaseController.ReleaseSubnetLease()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(databaseHandler.DeleteEntryCallCount()).To(Equal(1))
+			Expect(databaseHandler.DeleteEntryArgsForCall(0)).To(Equal("10.244.5.6"))
+
+			Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
+			Expect(logger.Logs()[0].Message).To(Equal("test.subnet-released"))
+		})
+		Context("when the delete fails", func() {
+			BeforeEach(func() {
+				databaseHandler.DeleteEntryReturns(errors.New("banana"))
+			})
+			It("wraps the error from the database handler", func() {
+				err := leaseController.ReleaseSubnetLease()
+				Expect(err).To(MatchError("releasing lease: banana"))
 			})
 		})
 	})

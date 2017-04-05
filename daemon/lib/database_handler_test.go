@@ -114,7 +114,6 @@ var _ = Describe("DatabaseHandler", func() {
 
 			Expect(mockDb.ExecCallCount()).To(Equal(1))
 			Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, subnet) VALUES ('some-underlay', 'some-subnet')"))
-
 		})
 
 		Context("when the database exec returns an error", func() {
@@ -127,7 +126,33 @@ var _ = Describe("DatabaseHandler", func() {
 
 				Expect(mockDb.ExecCallCount()).To(Equal(1))
 				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, subnet) VALUES ('some-underlay', 'some-subnet')"))
+			})
+		})
+	})
 
+	Describe("DeleteEntry", func() {
+		BeforeEach(func() {
+			databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+			mockDb.ExecReturns(nil, nil)
+		})
+		It("deletes an entry from the DB", func() {
+			err := databaseHandler.DeleteEntry("some-underlay")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(mockDb.ExecCallCount()).To(Equal(1))
+			Expect(mockDb.ExecArgsForCall(0)).To(Equal("DELETE FROM subnets WHERE underlay_ip = 'some-underlay'"))
+		})
+
+		Context("when the database exec returns an error", func() {
+			BeforeEach(func() {
+				mockDb.ExecReturns(nil, errors.New("carrot"))
+			})
+			It("returns a sensible error", func() {
+				err := databaseHandler.DeleteEntry("some-underlay")
+				Expect(err).To(MatchError("deleting entry: carrot"))
+
+				Expect(mockDb.ExecCallCount()).To(Equal(1))
+				Expect(mockDb.ExecArgsForCall(0)).To(Equal("DELETE FROM subnets WHERE underlay_ip = 'some-underlay'"))
 			})
 		})
 	})

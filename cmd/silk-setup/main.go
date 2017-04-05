@@ -30,6 +30,8 @@ func main() {
 		log.Fatalf("could not unmarshal config file contents")
 	}
 
+	os.Remove(cfg.LocalStateFile)
+
 	sqlDB, err := db.GetConnectionPool(cfg.Database)
 	if err != nil {
 		log.Fatalf("could not connect to database: %s", err)
@@ -52,6 +54,11 @@ func main() {
 	}
 	if err = leaseController.TryMigrations(); err != nil {
 		log.Fatalf("could not migrate database: %s", err) // not tested
+	}
+
+	err = leaseController.ReleaseSubnetLease()
+	if err != nil {
+		log.Fatalf("unable to release subnet lease: %s", err) // not tested
 	}
 
 	subnet, err := leaseController.AcquireSubnetLease()

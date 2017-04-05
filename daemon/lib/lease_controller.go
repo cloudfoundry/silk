@@ -11,6 +11,7 @@ import (
 type databaseHandler interface {
 	Migrate() (int, error)
 	AddEntry(string, string) error
+	DeleteEntry(string) error
 	SubnetExists(string) (bool, error)
 	SubnetForUnderlayIP(string) (string, error)
 }
@@ -46,6 +47,17 @@ func (c *LeaseController) TryMigrations() error {
 	}
 
 	return fmt.Errorf("creating table: %s", err)
+}
+
+func (c *LeaseController) ReleaseSubnetLease() error {
+	err := c.DatabaseHandler.DeleteEntry(c.UnderlayIP)
+	if err != nil {
+		return fmt.Errorf("releasing lease: %s", err)
+	}
+	c.Logger.Info("subnet-released", lager.Data{
+		"underlay ip": c.UnderlayIP,
+	})
+	return nil
 }
 
 func (c *LeaseController) AcquireSubnetLease() (string, error) {
