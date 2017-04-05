@@ -4,7 +4,7 @@ set -e -u
 ROOT_DIR_PATH=$(cd $(dirname $0)/.. && pwd)
 cd $ROOT_DIR_PATH
 
-if [ ${MYSQL:-"false"} = "true" ]; then
+if [ ${DB:-"none"} = "mysql" ]; then
   echo "running tests with MYSQL"
   docker run --privileged \
      --rm \
@@ -15,7 +15,7 @@ if [ ${MYSQL:-"false"} = "true" ]; then
      -w /go/src/code.cloudfoundry.org/silk \
      c2cnetworking/dev-mysql \
      ./scripts/test.sh "$@"
-elif [ ${POSTGRES:-"false"} = "true" ]; then
+elif [ ${DB:-"none"} = "postgres" ]; then
   echo "running tests with POSTGRES"
   docker run --privileged \
      --rm \
@@ -26,7 +26,18 @@ elif [ ${POSTGRES:-"false"} = "true" ]; then
      -w /go/src/code.cloudfoundry.org/silk \
      c2cnetworking/dev-postgres \
      ./scripts/test.sh "$@"
+elif [ ${DB:-"foo"} = "none" ]; then
+  echo "running tests without a database"
+  docker run --privileged \
+     --rm \
+     -it \
+     -v $PWD:/go/src/code.cloudfoundry.org/silk \
+     -e GOPATH=/go \
+     -e POSTGRES=false \
+     -w /go/src/code.cloudfoundry.org/silk \
+     c2cnetworking/dev-postgres \
+     ./scripts/test.sh "$@"
 else
-  export POSTGRES=true
+  export DB=postgres
   "$0" "$@"
 fi
