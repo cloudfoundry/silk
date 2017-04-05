@@ -10,7 +10,7 @@ import (
 	"regexp"
 
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
-	"code.cloudfoundry.org/silk/daemon/config"
+	"code.cloudfoundry.org/silk/client/config"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"

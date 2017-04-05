@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/lager"
 
-	"code.cloudfoundry.org/silk/daemon/config"
+	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/daemon/lib"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"

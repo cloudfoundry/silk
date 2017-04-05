@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"code.cloudfoundry.org/silk/daemon/config"
+	"code.cloudfoundry.org/silk/client/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
