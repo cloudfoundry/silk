@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -23,49 +24,65 @@ import (
 const cmdTimeout = 10 * time.Second
 
 var (
-	cniEnv        map[string]string
-	containerNS   ns.NetNS
-	cniStdin      string
-	dataDir       string
-	flannelSubnet *net.IPNet
-	fullNetwork   *net.IPNet
-	subnetEnvFile string
+	cniEnv          map[string]string
+	containerNS     ns.NetNS
+	fakeHostNS      ns.NetNS
+	cniStdin        string
+	dataDir         string
+	flannelSubnet   *net.IPNet
+	fullNetwork     *net.IPNet
+	subnetEnvFile   string
+	fakeHostNSName  string
+	containerNSName string
+	containerID     string
 )
 
+var _ = BeforeEach(func() {
+	By("setting up namespaces for the 'host' and 'container'")
+	containerNSName = fmt.Sprintf("container-%03d", GinkgoParallelNode())
+	mustSucceed("ip", "netns", "add", containerNSName)
+	var err error
+	containerNS, err = ns.GetNS(fmt.Sprintf("/var/run/netns/%s", containerNSName))
+	Expect(err).NotTo(HaveOccurred())
+
+	fakeHostNSName = fmt.Sprintf("host-%03d", GinkgoParallelNode())
+	mustSucceed("ip", "netns", "add", fakeHostNSName)
+	fakeHostNS, err = ns.GetNS(fmt.Sprintf("/var/run/netns/%s", fakeHostNSName))
+	Expect(err).NotTo(HaveOccurred())
+
+	containerID = fmt.Sprintf("test-%03d-%x", GinkgoParallelNode(), rand.Int31())
+
+	By("setting up CNI config")
+	cniEnv = map[string]string{
+		"CNI_IFNAME":      "eth0",
+		"CNI_CONTAINERID": containerID,
+		"CNI_PATH":        paths.CNIPath,
+	}
+	cniEnv["CNI_NETNS"] = containerNS.Path()
+
+	dataDir, err = ioutil.TempDir("", "cni-data-dir-")
+	Expect(err).NotTo(HaveOccurred())
+
+	flannelSubnetBaseIP, flannelSubnetCIDR, _ := net.ParseCIDR("10.255.30.0/24")
+	_, fullNetwork, _ = net.ParseCIDR("10.255.0.0/16")
+	flannelSubnet = &net.IPNet{
+		IP:   flannelSubnetBaseIP,
+		Mask: flannelSubnetCIDR.Mask,
+	}
+	subnetEnvFile = writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
+	cniStdin = cniConfig(dataDir, subnetEnvFile)
+})
+
+var _ = AfterEach(func() {
+	containerNS.Close()
+	fakeHostNS.Close()
+	mustSucceed("ip", "netns", "del", fakeHostNSName)
+	mustSucceed("ip", "netns", "del", containerNSName)
+	Expect(os.RemoveAll(subnetEnvFile)).To(Succeed())
+	Expect(os.RemoveAll(dataDir)).To(Succeed())
+})
+
 var _ = Describe("Silk CNI Acceptance", func() {
-	BeforeEach(func() {
-		cniEnv = map[string]string{
-			"CNI_IFNAME":      "eth0",
-			"CNI_CONTAINERID": "apricot",
-			"CNI_PATH":        paths.CNIPath,
-		}
-
-		var err error
-		containerNS, err = ns.NewNS()
-		Expect(err).NotTo(HaveOccurred())
-
-		cniEnv["CNI_NETNS"] = containerNS.Path()
-
-		dataDir, err = ioutil.TempDir("", "cni-data-dir-")
-		Expect(err).NotTo(HaveOccurred())
-
-		flannelSubnetBaseIP, flannelSubnetCIDR, _ := net.ParseCIDR("10.255.30.0/24")
-		_, fullNetwork, _ = net.ParseCIDR("10.255.0.0/16")
-		flannelSubnet = &net.IPNet{
-			IP:   flannelSubnetBaseIP,
-			Mask: flannelSubnetCIDR.Mask,
-		}
-		subnetEnvFile = writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
-		cniStdin = cniConfig(dataDir, subnetEnvFile)
-	})
-
-	AfterEach(func() {
-		containerNS.Close() // don't bother checking errors here
-		mustSucceed("iptables", "-t", "nat", "-F")
-		Expect(os.RemoveAll(subnetEnvFile)).To(Succeed())
-		Expect(os.RemoveAll(dataDir)).To(Succeed())
-	})
-
 	Describe("veth devices", func() {
 		BeforeEach(func() {
 			cniStdin = cniConfig(dataDir, subnetEnvFile)
@@ -73,7 +90,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 
 		It("returns the expected CNI result", func() {
 			By("calling ADD")
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 			result := cniResultForCurrentVersion(sess.Out.Contents())
 
@@ -109,7 +126,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("creates and destroys a veth pair", func() {
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			result := cniResultForCurrentVersion(sess.Out.Contents())
@@ -121,25 +138,30 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			Expect(inHost).To(HaveLen(1))
 			Expect(inContainer).To(HaveLen(1))
 
-			link, err := netlink.LinkByName(inHost[0].Name)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(link.Attrs().Name).To(Equal(inHost[0].Name))
+			By("checking the link was created in the host")
+			mustSucceedInFakeHost("ip", "link", "list", "dev", inHost[0].Name)
 
-			sess = startCommand("DEL", cniStdin)
+			By("checking the link was created in the container")
+			mustSucceedInContainer("ip", "link", "list", "dev", inContainer[0].Name)
+
+			sess = startCommandInHost("DEL", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			link, err = netlink.LinkByName(inHost[0].Name)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
+			By("checking the link was deleted from the host")
+			mustFailInHost("does not exist", "ip", "link", "list", "dev", inHost[0].Name)
+
+			By("checking the link was deleted from the host")
+			mustFailInContainer("does not exist", "ip", "link", "list", "dev", inContainer[0].Name)
 		})
 
 		It("can be deleted multiple times without an error status", func() {
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			sess = startCommand("DEL", cniStdin)
+			sess = startCommandInHost("DEL", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
-			sess = startCommand("DEL", cniStdin)
+			sess = startCommandInHost("DEL", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 		})
 
@@ -154,19 +176,26 @@ var _ = Describe("Silk CNI Acceptance", func() {
 
 		It("sets up the IP address and MAC address", func() {
 			By("calling ADD")
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("checking the host side")
-			hostLink := hostLinkFromResult(sess.Out.Contents())
+			err := fakeHostNS.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
 
-			hostAddrs, err := netlink.AddrList(hostLink, netlink.FAMILY_ALL)
+				hostLink := hostLinkFromResult(sess.Out.Contents())
+
+				hostAddrs, err := netlink.AddrList(hostLink, netlink.FAMILY_ALL)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(hostAddrs).To(HaveLen(1))
+				Expect(hostAddrs[0].IPNet.String()).To(Equal("169.254.0.1/32"))
+				Expect(hostAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
+				Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.30.1/32"))
+				Expect(hostLink.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:1e:01"))
+				return nil
+			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(hostAddrs).To(HaveLen(1))
-			Expect(hostAddrs[0].IPNet.String()).To(Equal("169.254.0.1/32"))
-			Expect(hostAddrs[0].Scope).To(Equal(int(netlink.SCOPE_LINK)))
-			Expect(hostAddrs[0].Peer.String()).To(Equal("10.255.30.1/32"))
-			Expect(hostLink.Attrs().HardwareAddr.String()).To(Equal("aa:aa:0a:ff:1e:01"))
 
 			By("checking the container side")
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -194,36 +223,42 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		It("enables connectivity between the host and container", func() {
 			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("enabling connectivity from the host to the container")
 			// This does *not* fail as expected on Docker, but
 			// does properly fail in Concourse (Garden).
 			// see: https://github.com/docker/for-mac/issues/57
-			mustSucceed("ping", "-c", "1", "10.255.30.1")
+			mustSucceedInFakeHost("ping", "-c", "1", "10.255.30.1")
 
 			By("enabling connectivity from the container to the host")
-			mustSucceedInContainer(containerNS, "ping", "-c", "1", "169.254.0.1")
+			mustSucceedInContainer("ping", "-c", "1", "169.254.0.1")
 		})
 
 		It("turns off ARP for veth devices", func() {
 			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("checking the host side")
-			hostLink := hostLinkFromResult(sess.Out.Contents())
-			Expect(hostLink.Attrs().RawFlags & syscall.IFF_NOARP).To(Equal(uint32(syscall.IFF_NOARP)))
+			err := fakeHostNS.Do(func(_ ns.NetNS) error {
+				defer GinkgoRecover()
 
-			neighs, err := netlink.NeighList(hostLink.Attrs().Index, netlink.FAMILY_V4)
+				hostLink := hostLinkFromResult(sess.Out.Contents())
+				Expect(hostLink.Attrs().RawFlags & syscall.IFF_NOARP).To(Equal(uint32(syscall.IFF_NOARP)))
+
+				neighs, err := netlink.NeighList(hostLink.Attrs().Index, netlink.FAMILY_V4)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(neighs).To(HaveLen(1))
+				Expect(neighs[0].IP.String()).To(Equal("10.255.30.1"))
+				Expect(neighs[0].HardwareAddr.String()).To(Equal("ee:ee:0a:ff:1e:01"))
+				Expect(neighs[0].State).To(Equal(netlink.NUD_PERMANENT))
+				return nil
+			})
 			Expect(err).NotTo(HaveOccurred())
-
-			Expect(neighs).To(HaveLen(1))
-			Expect(neighs[0].IP.String()).To(Equal("10.255.30.1"))
-			Expect(neighs[0].HardwareAddr.String()).To(Equal("ee:ee:0a:ff:1e:01"))
-			Expect(neighs[0].State).To(Equal(netlink.NUD_PERMANENT))
 
 			By("checking the container side")
 			err = containerNS.Do(func(_ ns.NetNS) error {
@@ -251,7 +286,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		It("adds routes to the container", func() {
 			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("checking the routes are present inside the container")
@@ -282,22 +317,28 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		It("allows the container to reach IP addresses on the host namespace", func() {
 			cniStdin = cniConfig(dataDir, subnetEnvFile)
 
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			const ipOnTheHost = "169.254.50.50"
 
 			By("creating a endpoint on the host")
-			mustSucceed("ip", "addr", "add", ipOnTheHost, "dev", "lo")
+			mustSucceedInFakeHost("ip", "addr", "add", ipOnTheHost, "dev", "lo")
 
 			By("checking that the container can reach that endpoint")
-			mustSucceedInContainer(containerNS, "ping", "-c", "1", ipOnTheHost)
+			mustSucceedInContainer("ping", "-c", "1", ipOnTheHost)
 		})
 
 		It("allows the container to reach IP addresses on the internet", func() {
-			By("running the CNI command")
+			// NOTE: unlike all other tests in this suite
+			// this one uses the REAL host namespace in order to
+			// test proper packet forwarding to the internet
+			// Because it messes with the REAL host namespace, it cannot safely run
+			// concurrently with any other test that also touches the REAL host namespace
+			// Avoid writing such tests if you can.
+			By("calling CNI with ADD")
 			cniStdin = cniConfig(dataDir, subnetEnvFile)
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInRealHostNamespace("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("discovering the container IP")
@@ -306,24 +347,41 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			sourceIP := fmt.Sprintf("%s/32", cniResult.IPs[0].Address.IP.String())
 
 			By("installing the requisite iptables rule")
-			mustSucceed("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE")
+			iptablesRule := func(action string) []string {
+				return []string{"-t", "nat", action, "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE"}
+			}
+			mustSucceed("iptables", iptablesRule("-A")...)
 
 			By("attempting to reach the internet from the container")
-			mustSucceedInContainer(containerNS, "curl", "-f", "example.com")
+			mustSucceedInContainer("curl", "-f", "example.com")
+
+			By("removing the iptables rule from the host")
+			mustSucceed("iptables", iptablesRule("-D")...)
+
+			By("calling CNI with DEL to clean up")
+			sess = startCommandInRealHostNamespace("DEL", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 		})
 
 		Context("when MTU is not specified on the input", func() {
 			It("sets the MTU based on the subnet file", func() {
 				By("calling ADD")
-				sess := startCommand("ADD", cniStdin)
+				sess := startCommandInHost("ADD", cniStdin)
 				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 				By("checking the host side")
-				hostLink := hostLinkFromResult(sess.Out.Contents())
-				Expect(hostLink.Attrs().MTU).To(Equal(1472))
+				err := fakeHostNS.Do(func(_ ns.NetNS) error {
+					defer GinkgoRecover()
+
+					hostLink := hostLinkFromResult(sess.Out.Contents())
+					Expect(hostLink.Attrs().MTU).To(Equal(1472))
+
+					return nil
+				})
+				Expect(err).NotTo(HaveOccurred())
 
 				By("checking the container side")
-				err := containerNS.Do(func(_ ns.NetNS) error {
+				err = containerNS.Do(func(_ ns.NetNS) error {
 					defer GinkgoRecover()
 
 					link, err := netlink.LinkByName("eth0")
@@ -347,15 +405,22 @@ var _ = Describe("Silk CNI Acceptance", func() {
 					"dataDir": "%s",
 					"subnetFile": "%s"
 				}`, dataDir, subnetEnvFile)
-				sess := startCommand("ADD", cniStdin)
+				sess := startCommandInHost("ADD", cniStdin)
 				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 				By("checking the host side")
-				hostLink := hostLinkFromResult(sess.Out.Contents())
-				Expect(hostLink.Attrs().MTU).To(Equal(1350))
+				err := fakeHostNS.Do(func(_ ns.NetNS) error {
+					defer GinkgoRecover()
+
+					hostLink := hostLinkFromResult(sess.Out.Contents())
+					Expect(hostLink.Attrs().MTU).To(Equal(1350))
+
+					return nil
+				})
+				Expect(err).NotTo(HaveOccurred())
 
 				By("checking the container side")
-				err := containerNS.Do(func(_ ns.NetNS) error {
+				err = containerNS.Do(func(_ ns.NetNS) error {
 					defer GinkgoRecover()
 
 					link, err := netlink.LinkByName("eth0")
@@ -372,7 +437,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 
 	Describe("CNI version support", func() {
 		It("only claims to support CNI spec version 0.3.0", func() {
-			sess := startCommand("VERSION", "{}")
+			sess := startCommandInHost("VERSION", "{}")
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
           "cniVersion": "0.3.0",
@@ -387,7 +452,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 		It("allocates and frees ips", func() {
 			By("calling ADD")
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			result := cniResultForCurrentVersion(sess.Out.Contents())
@@ -402,10 +467,10 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			By("checking that the ip is reserved for the correct container id")
 			bytes, err := ioutil.ReadFile(filepath.Join(dataDir, "ipam/my-silk-network/10.255.30.1"))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(Equal("apricot"))
+			Expect(string(bytes)).To(Equal(containerID))
 
 			By("calling DEL")
-			sess = startCommand("DEL", cniStdin)
+			sess = startCommandInHost("DEL", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 			Expect(sess.Out.Contents()).To(BeEmpty())
 
@@ -436,7 +501,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		It("fails to allocate an IP if none is available", func() {
 			By("exhausting all ips")
 			cniEnv["CNI_NETNS"] = containerNSList[0].Path()
-			sess := startCommand("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			result := cniResultForCurrentVersion(sess.Out.Contents())
@@ -448,7 +513,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
 			cniEnv["CNI_NETNS"] = containerNSList[1].Path()
-			sess = startCommand("ADD", cniStdin)
+			sess = startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			result = cniResultForCurrentVersion(sess.Out.Contents())
@@ -460,7 +525,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 
 			cniEnv["CNI_NETNS"] = containerNSList[2].Path()
-			sess = startCommand("ADD", cniStdin)
+			sess = startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(1))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
@@ -495,7 +560,22 @@ func cniConfig(dataDir, subnetFile string) string {
 }`, dataDir, subnetFile)
 }
 
-func startCommand(cniCommand, cniStdin string) *gexec.Session {
+func startCommandInHost(cniCommand, cniStdin string) *gexec.Session {
+	cmd := exec.Command("ip", "netns", "exec", fakeHostNSName, paths.PathToPlugin)
+	cmd.Stdin = strings.NewReader(cniStdin)
+	// Set command env
+	cniEnv["CNI_COMMAND"] = cniCommand
+	for k, v := range cniEnv {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+
+	// Run command
+	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	return sess
+}
+
+func startCommandInRealHostNamespace(cniCommand, cniStdin string) *gexec.Session {
 	cmd := exec.Command(paths.PathToPlugin)
 	cmd.Stdin = strings.NewReader(cniStdin)
 	// Set command env
@@ -537,8 +617,33 @@ func mustSucceed(binary string, args ...string) string {
 	return string(sess.Out.Contents())
 }
 
-func mustSucceedInContainer(containerNS ns.NetNS, binary string, args ...string) string {
-	cmdArgs := []string{"netns", "exec", filepath.Base(containerNS.Path()), binary}
+func mustFailWith(expectedErrorSubstring string, binary string, args ...string) {
+	cmd := exec.Command(binary, args...)
+	allOutput, err := cmd.CombinedOutput()
+	Expect(err).To(HaveOccurred())
+	Expect(allOutput).To(ContainSubstring(expectedErrorSubstring))
+}
+
+func mustSucceedInContainer(binary string, args ...string) string {
+	cmdArgs := []string{"netns", "exec", containerNSName, binary}
 	cmdArgs = append(cmdArgs, args...)
 	return mustSucceed("ip", cmdArgs...)
+}
+
+func mustSucceedInFakeHost(binary string, args ...string) string {
+	cmdArgs := []string{"netns", "exec", fakeHostNSName, binary}
+	cmdArgs = append(cmdArgs, args...)
+	return mustSucceed("ip", cmdArgs...)
+}
+
+func mustFailInContainer(expectedErrorSubstring string, binary string, args ...string) {
+	cmdArgs := []string{"netns", "exec", containerNSName, binary}
+	cmdArgs = append(cmdArgs, args...)
+	mustFailWith(expectedErrorSubstring, "ip", cmdArgs...)
+}
+
+func mustFailInHost(expectedErrorSubstring string, binary string, args ...string) {
+	cmdArgs := []string{"netns", "exec", fakeHostNSName, binary}
+	cmdArgs = append(cmdArgs, args...)
+	mustFailWith(expectedErrorSubstring, "ip", cmdArgs...)
 }
