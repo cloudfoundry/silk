@@ -118,14 +118,14 @@ func writeConfigFile(config config.Config) string {
 }
 
 func startSetup(configFilePath string) *gexec.Session {
-	startCmd := exec.Command(setupPath, "--config", configFilePath)
+	startCmd := exec.Command(binaryPaths["silk-setup"], "--config", configFilePath)
 	session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
 	return session
 }
 
 func startTeardown(configFilePath string) *gexec.Session {
-	startCmd := exec.Command(teardownPath, "--config", configFilePath)
+	startCmd := exec.Command(binaryPaths["silk-teardown"], "--config", configFilePath)
 	session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
 	return session

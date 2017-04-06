@@ -1,9 +1,9 @@
 package integration_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
-	"strings"
 
 	. "github.com/onsi/ginkgo"
 	ginkgoConfig "github.com/onsi/ginkgo/config"
@@ -13,8 +13,7 @@ import (
 	"testing"
 )
 
-var setupPath string
-var teardownPath string
+var binaryPaths = map[string]string{}
 
 func TestIntegration(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -22,18 +21,18 @@ func TestIntegration(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
+	var err error
 	fmt.Fprintf(GinkgoWriter, "building binaries...")
-	setupPath, err := gexec.Build("code.cloudfoundry.org/silk/cmd/silk-setup", "-race")
+	binaryPaths["silk-setup"], err = gexec.Build("code.cloudfoundry.org/silk/cmd/silk-setup", "-race")
 	Expect(err).NotTo(HaveOccurred())
-	teardownPath, err := gexec.Build("code.cloudfoundry.org/silk/cmd/silk-teardown", "-race")
+	binaryPaths["silk-teardown"], err = gexec.Build("code.cloudfoundry.org/silk/cmd/silk-teardown", "-race")
 	Expect(err).NotTo(HaveOccurred())
 	fmt.Fprintf(GinkgoWriter, "done")
 
-	return []byte(setupPath + "###" + teardownPath)
+	bytes, _ := json.Marshal(binaryPaths)
+	return bytes
 }, func(data []byte) {
-	paths := strings.Split(string(data), "###")
-	setupPath = paths[0]
-	teardownPath = paths[1]
+	Expect(json.Unmarshal(data, &binaryPaths)).To(Succeed())
 	rand.Seed(ginkgoConfig.GinkgoConfig.RandomSeed + int64(GinkgoParallelNode()))
 })
 
