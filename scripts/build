@@ -6,6 +6,9 @@ set -o pipefail
 echo "building silk-setup"
 go build -o /tmp/client/silk-setup -race cmd/silk-setup/main.go
 
+echo "building silk-teardown"
+go build -o /tmp/client/silk-teardown -race cmd/silk-teardown/main.go
+
 echo "building silk-daemon"
 go build -o /tmp/client/silk-daemon -race cmd/silk-daemon/main.go
 
@@ -66,9 +69,17 @@ fi
 
 echo ""
 echo "build succeeded, see: /tmp/cni"
+echo ""
 echo "to run silk-cni:"
 echo "  ip netns add apricot"
 echo "  source scripts/examples/silk-cni.env"
 echo "  /tmp/cni/silk < scripts/examples/silk-cni.conf"
+echo ""
 echo "to run silk-setup:"
 echo "  /tmp/client/silk-setup --config scripts/examples/silk-client.conf"
+echo ""
+echo "to run silk-daemon:"
+echo "  /tmp/client/silk-daemon --config scripts/examples/silk-client.conf"
+echo ""
+echo "to run silk-teardown:"
+echo "  /tmp/client/silk-teardown --config scripts/examples/silk-client.conf"
