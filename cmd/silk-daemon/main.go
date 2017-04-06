@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"code.cloudfoundry.org/lager"
@@ -13,6 +15,10 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+	"github.com/tedsuo/ifrit/http_server"
+	"github.com/tedsuo/ifrit/sigmon"
 )
 
 func main() {
@@ -34,7 +40,7 @@ func mainWithError() error {
 		return fmt.Errorf("loading config file: %s", err)
 	}
 
-	_, err = state.LoadSubnetLease(cfg.LocalStateFile)
+	lease, err := state.LoadSubnetLease(cfg.LocalStateFile)
 	if err != nil {
 		return fmt.Errorf("loading state file: %s", err)
 	}
@@ -44,5 +50,29 @@ func mainWithError() error {
 		return fmt.Errorf("creating lease controller: %s", err)
 	}
 
-	return nil
+	leaseBytes, err := json.Marshal(lease)
+	if err != nil {
+		return fmt.Errorf("unmarshaling lease: %s", err) // not possible
+	}
+
+	if cfg.HealthCheckPort == 0 {
+		return fmt.Errorf("invalid healthcheck port: %d", cfg.HealthCheckPort)
+	}
+
+	server := http_server.New(
+		fmt.Sprintf("127.0.0.1:%d", cfg.HealthCheckPort),
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(leaseBytes)
+		}),
+	)
+
+	members := grouper.Members{
+		{"server", server},
+	}
+	group := grouper.NewOrdered(os.Interrupt, members)
+	monitor := ifrit.Invoke(sigmon.New(group))
+
+	err = <-monitor.Wait()
+	return err
 }

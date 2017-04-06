@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 
@@ -38,8 +39,10 @@ var _ = AfterEach(func() {
 
 var _ = Describe("Daemon Integration", func() {
 	var (
-		daemonConfs []config.Config
-		sessions    []*gexec.Session
+		daemonLeases []state.SubnetLease
+		daemonConfs  []config.Config
+		sessions     []*gexec.Session
+		client       *http.Client
 	)
 
 	BeforeEach(func() {
@@ -48,20 +51,61 @@ var _ = Describe("Daemon Integration", func() {
 			SubnetMask:  24,
 			Database:    testDatabase.DBConfig(),
 		}
+		daemonLeases = configureLeases(20)
 		daemonConfs = configureDaemons(confTemplate, 20)
-		sessions = startDaemons(daemonConfs)
+		client = http.DefaultClient
+		sessions = startDaemons(daemonConfs, daemonLeases)
+
+		By("waiting until all sessions are healthy before tests")
+		for i, _ := range sessions {
+			callHealthcheck := func() (int, error) {
+				resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000+i))
+				if resp == nil {
+					return -1, err
+				}
+				return resp.StatusCode, err
+			}
+			Eventually(callHealthcheck, "5s").Should(Equal(http.StatusOK))
+		}
 	})
 
 	AfterEach(func() {
 		stopDaemons(sessions)
 	})
+
+	It("responds on its health check endpoint", func() {
+		for i, lease := range daemonLeases {
+			By("responding with a status code ok")
+			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000+i))
+			Expect(err).NotTo(HaveOccurred())
+			responseBytes, err := ioutil.ReadAll(resp.Body)
+
+			By("responding with its current state")
+			leaseBytes, err := json.Marshal(lease)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(responseBytes).To(Equal(leaseBytes))
+		}
+	})
 })
+
+func configureLeases(instances int) []state.SubnetLease {
+	var leases []state.SubnetLease
+	for i := 0; i < instances; i++ {
+		lease := state.SubnetLease{
+			Subnet:     fmt.Sprintf("10.255.%d.0/24", i),
+			UnderlayIP: fmt.Sprintf("10.244.0.%d", i),
+		}
+		leases = append(leases, lease)
+	}
+	return leases
+}
 
 func configureDaemons(template config.Config, instances int) []config.Config {
 	var configs []config.Config
 	for i := 0; i < instances; i++ {
 		conf := template
 		conf.UnderlayIP = fmt.Sprintf("10.244.4.%d", i)
+		conf.HealthCheckPort = uint16(4000 + i)
 		configs = append(configs, conf)
 	}
 	return configs
@@ -100,9 +144,10 @@ func startDaemon(configFilePath string) *gexec.Session {
 	return session
 }
 
-func startDaemons(configs []config.Config) []*gexec.Session {
+func startDaemons(configs []config.Config, leases []state.SubnetLease) []*gexec.Session {
 	var sessions []*gexec.Session
-	for _, conf := range configs {
+	for i, conf := range configs {
+		conf.LocalStateFile = writeStateFile(leases[i])
 		sessions = append(sessions, startDaemon(writeConfigFile(conf)))
 	}
 	return sessions

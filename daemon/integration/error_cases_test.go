@@ -14,13 +14,13 @@ import (
 var _ = Describe("error cases", func() {
 	var (
 		daemonConfig   config.Config
-		leaseState     state.SubnetLease
+		lease          state.SubnetLease
 		configFilePath string
 	)
 
 	BeforeEach(func() {
-		leaseState = state.SubnetLease{}
-		leasePath := writeStateFile(leaseState)
+		lease = state.SubnetLease{}
+		leasePath := writeStateFile(lease)
 		daemonConfig = config.Config{
 			SubnetRange:    "10.255.0.0/16",
 			SubnetMask:     24,
@@ -111,6 +111,19 @@ var _ = Describe("error cases", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, "10s").Should(gexec.Exit(1))
 			Expect(session.Err.Contents()).To(ContainSubstring("creating lease controller: connecting to database:"))
+		})
+	})
+
+	Context("when the port is invalid", func() {
+		BeforeEach(func() {
+			os.Remove(configFilePath)
+			daemonConfig.HealthCheckPort = 0
+			configFilePath = writeConfigFile(daemonConfig)
+		})
+		It("exits with status 1", func() {
+			session := startDaemon(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Expect(session.Err.Contents()).To(ContainSubstring("invalid healthcheck port: 0"))
 		})
 	})
 })

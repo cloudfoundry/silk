@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	UnderlayIP     string    `json:"underlay_ip"`
-	SubnetRange    string    `json:"subnet_range"`
-	SubnetMask     int       `json:"subnet_mask"`
-	Database       db.Config `json:"database"`
-	LocalStateFile string    `json:"local_state_file"`
+	UnderlayIP      string    `json:"underlay_ip"`
+	SubnetRange     string    `json:"subnet_range"`
+	SubnetMask      int       `json:"subnet_mask"`
+	Database        db.Config `json:"database"`
+	LocalStateFile  string    `json:"local_state_file"`
+	HealthCheckPort uint16    `json:"health_check_port"`
 }
 
 func LoadConfig(filePath string) (Config, error) {
