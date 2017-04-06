@@ -32,9 +32,9 @@ var _ = Describe("error cases", func() {
 
 	Context("when the path to the config is bad", func() {
 		It("exits with status 1", func() {
-			session := startDaemon("some/bad/path")
+			session := startDaemon("/some/bad/path")
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not read config file"))
+			Expect(session.Err.Contents()).To(ContainSubstring("loading config file: reading file /some/bad/path"))
 
 			session.Interrupt()
 		})
@@ -48,7 +48,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not unmarshal config file contents"))
+			Expect(session.Err.Contents()).To(ContainSubstring("loading config file: unmarshaling contents"))
 		})
 	})
 
@@ -62,7 +62,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not connect to database:"))
+			Expect(session.Err.Contents()).To(ContainSubstring("creating lease controller: connecting to database:"))
 		})
 	})
 
@@ -76,7 +76,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, "10s").Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not connect to database:"))
+			Expect(session.Err.Contents()).To(ContainSubstring("creating lease controller: connecting to database:"))
 		})
 	})
 
