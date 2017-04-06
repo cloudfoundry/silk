@@ -1,9 +1,7 @@
 package integration_test
 
 import (
-	"fmt"
 	"math/rand"
-	"net/http"
 
 	. "github.com/onsi/ginkgo"
 	ginkgoConfig "github.com/onsi/ginkgo/config"
@@ -37,15 +35,3 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = SynchronizedAfterSuite(func() {}, func() {
 	gexec.CleanupBuildArtifacts()
 })
-
-func VerifyHTTPConnection(baseURL string) error {
-	resp, err := http.Get(baseURL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected server to respond %d but got %d", http.StatusOK, resp.StatusCode)
-	}
-	return nil
-}

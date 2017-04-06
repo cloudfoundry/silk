@@ -1,6 +1,8 @@
 package integration_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,8 +30,11 @@ var _ = Describe("Silk Controller", func() {
 			ListenHost:      "127.0.0.1",
 			ListenPort:      50000 + GinkgoParallelNode(),
 			DebugServerPort: 60000 + GinkgoParallelNode(),
+			CACertFile:      "fixtures/ca.crt",
+			ServerCertFile:  "fixtures/server.crt",
+			ServerKeyFile:   "fixtures/server.key",
 		}
-		baseURL = fmt.Sprintf("http://%s:%d", conf.ListenHost, conf.ListenPort)
+		baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 
 		configFile, err := ioutil.TempFile("", "config-file-")
 		Expect(err).NotTo(HaveOccurred())
@@ -41,8 +46,14 @@ var _ = Describe("Silk Controller", func() {
 		session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 		Expect(err).NotTo(HaveOccurred())
 
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: makeClientTLSConfig(),
+			},
+		}
+
 		By("waiting for the http server to boot")
-		serverIsUp := func() error { return VerifyHTTPConnection(baseURL) }
+		serverIsUp := func() error { return verifyHTTPConnection(httpClient, baseURL) }
 		Eventually(serverIsUp, DEFAULT_TIMEOUT).Should(Succeed())
 	})
 
@@ -68,3 +79,33 @@ var _ = Describe("Silk Controller", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	})
 })
+
+func verifyHTTPConnection(httpClient *http.Client, baseURL string) error {
+	resp, err := httpClient.Get(baseURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected server to respond %d but got %d", http.StatusOK, resp.StatusCode)
+	}
+	return nil
+}
+
+func makeClientTLSConfig() *tls.Config {
+	cert, err := tls.LoadX509KeyPair("fixtures/client.crt", "fixtures/client.key")
+	Expect(err).NotTo(HaveOccurred())
+
+	clientCACert, err := ioutil.ReadFile("fixtures/ca.crt")
+	Expect(err).NotTo(HaveOccurred())
+
+	clientCertPool := x509.NewCertPool()
+	clientCertPool.AppendCertsFromPEM(clientCACert)
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      clientCertPool,
+	}
+	tlsConfig.BuildNameToCertificate()
+	return tlsConfig
+}

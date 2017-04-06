@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller/config"
 	"github.com/tedsuo/ifrit"
@@ -47,7 +48,12 @@ func mainWithError() error {
 
 	debugServerAddress := fmt.Sprintf("127.0.0.1:%d", conf.DebugServerPort)
 	mainServerAddress := fmt.Sprintf("%s:%d", conf.ListenHost, conf.ListenPort)
-	httpServer := http_server.New(mainServerAddress, &BasicServer{})
+	tlsConfig, err := mutualtls.NewServerTLSConfig(conf.ServerCertFile, conf.ServerKeyFile, conf.CACertFile)
+	if err != nil {
+		log.Fatalf("mutual tls config: %s", err)
+	}
+
+	httpServer := http_server.NewTLSServer(mainServerAddress, &BasicServer{}, tlsConfig)
 	members := grouper.Members{
 		{"http_server", httpServer},
 		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},
