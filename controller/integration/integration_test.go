@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 
+	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"
 
 	. "github.com/onsi/ginkgo"
@@ -52,8 +54,13 @@ var _ = Describe("Silk Controller", func() {
 			},
 		}
 
+		testClient := controller.NewClient(lagertest.NewTestLogger("test"), httpClient, baseURL)
+
 		By("waiting for the http server to boot")
-		serverIsUp := func() error { return verifyHTTPConnection(httpClient, baseURL) }
+		serverIsUp := func() error {
+			_, err := testClient.GetRoutableLeases()
+			return err
+		}
 		Eventually(serverIsUp, DEFAULT_TIMEOUT).Should(Succeed())
 	})
 

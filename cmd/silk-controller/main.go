@@ -1,16 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 
 	"code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/go-db-helpers/marshal"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller/config"
+	"code.cloudfoundry.org/silk/controller/handlers"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -21,12 +23,6 @@ func main() {
 	if err := mainWithError(); err != nil {
 		log.Fatalf("silk-controller error: %s", err)
 	}
-}
-
-type BasicServer struct{}
-
-func (*BasicServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	w.WriteHeader(http.StatusOK)
 }
 
 func mainWithError() error {
@@ -53,7 +49,12 @@ func mainWithError() error {
 		log.Fatalf("mutual tls config: %s", err)
 	}
 
-	httpServer := http_server.NewTLSServer(mainServerAddress, &BasicServer{}, tlsConfig)
+	leasesIndex := &handlers.LeasesIndex{
+		Logger:    logger,
+		Marshaler: marshal.MarshalFunc(json.Marshal),
+	}
+
+	httpServer := http_server.NewTLSServer(mainServerAddress, leasesIndex, tlsConfig)
 	members := grouper.Members{
 		{"http_server", httpServer},
 		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},
