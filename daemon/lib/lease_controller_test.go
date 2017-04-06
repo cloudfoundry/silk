@@ -78,7 +78,7 @@ var _ = Describe("LeaseController", func() {
 			Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
 		})
 
-		Context("when checking if a subnet exists fails", func() {
+		Context("when checking if a subnet exists returns an error", func() {
 			It("returns an error", func() {
 				databaseHandler.SubnetExistsReturns(false, errors.New("guava"))
 
@@ -86,6 +86,19 @@ var _ = Describe("LeaseController", func() {
 				Expect(err).To(MatchError("checking if subnet is available: guava"))
 
 				Expect(databaseHandler.SubnetExistsCallCount()).To(Equal(10))
+				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when no subnets are free but checking if a subnet exists does not error", func() {
+			BeforeEach(func() {
+				databaseHandler.SubnetExistsReturns(true, nil)
+			})
+			It("eventually returns an error after failing to find a free subnet", func() {
+				_, err := leaseController.AcquireSubnetLease()
+				Expect(err).To(MatchError("unable to find a free subnet after 10 attempts"))
+
+				Expect(databaseHandler.SubnetExistsCallCount()).To(Equal(100))
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
 			})
 		})

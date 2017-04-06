@@ -134,7 +134,8 @@ func (c *LeaseController) tryAcquireLease() (string, error) {
 }
 
 func (c *LeaseController) getFreeSubnet() (string, error) {
-	for {
+	maxSubnetAttempts := 10
+	for i := 0; i < maxSubnetAttempts; i++ {
 		subnet := c.CIDRPool.GetRandom()
 		subnetExists, err := c.DatabaseHandler.SubnetExists(subnet)
 		if err != nil {
@@ -145,4 +146,5 @@ func (c *LeaseController) getFreeSubnet() (string, error) {
 			return subnet, nil
 		}
 	}
+	return "", fmt.Errorf("unable to find a free subnet after %d attempts", maxSubnetAttempts)
 }

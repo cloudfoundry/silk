@@ -49,7 +49,7 @@ func generateCIDRPool(ipStart string, cidrMask, cidrMaskBlock uint) []string {
 	fullRange := 1 << (32 - cidrMask)
 	blockSize := 1 << (32 - cidrMaskBlock)
 	var newIP net.IP
-	for i := 2 * blockSize; i < fullRange-blockSize; i += blockSize {
+	for i := blockSize; i < fullRange; i += blockSize {
 		newIP = netaddr.IPAdd(net.ParseIP(ipStart), i)
 		pool = append(pool, fmt.Sprintf("%s/%d", newIP.String(), cidrMaskBlock))
 	}

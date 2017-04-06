@@ -14,8 +14,9 @@ var _ = Describe("Cidrpool", func() {
 				cidrPool := lib.NewCIDRPool(subnetRange, subnetMask)
 				Expect(cidrPool.Size()).To(Equal(expectedSize))
 			},
-			Entry("when the range is /16 and mask is /24", "10.255.0.0/16", 24, 253),
-			Entry("when the range is /16 and mask is /20", "10.255.0.0/16", 20, 13),
+			Entry("when the range is /16 and mask is /24", "10.255.0.0/16", 24, 255),
+			Entry("when the range is /16 and mask is /20", "10.255.0.0/16", 20, 15),
+			Entry("when the range is /16 and mask is /16", "10.255.0.0/16", 16, 0),
 		)
 	})
 

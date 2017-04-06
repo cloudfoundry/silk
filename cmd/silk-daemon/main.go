@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"code.cloudfoundry.org/lager"
-
 	"code.cloudfoundry.org/silk/client/config"
+	"code.cloudfoundry.org/silk/client/state"
 	"code.cloudfoundry.org/silk/daemon/lib"
+
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 )
@@ -34,17 +34,15 @@ func mainWithError() error {
 		return fmt.Errorf("loading config file: %s", err)
 	}
 
-	leaseController, err := lib.NewLeaseController(cfg, logger)
+	_, err = state.LoadSubnetLease(cfg.LocalStateFile)
+	if err != nil {
+		return fmt.Errorf("loading state file: %s", err)
+	}
+
+	_, err = lib.NewLeaseController(cfg, logger)
 	if err != nil {
 		return fmt.Errorf("creating lease controller: %s", err)
 	}
 
-	_, err = leaseController.AcquireSubnetLease()
-	if err != nil {
-		log.Fatalf("acquiring subnet: %s", err) // not tested
-	}
-
-	for {
-		time.Sleep(10 * time.Second)
-	}
+	return nil
 }

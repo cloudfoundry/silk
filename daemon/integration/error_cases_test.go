@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/silk/client/config"
+	"code.cloudfoundry.org/silk/client/state"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -13,15 +14,19 @@ import (
 var _ = Describe("error cases", func() {
 	var (
 		daemonConfig   config.Config
+		leaseState     state.SubnetLease
 		configFilePath string
 	)
 
 	BeforeEach(func() {
+		leaseState = state.SubnetLease{}
+		leasePath := writeStateFile(leaseState)
 		daemonConfig = config.Config{
-			SubnetRange: "10.255.0.0/16",
-			SubnetMask:  24,
-			Database:    testDatabase.DBConfig(),
-			UnderlayIP:  "10.244.4.6",
+			SubnetRange:    "10.255.0.0/16",
+			SubnetMask:     24,
+			Database:       testDatabase.DBConfig(),
+			UnderlayIP:     "10.244.4.6",
+			LocalStateFile: leasePath,
 		}
 		configFilePath = writeConfigFile(daemonConfig)
 	})
@@ -52,6 +57,35 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
+	Context("when the path to the state file is bad", func() {
+		BeforeEach(func() {
+			daemonConfig = config.Config{
+				SubnetRange:    "10.255.0.0/16",
+				SubnetMask:     24,
+				Database:       testDatabase.DBConfig(),
+				UnderlayIP:     "10.244.4.6",
+				LocalStateFile: "/some/bad/path",
+			}
+			configFilePath = writeConfigFile(daemonConfig)
+		})
+		It("exits with status 1", func() {
+			session := startDaemon(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Expect(session.Err.Contents()).To(ContainSubstring("loading state file: reading file /some/bad/path"))
+		})
+	})
+
+	Context("when the contents of the state file cannot be parsed", func() {
+		BeforeEach(func() {
+			Expect(ioutil.WriteFile(daemonConfig.LocalStateFile, []byte("some-bad-contents"), os.ModePerm)).To(Succeed())
+		})
+		It("exits with status 1", func() {
+			session := startDaemon(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("loading state file: unmarshaling contents"))
+		})
+	})
+
 	Context("when the config has an unsupported type", func() {
 		BeforeEach(func() {
 			os.Remove(configFilePath)
@@ -77,13 +111,6 @@ var _ = Describe("error cases", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, "10s").Should(gexec.Exit(1))
 			Expect(session.Err.Contents()).To(ContainSubstring("creating lease controller: connecting to database:"))
-		})
-	})
-
-	XContext("when the lease controller fails to acquire a subnet lease", func() {
-		It("exits with status 1", func() {
-			// TODO(gabe): unpend, figure out how to set up the test so that we can trigger
-			// this sort of failure and actually test the behavior in that case
 		})
 	})
 })

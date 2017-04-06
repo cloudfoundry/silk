@@ -4,19 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
-	"regexp"
 
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 	"code.cloudfoundry.org/silk/client/config"
+	"code.cloudfoundry.org/silk/client/state"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -57,55 +55,7 @@ var _ = Describe("Daemon Integration", func() {
 	AfterEach(func() {
 		stopDaemons(sessions)
 	})
-
-	It("assigns a subnet to each vm and stores it in the database", func() {
-		By("waiting for each daemon to acquire a subnet")
-		for _, s := range sessions {
-			Eventually(s.Out, "4s").Should(gbytes.Say("subnet-acquired.*subnet.*underlay ip.*"))
-		}
-
-		By("signaling all sessions to terminate")
-		for _, s := range sessions {
-			s.Interrupt()
-		}
-		By("verifying all daemons exit with status 0")
-		for _, s := range sessions {
-			Eventually(s, DEFAULT_TIMEOUT).Should(gexec.Exit())
-		}
-
-		By("gathering all the subnet info")
-		subnetCounts := map[string]int{}
-		for i, s := range sessions {
-			subnet, underlayIP := discoverLeaseFromLogs(s.Out.Contents())
-			Expect(subnetCounts[subnet]).To(Equal(0))
-			subnetCounts[subnet]++
-			Expect(underlayIP).To(Equal(daemonConfs[i].UnderlayIP))
-		}
-
-		By("checking that the subnets do not collide")
-		for _, count := range subnetCounts {
-			Expect(count).To(Equal(1))
-		}
-	})
 })
-
-func discoverLeaseFromLogs(output []byte) (string, string) {
-	leaseLogLineRegex := `subnet-.*"subnet":"((?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2})".*"underlay ip":"((?:[0-9]{1,3}\.){3}[0-9]{1,3})"`
-	matches := regexp.MustCompile(leaseLogLineRegex).FindStringSubmatch(string(output))
-	Expect(matches).To(HaveLen(3))
-
-	subnetString := matches[1]
-	_, subnet, err := net.ParseCIDR(subnetString)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(subnet.String()).To(Equal(subnetString))
-
-	ipString := matches[2]
-	ip := net.ParseIP(ipString)
-	Expect(ip).NotTo(BeNil())
-	Expect(ip.String()).To(Equal(ipString))
-
-	return subnetString, ipString
-}
 
 func configureDaemons(template config.Config, instances int) []config.Config {
 	var configs []config.Config
@@ -115,6 +65,19 @@ func configureDaemons(template config.Config, instances int) []config.Config {
 		configs = append(configs, conf)
 	}
 	return configs
+}
+
+func writeStateFile(lease state.SubnetLease) string {
+	leaseFile, err := ioutil.TempFile("", "test-subnet-lease")
+	Expect(err).NotTo(HaveOccurred())
+
+	leaseBytes, err := json.Marshal(lease)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = ioutil.WriteFile(leaseFile.Name(), leaseBytes, os.ModePerm)
+	Expect(err).NotTo(HaveOccurred())
+
+	return leaseFile.Name()
 }
 
 func writeConfigFile(config config.Config) string {

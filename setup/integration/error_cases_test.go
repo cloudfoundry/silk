@@ -93,10 +93,28 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	XContext("when the lease controller fails to acquire a subnet lease", func() {
+	Context("when the lease controller fails to acquire a subnet lease", func() {
+		var (
+			setupConfs []config.Config
+		)
+		BeforeEach(func() {
+			By("configuring the subnet range/mask so only one lease can be given")
+			confTemplate := config.Config{
+				SubnetRange: "10.255.0.0/30",
+				SubnetMask:  31,
+				Database:    testDatabase.DBConfig(),
+			}
+			setupConfs = configureSetups(confTemplate, 2)
+
+			By("verifying the first setup exits with status 0")
+			sessionOld := startSetup(writeConfigFile(setupConfs[0]))
+			Eventually(sessionOld, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		})
 		It("exits with status 1", func() {
-			// TODO: unpend, figure out how to set up the test so that we can trigger
-			// this sort of failure and actually test the behavior in that case
+			By("verifying the second setup exits with status 1")
+			sessionNew := startSetup(writeConfigFile(setupConfs[1]))
+			Eventually(sessionNew, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Expect(sessionNew.Err.Contents()).To(ContainSubstring("acquiring subnet:"))
 		})
 	})
 
