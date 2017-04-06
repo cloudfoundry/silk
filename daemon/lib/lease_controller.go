@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/silk/client/config"
 )
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
@@ -29,6 +31,29 @@ type LeaseController struct {
 	CIDRPool                      cidrPool
 	UnderlayIP                    string
 	Logger                        lager.Logger
+}
+
+func NewLeaseController(cfg config.Config, logger lager.Logger) (*LeaseController, error) {
+	sqlDB, err := db.GetConnectionPool(cfg.Database)
+	if err != nil {
+		return nil, fmt.Errorf("connecting to database: %s", err)
+	}
+
+	databaseHandler := NewDatabaseHandler(&MigrateAdapter{}, sqlDB)
+	leaseController := &LeaseController{
+		DatabaseHandler:               databaseHandler,
+		MaxMigrationAttempts:          5,
+		MigrationAttemptSleepDuration: time.Second,
+		AcquireSubnetLeaseAttempts:    10,
+		CIDRPool:                      NewCIDRPool(cfg.SubnetRange, cfg.SubnetMask),
+		UnderlayIP:                    cfg.UnderlayIP,
+		Logger:                        logger,
+	}
+	if err = leaseController.TryMigrations(); err != nil {
+		return nil, fmt.Errorf("migrating database: %s", err)
+	}
+
+	return leaseController, nil
 }
 
 func (c *LeaseController) TryMigrations() error {

@@ -39,7 +39,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startSetup("some/bad/path")
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not read config file"))
+			Expect(session.Err.Contents()).To(ContainSubstring("loading config: reading file some/bad/path"))
 
 			session.Interrupt()
 		})
@@ -53,7 +53,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startSetup(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not unmarshal config file contents"))
+			Expect(session.Err.Contents()).To(ContainSubstring("loading config: unmarshaling contents"))
 		})
 	})
 
@@ -67,7 +67,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startSetup(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not connect to database:"))
+			Expect(session.Err.Contents()).To(ContainSubstring("creating lease contoller: connecting to database:"))
 		})
 	})
 
@@ -81,7 +81,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startSetup(configFilePath)
 			Eventually(session, "10s").Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not connect to database:"))
+			Expect(session.Err.Contents()).To(ContainSubstring("creating lease contoller: connecting to database:"))
 		})
 
 		It("deletes the local state file", func() {
@@ -109,7 +109,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startSetup(configFilePath)
 			Eventually(session, "10s").Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("could not write local state file:"))
+			Expect(session.Err.Contents()).To(ContainSubstring("writing local state file:"))
 		})
 	})
 })
