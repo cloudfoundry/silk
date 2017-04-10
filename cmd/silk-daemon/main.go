@@ -30,6 +30,29 @@ func main() {
 	}
 }
 
+func BuildHealthCheckServer(healthCheckPort uint16, lease state.SubnetLease) (ifrit.Runner, error) {
+	leaseBytes, err := json.Marshal(lease)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshaling lease: %s", err) // not possible
+	}
+
+	return http_server.New(
+		fmt.Sprintf("127.0.0.1:%d", healthCheckPort),
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(leaseBytes)
+		}),
+	), nil
+}
+
+func determineVTEPOverlayIP(lease state.SubnetLease) (net.IP, error) {
+	baseAddress, _, err := net.ParseCIDR(lease.Subnet)
+	if err != nil {
+		return nil, fmt.Errorf("parse subnet lease: %s", err)
+	}
+	return baseAddress, nil
+}
+
 func mainWithError() error {
 	logger := lager.NewLogger("silk-daemon")
 	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
@@ -53,70 +76,32 @@ func mainWithError() error {
 		return fmt.Errorf("creating lease controller: %s", err)
 	}
 
-	leaseBytes, err := json.Marshal(lease)
-	if err != nil {
-		return fmt.Errorf("unmarshaling lease: %s", err) // not possible
-	}
-
 	if cfg.HealthCheckPort == 0 {
-		return fmt.Errorf("invalid healthcheck port: %d", cfg.HealthCheckPort)
-	}
-
-	vtepDeviceName := "silk-vxlan"
-	overlayIP, _, err := net.ParseCIDR(lease.Subnet)
-	if err != nil {
-		return fmt.Errorf("cannot parse subnetlease: %d", cfg.HealthCheckPort) // not tested
+		return fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
 	}
 
 	localIP := net.ParseIP(cfg.UnderlayIP)
 	if localIP == nil {
-		return fmt.Errorf("could not parse underlay ip: %s", cfg.UnderlayIP) // not tested
+		return fmt.Errorf("parse underlay ip: %s", cfg.UnderlayIP)
 	}
 
-	device, err := locateInterface(localIP)
+	overlayIP, err := determineVTEPOverlayIP(lease)
 	if err != nil {
-		return fmt.Errorf("could not find device from ip %s: %s", localIP, err) // not tested
+		return fmt.Errorf("determine vtep overlay ip: %s", err)
 	}
 
-	vxlan := &netlink.Vxlan{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: vtepDeviceName,
-		},
-		VxlanId:      42,
-		SrcAddr:      localIP,
-		GBP:          true,
-		Port:         4789,
-		VtepDevIndex: device.Index,
-	}
-	err = netlink.LinkAdd(vxlan)
+	err = createVTEP(cfg.VTEPName, localIP, overlayIP)
 	if err != nil {
-		return fmt.Errorf("cannot create link") // not tested
-	}
-	err = netlink.LinkSetUp(vxlan)
-	if err != nil {
-		return fmt.Errorf("cannot up link") // not tested
+		return fmt.Errorf("create vtep: %s", err)
 	}
 
-	macAddr, err := hwaddr.GenerateHardwareAddr4(overlayIP, []byte{0xee, 0xee}) // not tested
+	healthCheckServer, err := BuildHealthCheckServer(cfg.HealthCheckPort, lease)
 	if err != nil {
-		return fmt.Errorf("cannot generate MAC address: %d", cfg.HealthCheckPort) // not tested
+		return fmt.Errorf("create health check server: %s", err) // not tested
 	}
-
-	err = netlink.LinkSetHardwareAddr(vxlan, macAddr)
-	if err != nil {
-		return fmt.Errorf("cannot set MAC address") // not tested
-	}
-
-	server := http_server.New(
-		fmt.Sprintf("127.0.0.1:%d", cfg.HealthCheckPort),
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write(leaseBytes)
-		}),
-	)
 
 	members := grouper.Members{
-		{"server", server},
+		{"server", healthCheckServer},
 	}
 	group := grouper.NewOrdered(os.Interrupt, members)
 	monitor := ifrit.Invoke(sigmon.New(group))
@@ -148,4 +133,41 @@ func locateInterface(toFind net.IP) (net.Interface, error) {
 	}
 
 	return net.Interface{}, fmt.Errorf("no interface with address %s", toFind.String())
+}
+
+func createVTEP(vtepDeviceName string, underlayIP, overlayIP net.IP) error {
+	device, err := locateInterface(underlayIP)
+	if err != nil {
+		return fmt.Errorf("find device from ip %s: %s", underlayIP, err) // not tested
+	}
+
+	vxlan := &netlink.Vxlan{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: vtepDeviceName,
+		},
+		VxlanId:      42,
+		SrcAddr:      underlayIP,
+		GBP:          true,
+		Port:         4789,
+		VtepDevIndex: device.Index,
+	}
+	err = netlink.LinkAdd(vxlan)
+	if err != nil {
+		return fmt.Errorf("create link: %s", err)
+	}
+	err = netlink.LinkSetUp(vxlan)
+	if err != nil {
+		return fmt.Errorf("up link: %s", err) // not tested
+	}
+
+	macAddr, err := hwaddr.GenerateHardwareAddr4(overlayIP, []byte{0xee, 0xee}) // not tested
+	if err != nil {
+		return fmt.Errorf("generate MAC address: %s", err) // not tested
+	}
+
+	err = netlink.LinkSetHardwareAddr(vxlan, macAddr)
+	if err != nil {
+		return fmt.Errorf("set MAC address %s:", err) // not tested
+	}
+	return nil
 }

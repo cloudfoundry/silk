@@ -15,6 +15,7 @@ type Config struct {
 	Database        db.Config `json:"database"`
 	LocalStateFile  string    `json:"local_state_file"`
 	HealthCheckPort uint16    `json:"health_check_port"`
+	VTEPName        string    `json:"vtep_name"`
 }
 
 func LoadConfig(filePath string) (Config, error) {

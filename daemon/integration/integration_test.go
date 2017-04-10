@@ -26,6 +26,8 @@ var (
 
 	testDatabase *testsupport.TestDatabase
 	localIP      string
+	daemonLease  state.SubnetLease
+	daemonConf   config.Config
 )
 
 var _ = BeforeEach(func() {
@@ -35,6 +37,19 @@ var _ = BeforeEach(func() {
 	var err error
 	localIP, err = localip.LocalIP()
 	Expect(err).NotTo(HaveOccurred())
+	daemonLease = state.SubnetLease{
+		Subnet:     fmt.Sprintf("10.255.30.0/24"),
+		UnderlayIP: localIP,
+	}
+	daemonConf = config.Config{
+		UnderlayIP:      localIP,
+		SubnetRange:     "10.255.0.0/16",
+		SubnetMask:      24,
+		Database:        testDatabase.DBConfig(),
+		LocalStateFile:  writeStateFile(daemonLease),
+		HealthCheckPort: 4000,
+		VTEPName:        "silk-vxlan",
+	}
 })
 
 var _ = AfterEach(func() {
@@ -45,25 +60,11 @@ var _ = AfterEach(func() {
 
 var _ = Describe("Daemon Integration", func() {
 	var (
-		daemonLease state.SubnetLease
-		daemonConf  config.Config
-		session     *gexec.Session
-		client      *http.Client
+		session *gexec.Session
+		client  *http.Client
 	)
 
 	startTest := func(numSessions int) {
-		daemonLease = state.SubnetLease{
-			Subnet:     fmt.Sprintf("10.255.30.0/24"),
-			UnderlayIP: localIP,
-		}
-		daemonConf = config.Config{
-			SubnetRange:     "10.255.0.0/16",
-			SubnetMask:      24,
-			Database:        testDatabase.DBConfig(),
-			UnderlayIP:      localIP,
-			HealthCheckPort: 4000,
-		}
-		daemonConf.LocalStateFile = writeStateFile(daemonLease)
 		session = startDaemon(writeConfigFile(daemonConf))
 
 		client = http.DefaultClient
