@@ -46,3 +46,9 @@
 [submodule "vendor/code.cloudfoundry.org/debugserver"]
 	path = vendor/code.cloudfoundry.org/debugserver
 	url = https://github.com/cloudfoundry/debugserver
+[submodule "vendor/github.com/tedsuo/rata"]
+	path = vendor/github.com/tedsuo/rata
+	url = https://github.com/tedsuo/rata
+[submodule "vendor/github.com/bmizerany/pat"]
+	path = vendor/github.com/bmizerany/pat
+	url = https://github.com/bmizerany/pat
