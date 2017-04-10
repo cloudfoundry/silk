@@ -1,6 +1,8 @@
 package lib_test
 
 import (
+	"net"
+
 	"code.cloudfoundry.org/silk/daemon/lib"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -22,7 +24,9 @@ var _ = Describe("Cidrpool", func() {
 
 	Describe("GetRandom", func() {
 		It("returns a random subnet from the pool", func() {
-			cidrPool := lib.NewCIDRPool("10.255.0.0/16", 24)
+			subnetRange := "10.255.0.0/16"
+			_, network, _ := net.ParseCIDR(subnetRange)
+			cidrPool := lib.NewCIDRPool(subnetRange, 24)
 
 			results := map[string]int{}
 
@@ -31,7 +35,11 @@ var _ = Describe("Cidrpool", func() {
 				results[s]++
 			}
 
-			for _, count := range results {
+			for result, count := range results {
+				_, subnet, err := net.ParseCIDR(result)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(network.Contains(subnet.IP)).To(BeTrue())
+				Expect(subnet.Mask).To(Equal(net.IPMask{255, 255, 255, 0}))
 				Expect(count).To(BeNumerically("<", 4))
 			}
 		})

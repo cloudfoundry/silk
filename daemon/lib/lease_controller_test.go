@@ -62,15 +62,15 @@ var _ = Describe("LeaseController", func() {
 		BeforeEach(func() {
 			leaseController.AcquireSubnetLeaseAttempts = 10
 			leaseController.CIDRPool = cidrPool
-			leaseController.UnderlayIP = "10.244.5.6"
 		})
 
 		It("acquires a lease and logs the success", func() {
 			databaseHandler.SubnetExistsReturns(false, nil)
 			cidrPool.GetRandomReturns("10.255.76.0/24")
 
-			_, err := leaseController.AcquireSubnetLease()
+			subnet, err := leaseController.AcquireSubnetLease("10.244.5.6")
 			Expect(err).NotTo(HaveOccurred())
+			Expect(subnet).To(Equal("10.255.76.0/24"))
 			Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
 			Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
 			Expect(logger.Logs()[0].Message).To(Equal("test.subnet-acquired"))
@@ -82,7 +82,7 @@ var _ = Describe("LeaseController", func() {
 			It("returns an error", func() {
 				databaseHandler.SubnetExistsReturns(false, errors.New("guava"))
 
-				_, err := leaseController.AcquireSubnetLease()
+				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).To(MatchError("checking if subnet is available: guava"))
 
 				Expect(databaseHandler.SubnetExistsCallCount()).To(Equal(10))
@@ -95,7 +95,7 @@ var _ = Describe("LeaseController", func() {
 				databaseHandler.SubnetExistsReturns(true, nil)
 			})
 			It("eventually returns an error after failing to find a free subnet", func() {
-				_, err := leaseController.AcquireSubnetLease()
+				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).To(MatchError("unable to find a free subnet after 10 attempts"))
 
 				Expect(databaseHandler.SubnetExistsCallCount()).To(Equal(100))
@@ -107,7 +107,7 @@ var _ = Describe("LeaseController", func() {
 			It("returns an error", func() {
 				databaseHandler.AddEntryReturns(errors.New("guava"))
 
-				_, err := leaseController.AcquireSubnetLease()
+				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).To(MatchError("adding lease entry: guava"))
 
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(10))
@@ -120,7 +120,7 @@ var _ = Describe("LeaseController", func() {
 			})
 
 			It("gets the previously assigned lease", func() {
-				_, err := leaseController.AcquireSubnetLease()
+				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
 				Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
@@ -138,7 +138,7 @@ var _ = Describe("LeaseController", func() {
 			It("ignores the error and tries to get a new lease", func() {
 				cidrPool.GetRandomReturns("10.255.76.0/24")
 
-				_, err := leaseController.AcquireSubnetLease()
+				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
 				Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))

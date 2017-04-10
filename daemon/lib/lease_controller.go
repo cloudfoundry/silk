@@ -85,14 +85,14 @@ func (c *LeaseController) ReleaseSubnetLease() error {
 	return nil
 }
 
-func (c *LeaseController) AcquireSubnetLease() (string, error) {
+func (c *LeaseController) AcquireSubnetLease(underlayIP string) (string, error) {
 	var err error
 	var subnet string
 
 	subnet, err = c.tryRenewLease()
 	if subnet != "" {
 		c.Logger.Info("subnet-renewed", lager.Data{"subnet": subnet,
-			"underlay ip": c.UnderlayIP,
+			"underlay ip": underlayIP,
 		})
 		return subnet, nil
 	}
@@ -101,7 +101,7 @@ func (c *LeaseController) AcquireSubnetLease() (string, error) {
 		subnet, err = c.tryAcquireLease()
 		if err == nil {
 			c.Logger.Info("subnet-acquired", lager.Data{"subnet": subnet,
-				"underlay ip": c.UnderlayIP,
+				"underlay ip": underlayIP,
 			})
 			return subnet, nil
 		}
