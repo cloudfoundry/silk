@@ -12,16 +12,17 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/client/state"
+	"code.cloudfoundry.org/silk/daemon"
+	daemonConfig "code.cloudfoundry.org/silk/daemon/config"
 	"code.cloudfoundry.org/silk/daemon/lib"
+	libAdapter "code.cloudfoundry.org/silk/lib/adapter"
 
-	"github.com/containernetworking/cni/pkg/utils/hwaddr"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
-	"github.com/vishvananda/netlink"
 )
 
 func main() {
@@ -90,7 +91,17 @@ func mainWithError() error {
 		return fmt.Errorf("determine vtep overlay ip: %s", err)
 	}
 
-	err = createVTEP(cfg.VTEPName, localIP, overlayIP)
+	underlayInterface, err := daemon.LocateInterface(localIP)
+	if err != nil {
+		return fmt.Errorf("find device from ip %s: %s", localIP, err) // not tested
+	}
+
+	vtepFactory := &daemon.VTEPFactory{
+		NetlinkAdapter:           &libAdapter.NetlinkAdapter{},
+		HardwareAddressGenerator: &daemonConfig.HardwareAddressGenerator{},
+	}
+
+	err = vtepFactory.CreateVTEP(cfg.VTEPName, underlayInterface, localIP, overlayIP)
 	if err != nil {
 		return fmt.Errorf("create vtep: %s", err)
 	}
@@ -108,66 +119,4 @@ func mainWithError() error {
 
 	err = <-monitor.Wait()
 	return err
-}
-
-func locateInterface(toFind net.IP) (net.Interface, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return net.Interface{}, err
-	}
-	for _, iface := range ifaces {
-		addrs, err := iface.Addrs()
-		if err != nil {
-			return net.Interface{}, err
-		}
-
-		for _, addr := range addrs {
-			ip, _, err := net.ParseCIDR(addr.String())
-			if err != nil {
-				return net.Interface{}, err
-			}
-			if ip.String() == toFind.String() {
-				return iface, nil
-			}
-		}
-	}
-
-	return net.Interface{}, fmt.Errorf("no interface with address %s", toFind.String())
-}
-
-func createVTEP(vtepDeviceName string, underlayIP, overlayIP net.IP) error {
-	device, err := locateInterface(underlayIP)
-	if err != nil {
-		return fmt.Errorf("find device from ip %s: %s", underlayIP, err) // not tested
-	}
-
-	vxlan := &netlink.Vxlan{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: vtepDeviceName,
-		},
-		VxlanId:      42,
-		SrcAddr:      underlayIP,
-		GBP:          true,
-		Port:         4789,
-		VtepDevIndex: device.Index,
-	}
-	err = netlink.LinkAdd(vxlan)
-	if err != nil {
-		return fmt.Errorf("create link: %s", err)
-	}
-	err = netlink.LinkSetUp(vxlan)
-	if err != nil {
-		return fmt.Errorf("up link: %s", err) // not tested
-	}
-
-	macAddr, err := hwaddr.GenerateHardwareAddr4(overlayIP, []byte{0xee, 0xee}) // not tested
-	if err != nil {
-		return fmt.Errorf("generate MAC address: %s", err) // not tested
-	}
-
-	err = netlink.LinkSetHardwareAddr(vxlan, macAddr)
-	if err != nil {
-		return fmt.Errorf("set MAC address %s:", err) // not tested
-	}
-	return nil
 }

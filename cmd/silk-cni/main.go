@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/legacy_flannel"
 	"code.cloudfoundry.org/silk/cni/lib"
+	libAdapter "code.cloudfoundry.org/silk/lib/adapter"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -40,7 +41,7 @@ func main() {
 	sink := lager.NewWriterSink(os.Stderr, lager.INFO)
 	logger.RegisterSink(sink)
 
-	netlinkAdapter := &adapter.NetlinkAdapter{}
+	netlinkAdapter := &libAdapter.NetlinkAdapter{}
 	linkOperations := &lib.LinkOperations{
 		SysctlAdapter:  &adapter.SysctlAdapter{},
 		NetlinkAdapter: netlinkAdapter,
