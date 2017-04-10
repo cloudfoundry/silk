@@ -5,10 +5,12 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 
+	"code.cloudfoundry.org/go-db-helpers/testsupport"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"
@@ -18,23 +20,41 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
+var testDatabase *testsupport.TestDatabase
+
+var _ = BeforeEach(func() {
+	dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
+	dbConnectionInfo := testsupport.GetDBConnectionInfo()
+	testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+})
+
+var _ = AfterEach(func() {
+	if testDatabase != nil {
+		testDatabase.Destroy()
+	}
+})
+
 var _ = Describe("Silk Controller", func() {
 
 	var (
 		session        *gexec.Session
 		conf           config.Config
+		testClient     *controller.Client
 		configFilePath string
 		baseURL        string
 	)
 
 	BeforeEach(func() {
 		conf = config.Config{
-			ListenHost:      "127.0.0.1",
-			ListenPort:      50000 + GinkgoParallelNode(),
-			DebugServerPort: 60000 + GinkgoParallelNode(),
-			CACertFile:      "fixtures/ca.crt",
-			ServerCertFile:  "fixtures/server.crt",
-			ServerKeyFile:   "fixtures/server.key",
+			ListenHost:         "127.0.0.1",
+			ListenPort:         50000 + GinkgoParallelNode(),
+			DebugServerPort:    60000 + GinkgoParallelNode(),
+			CACertFile:         "fixtures/ca.crt",
+			ServerCertFile:     "fixtures/server.crt",
+			ServerKeyFile:      "fixtures/server.key",
+			Network:            "10.255.0.0/16",
+			SubnetPrefixLength: 24,
+			Database:           testDatabase.DBConfig(),
 		}
 		baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 
@@ -54,7 +74,7 @@ var _ = Describe("Silk Controller", func() {
 			},
 		}
 
-		testClient := controller.NewClient(lagertest.NewTestLogger("test"), httpClient, baseURL)
+		testClient = controller.NewClient(lagertest.NewTestLogger("test"), httpClient, baseURL)
 
 		By("waiting for the http server to boot")
 		serverIsUp := func() error {
@@ -84,6 +104,16 @@ var _ = Describe("Silk Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+
+	It("provides an endpoint to acquire a subnet leases", func() {
+		lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(lease.UnderlayIP).To(Equal("10.244.4.5"))
+		_, subnet, err := net.ParseCIDR(lease.OverlaySubnet)
+		Expect(err).NotTo(HaveOccurred())
+		_, network, err := net.ParseCIDR(conf.Network)
+		Expect(network.Contains(subnet.IP)).To(BeTrue())
 	})
 })
 

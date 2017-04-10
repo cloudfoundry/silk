@@ -5,15 +5,20 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"code.cloudfoundry.org/go-db-helpers/db"
 )
 
 type Config struct {
-	DebugServerPort int    `json:"debug_server_port"`
-	ListenHost      string `json:"listen_host"`
-	ListenPort      int    `json:"listen_port"`
-	CACertFile      string `json:"ca_cert_file"`
-	ServerCertFile  string `json:"server_cert_file"`
-	ServerKeyFile   string `json:"server_key_file"`
+	DebugServerPort    int       `json:"debug_server_port"`
+	ListenHost         string    `json:"listen_host"`
+	ListenPort         int       `json:"listen_port"`
+	CACertFile         string    `json:"ca_cert_file"`
+	ServerCertFile     string    `json:"server_cert_file"`
+	ServerKeyFile      string    `json:"server_key_file"`
+	Network            string    `json:"network"`
+	SubnetPrefixLength int       `json:"subnet_prefix_length"`
+	Database           db.Config `json:"database"`
 }
 
 func (c *Config) WriteToFile(configFilePath string) error {

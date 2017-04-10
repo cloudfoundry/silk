@@ -14,6 +14,10 @@ type Lease struct {
 	OverlaySubnet string `json:"overlay_subnet"`
 }
 
+type AcquireLeaseRequest struct {
+	UnderlayIP string `json:"underlay_ip"`
+}
+
 func NewClient(logger lager.Logger, httpClient json_client.HttpClient, baseURL string) *Client {
 	return &Client{
 		JsonClient: json_client.New(logger, httpClient, baseURL),
@@ -29,4 +33,16 @@ func (c *Client) GetRoutableLeases() ([]Lease, error) {
 		return nil, err
 	}
 	return response.Leases, nil
+}
+
+func (c *Client) AcquireSubnetLease(underlayIP string) (Lease, error) {
+	var response Lease
+	request := AcquireLeaseRequest{
+		UnderlayIP: underlayIP,
+	}
+	err := c.JsonClient.Do("PUT", "/leases/acquire", request, &response, "")
+	if err != nil {
+		return Lease{}, err
+	}
+	return response, nil
 }

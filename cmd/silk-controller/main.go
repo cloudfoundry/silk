@@ -6,17 +6,21 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/go-db-helpers/marshal"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller/config"
 	"code.cloudfoundry.org/silk/controller/handlers"
+	"code.cloudfoundry.org/silk/daemon/lib"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
+	"github.com/tedsuo/rata"
 )
 
 func main() {
@@ -46,7 +50,24 @@ func mainWithError() error {
 	mainServerAddress := fmt.Sprintf("%s:%d", conf.ListenHost, conf.ListenPort)
 	tlsConfig, err := mutualtls.NewServerTLSConfig(conf.ServerCertFile, conf.ServerKeyFile, conf.CACertFile)
 	if err != nil {
-		log.Fatalf("mutual tls config: %s", err)
+		return fmt.Errorf("mutual tls config: %s", err)
+	}
+
+	sqlDB, err := db.GetConnectionPool(conf.Database)
+	if err != nil {
+		return fmt.Errorf("connecting to database: %s", err)
+	}
+
+	leaseController := &lib.LeaseController{
+		DatabaseHandler:               lib.NewDatabaseHandler(&lib.MigrateAdapter{}, sqlDB),
+		MaxMigrationAttempts:          5,
+		MigrationAttemptSleepDuration: time.Second,
+		AcquireSubnetLeaseAttempts:    10,
+		CIDRPool:                      lib.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
+		Logger:                        logger,
+	}
+	if err = leaseController.TryMigrations(); err != nil {
+		return fmt.Errorf("migrating database: %s", err)
 	}
 
 	leasesIndex := &handlers.LeasesIndex{
@@ -54,7 +75,28 @@ func mainWithError() error {
 		Marshaler: marshal.MarshalFunc(json.Marshal),
 	}
 
-	httpServer := http_server.NewTLSServer(mainServerAddress, leasesIndex, tlsConfig)
+	leasesAcquire := &handlers.LeasesAcquire{
+		Logger:        logger,
+		Marshaler:     marshal.MarshalFunc(json.Marshal),
+		Unmarshaler:   marshal.UnmarshalFunc(json.Unmarshal),
+		LeaseAcquirer: leaseController,
+	}
+
+	router, err := rata.NewRouter(
+		rata.Routes{
+			{Name: "leases-index", Method: "GET", Path: "/leases"},
+			{Name: "leases-acquire", Method: "PUT", Path: "/leases/acquire"},
+		},
+		rata.Handlers{
+			"leases-index":   leasesIndex,
+			"leases-acquire": leasesAcquire,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("creating router: %s", err)
+	}
+
+	httpServer := http_server.NewTLSServer(mainServerAddress, router, tlsConfig)
 	members := grouper.Members{
 		{"http_server", httpServer},
 		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},

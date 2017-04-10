@@ -77,4 +77,46 @@ var _ = Describe("Client", func() {
 			})
 		})
 	})
+
+	Describe("AcquireSubnetLease", func() {
+		BeforeEach(func() {
+			jsonClient.DoStub = func(method, route string, reqData, respData interface{}, token string) error {
+				respBytes := []byte(`
+				{
+					"underlay_ip": "10.0.3.1",
+					"overlay_subnet": "10.255.90.0/24"
+				}`)
+				json.Unmarshal(respBytes, respData)
+				return nil
+			}
+		})
+
+		It("does all the right things", func() {
+			lease, err := client.AcquireSubnetLease("10.0.3.1")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(jsonClient.DoCallCount()).To(Equal(1))
+			method, route, reqData, _, token := jsonClient.DoArgsForCall(0)
+			Expect(method).To(Equal("PUT"))
+			Expect(route).To(Equal("/leases/acquire"))
+			Expect(reqData).To(Equal(controller.AcquireLeaseRequest{UnderlayIP: "10.0.3.1"}))
+			Expect(token).To(BeEmpty())
+
+			Expect(lease).To(Equal(controller.Lease{
+				UnderlayIP:    "10.0.3.1",
+				OverlaySubnet: "10.255.90.0/24",
+			},
+			))
+		})
+
+		Context("when the json client fails", func() {
+			BeforeEach(func() {
+				jsonClient.DoReturns(errors.New("carrot"))
+			})
+			It("returns the error", func() {
+				_, err := client.AcquireSubnetLease("10.0.3.1")
+				Expect(err).To(MatchError("carrot"))
+			})
+		})
+	})
 })
