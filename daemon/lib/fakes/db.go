@@ -23,6 +23,20 @@ type Db struct {
 		result1 sql.Result
 		result2 error
 	}
+	QueryStub        func(query string, args ...interface{}) (*sql.Rows, error)
+	queryMutex       sync.RWMutex
+	queryArgsForCall []struct {
+		query string
+		args  []interface{}
+	}
+	queryReturns struct {
+		result1 *sql.Rows
+		result2 error
+	}
+	queryReturnsOnCall map[int]struct {
+		result1 *sql.Rows
+		result2 error
+	}
 	QueryRowStub        func(query string, args ...interface{}) *sql.Row
 	queryRowMutex       sync.RWMutex
 	queryRowArgsForCall []struct {
@@ -96,6 +110,58 @@ func (fake *Db) ExecReturnsOnCall(i int, result1 sql.Result, result2 error) {
 	}
 	fake.execReturnsOnCall[i] = struct {
 		result1 sql.Result
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Db) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	fake.queryMutex.Lock()
+	ret, specificReturn := fake.queryReturnsOnCall[len(fake.queryArgsForCall)]
+	fake.queryArgsForCall = append(fake.queryArgsForCall, struct {
+		query string
+		args  []interface{}
+	}{query, args})
+	fake.recordInvocation("Query", []interface{}{query, args})
+	fake.queryMutex.Unlock()
+	if fake.QueryStub != nil {
+		return fake.QueryStub(query, args...)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.queryReturns.result1, fake.queryReturns.result2
+}
+
+func (fake *Db) QueryCallCount() int {
+	fake.queryMutex.RLock()
+	defer fake.queryMutex.RUnlock()
+	return len(fake.queryArgsForCall)
+}
+
+func (fake *Db) QueryArgsForCall(i int) (string, []interface{}) {
+	fake.queryMutex.RLock()
+	defer fake.queryMutex.RUnlock()
+	return fake.queryArgsForCall[i].query, fake.queryArgsForCall[i].args
+}
+
+func (fake *Db) QueryReturns(result1 *sql.Rows, result2 error) {
+	fake.QueryStub = nil
+	fake.queryReturns = struct {
+		result1 *sql.Rows
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Db) QueryReturnsOnCall(i int, result1 *sql.Rows, result2 error) {
+	fake.QueryStub = nil
+	if fake.queryReturnsOnCall == nil {
+		fake.queryReturnsOnCall = make(map[int]struct {
+			result1 *sql.Rows
+			result2 error
+		})
+	}
+	fake.queryReturnsOnCall[i] = struct {
+		result1 *sql.Rows
 		result2 error
 	}{result1, result2}
 }
@@ -194,6 +260,8 @@ func (fake *Db) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.execMutex.RLock()
 	defer fake.execMutex.RUnlock()
+	fake.queryMutex.RLock()
+	defer fake.queryMutex.RUnlock()
 	fake.queryRowMutex.RLock()
 	defer fake.queryRowMutex.RUnlock()
 	fake.driverNameMutex.RLock()

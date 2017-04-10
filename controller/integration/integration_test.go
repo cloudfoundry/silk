@@ -115,6 +115,16 @@ var _ = Describe("Silk Controller", func() {
 		_, network, err := net.ParseCIDR(conf.Network)
 		Expect(network.Contains(subnet.IP)).To(BeTrue())
 	})
+
+	It("provides an endpoint to get the current routable leases", func() {
+		lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+		Expect(err).NotTo(HaveOccurred())
+
+		leases, err := testClient.GetRoutableLeases()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(leases)).To(Equal(1))
+		Expect(leases[0]).To(Equal(lease))
+	})
 })
 
 func verifyHTTPConnection(httpClient *http.Client, baseURL string) error {

@@ -12,6 +12,9 @@ go build -o /tmp/client/silk-teardown -race cmd/silk-teardown/main.go
 echo "building silk-daemon"
 go build -o /tmp/client/silk-daemon -race cmd/silk-daemon/main.go
 
+echo "building silk-controller"
+go build -o /tmp/client/silk-controller -race cmd/silk-controller/main.go
+
 echo "building silk-cni"
 go build -o /tmp/cni/silk -ldflags="-extldflags=-Wl,--allow-multiple-definition" -race cmd/silk-cni/main.go
 
@@ -83,3 +86,6 @@ echo "  /tmp/client/silk-daemon --config scripts/examples/silk-client.conf"
 echo ""
 echo "to run silk-teardown:"
 echo "  /tmp/client/silk-teardown --config scripts/examples/silk-client.conf"
+echo ""
+echo "to run silk-controller:"
+echo "  /tmp/client/silk-controller --config-file scripts/examples/silk-controller.conf &"

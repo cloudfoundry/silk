@@ -8,16 +8,27 @@ import (
 	"code.cloudfoundry.org/silk/controller"
 )
 
+//go:generate counterfeiter -o fakes/lease_repository.go --fake-name LeaseRepository . leaseRepository
+type leaseRepository interface {
+	RoutableLeases() ([]controller.Lease, error)
+}
+
 type LeasesIndex struct {
-	Logger    lager.Logger
-	Marshaler marshal.Marshaler
+	Logger          lager.Logger
+	Marshaler       marshal.Marshaler
+	LeaseRepository leaseRepository
 }
 
 func (l *LeasesIndex) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger := l.Logger.Session("leases-index")
 	logger.Debug("start", lager.Data{"URL": req.URL, "RemoteAddr": req.RemoteAddr})
 
-	leases := []controller.Lease{}
+	leases, err := l.LeaseRepository.RoutableLeases()
+	if err != nil {
+		logger.Error("all-routable-leases", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	response := struct {
 		Leases []controller.Lease `json:"leases"`

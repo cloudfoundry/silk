@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
+	"code.cloudfoundry.org/silk/controller"
 )
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
@@ -16,6 +17,7 @@ type databaseHandler interface {
 	DeleteEntry(string) error
 	SubnetExists(string) (bool, error)
 	SubnetForUnderlayIP(string) (string, error)
+	All() ([]controller.Lease, error)
 }
 
 //go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
@@ -98,7 +100,7 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (string, error) 
 	}
 
 	for numErrs := 0; numErrs < c.AcquireSubnetLeaseAttempts; numErrs++ {
-		subnet, err = c.tryAcquireLease()
+		subnet, err = c.tryAcquireLease(underlayIP)
 		if err == nil {
 			c.Logger.Info("subnet-acquired", lager.Data{"subnet": subnet,
 				"underlay ip": underlayIP,
@@ -110,6 +112,15 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (string, error) 
 	return "", err
 }
 
+func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
+	leases, err := c.DatabaseHandler.All()
+	if err != nil {
+		return nil, fmt.Errorf("getting all leases: %s", err)
+	}
+
+	return leases, nil
+}
+
 func (c *LeaseController) tryRenewLease() (string, error) {
 	subnet, err := c.DatabaseHandler.SubnetForUnderlayIP(c.UnderlayIP)
 	if err != nil {
@@ -119,13 +130,13 @@ func (c *LeaseController) tryRenewLease() (string, error) {
 	return subnet, nil
 }
 
-func (c *LeaseController) tryAcquireLease() (string, error) {
+func (c *LeaseController) tryAcquireLease(underlayIP string) (string, error) {
 	subnet, err := c.getFreeSubnet()
 	if err != nil {
 		return "", err
 	}
 
-	err = c.DatabaseHandler.AddEntry(c.UnderlayIP, subnet)
+	err = c.DatabaseHandler.AddEntry(underlayIP, subnet)
 	if err != nil {
 		return "", fmt.Errorf("adding lease entry: %s", err)
 	}

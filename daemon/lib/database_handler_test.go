@@ -1,6 +1,7 @@
 package lib_test
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -8,6 +9,7 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 
+	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/lib"
 	"code.cloudfoundry.org/silk/daemon/lib/fakes"
 	"github.com/jmoiron/sqlx"
@@ -194,4 +196,88 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 		})
 	})
+
+	Describe("SubnetForUnderlayIP", func() {
+		BeforeEach(func() {
+			databaseHandler = lib.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry("10.244.11.22", "10.255.17.0/24")
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("returns the subnet for the given underlay IP", func() {
+			subnet, err := databaseHandler.SubnetForUnderlayIP("10.244.11.22")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(subnet).To(Equal("10.255.17.0/24"))
+		})
+
+		Context("when there is no entry for the underlay ip", func() {
+			It("returns an error", func() {
+				_, err := databaseHandler.SubnetForUnderlayIP("10.244.11.23")
+				Expect(err).To(MatchError("sql: no rows in result set"))
+			})
+		})
+	})
+
+	Describe("All", func() {
+		BeforeEach(func() {
+			databaseHandler = lib.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry("10.244.11.22", "10.255.17.0/24")
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry("10.244.22.33", "10.255.93.15/32")
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("all the saved subnets", func() {
+			leases, err := databaseHandler.All()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(len(leases)).To(Equal(2))
+			Expect(leases).To(ConsistOf([]controller.Lease{
+				{
+					UnderlayIP:    "10.244.11.22",
+					OverlaySubnet: "10.255.17.0/24",
+				},
+				{
+					UnderlayIP:    "10.244.22.33",
+					OverlaySubnet: "10.255.93.15/32",
+				},
+			}))
+		})
+
+		Context("when the query fails", func() {
+			BeforeEach(func() {
+				databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(nil, errors.New("strawberry"))
+			})
+			It("returns an error", func() {
+				_, err := databaseHandler.All()
+				Expect(err).To(MatchError("selecting all subnets: strawberry"))
+			})
+		})
+
+		Context("when the parsing the result fails", func() {
+			var rows *sql.Rows
+			BeforeEach(func() {
+				var err error
+				rows, err = realDb.Query("SELECT 1")
+				Expect(err).NotTo(HaveOccurred())
+
+				databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(rows, nil)
+			})
+
+			AfterEach(func() {
+				rows.Close()
+			})
+
+			It("returns an error", func() {
+				_, err := databaseHandler.All()
+				Expect(err.Error()).To(ContainSubstring("parsing result for all subnets"))
+			})
+		})
+
+	})
+
 })

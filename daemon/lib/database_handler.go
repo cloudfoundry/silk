@@ -4,12 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 
+	"code.cloudfoundry.org/silk/controller"
+
 	migrate "github.com/rubenv/sql-migrate"
 )
 
 //go:generate counterfeiter -o fakes/db.go --fake-name Db . Db
 type Db interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
 	DriverName() string
 }
@@ -39,6 +42,27 @@ func NewDatabaseHandler(migrator migrateAdapter, db Db) *DatabaseHandler {
 		},
 		db: db,
 	}
+}
+
+func (d *DatabaseHandler) All() ([]controller.Lease, error) {
+	leases := []controller.Lease{}
+	rows, err := d.db.Query("SELECT underlay_ip, subnet FROM subnets")
+	if err != nil {
+		return nil, fmt.Errorf("selecting all subnets: %s", err)
+	}
+	for rows.Next() {
+		var underlayIP, overlaySubnet string
+		err := rows.Scan(&underlayIP, &overlaySubnet)
+		if err != nil {
+			return nil, fmt.Errorf("parsing result for all subnets: %s", err)
+		}
+		leases = append(leases, controller.Lease{
+			UnderlayIP:    underlayIP,
+			OverlaySubnet: overlaySubnet,
+		})
+	}
+
+	return leases, nil
 }
 
 func (d *DatabaseHandler) Migrate() (int, error) {

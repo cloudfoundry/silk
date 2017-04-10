@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/lager/lagertest"
 
+	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/lib"
 	"code.cloudfoundry.org/silk/daemon/lib/fakes"
 
@@ -76,6 +77,9 @@ var _ = Describe("LeaseController", func() {
 			Expect(logger.Logs()[0].Message).To(Equal("test.subnet-acquired"))
 
 			Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
+			addedIP, addedSubnet := databaseHandler.AddEntryArgsForCall(0)
+			Expect(addedIP).To(Equal("10.244.5.6"))
+			Expect(addedSubnet).To(Equal("10.255.76.0/24"))
 		})
 
 		Context("when checking if a subnet exists returns an error", func() {
@@ -171,6 +175,38 @@ var _ = Describe("LeaseController", func() {
 			It("wraps the error from the database handler", func() {
 				err := leaseController.ReleaseSubnetLease()
 				Expect(err).To(MatchError("releasing lease: banana"))
+			})
+		})
+	})
+
+	Describe("RoutableLeases", func() {
+		activeLeases := []controller.Lease{
+			{
+				UnderlayIP:    "10.244.5.9",
+				OverlaySubnet: "10.255.16.0/24",
+			},
+			{
+				UnderlayIP:    "10.244.22.33",
+				OverlaySubnet: "10.255.75.0/32",
+			},
+		}
+		BeforeEach(func() {
+			databaseHandler.AllReturns(activeLeases, nil)
+		})
+		It("returns all the subnet leases", func() {
+			leases, err := leaseController.RoutableLeases()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(databaseHandler.AllCallCount()).To(Equal(1))
+			Expect(leases).To(Equal(activeLeases))
+		})
+
+		Context("when getting the leases fails", func() {
+			BeforeEach(func() {
+				databaseHandler.AllReturns(nil, errors.New("cupcake"))
+			})
+			It("wraps the error from the database handler", func() {
+				_, err := leaseController.RoutableLeases()
+				Expect(err).To(MatchError("getting all leases: cupcake"))
 			})
 		})
 	})

@@ -71,8 +71,9 @@ func mainWithError() error {
 	}
 
 	leasesIndex := &handlers.LeasesIndex{
-		Logger:    logger,
-		Marshaler: marshal.MarshalFunc(json.Marshal),
+		Logger:          logger,
+		Marshaler:       marshal.MarshalFunc(json.Marshal),
+		LeaseRepository: leaseController,
 	}
 
 	leasesAcquire := &handlers.LeasesAcquire{
