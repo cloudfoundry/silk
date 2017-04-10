@@ -12,6 +12,7 @@ type netlinkAdapter interface {
 	LinkSetUp(netlink.Link) error
 	LinkAdd(netlink.Link) error
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
+	AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) error
 }
 
 //go:generate counterfeiter -o fakes/hardwareAddressGenerator.go --fake-name HardwareAddressGenerator . hardwareAddressGenerator
@@ -52,6 +53,16 @@ func (f *VTEPFactory) CreateVTEP(vtepDeviceName string, underlayInterface net.In
 	err = f.NetlinkAdapter.LinkSetHardwareAddr(vxlan, overlayHardwareAddr)
 	if err != nil {
 		return fmt.Errorf("set hardware addr: %s", err)
+	}
+
+	err = f.NetlinkAdapter.AddrAddScopeLink(vxlan, &netlink.Addr{
+		IPNet: &net.IPNet{
+			IP:   overlayIP,
+			Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("add address: %s", err)
 	}
 
 	return nil

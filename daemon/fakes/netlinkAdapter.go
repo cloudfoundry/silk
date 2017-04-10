@@ -43,6 +43,18 @@ type NetlinkAdapter struct {
 	linkSetHardwareAddrReturnsOnCall map[int]struct {
 		result1 error
 	}
+	AddrAddScopeLinkStub        func(link netlink.Link, addr *netlink.Addr) error
+	addrAddScopeLinkMutex       sync.RWMutex
+	addrAddScopeLinkArgsForCall []struct {
+		link netlink.Link
+		addr *netlink.Addr
+	}
+	addrAddScopeLinkReturns struct {
+		result1 error
+	}
+	addrAddScopeLinkReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -192,6 +204,55 @@ func (fake *NetlinkAdapter) LinkSetHardwareAddrReturnsOnCall(i int, result1 erro
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) error {
+	fake.addrAddScopeLinkMutex.Lock()
+	ret, specificReturn := fake.addrAddScopeLinkReturnsOnCall[len(fake.addrAddScopeLinkArgsForCall)]
+	fake.addrAddScopeLinkArgsForCall = append(fake.addrAddScopeLinkArgsForCall, struct {
+		link netlink.Link
+		addr *netlink.Addr
+	}{link, addr})
+	fake.recordInvocation("AddrAddScopeLink", []interface{}{link, addr})
+	fake.addrAddScopeLinkMutex.Unlock()
+	if fake.AddrAddScopeLinkStub != nil {
+		return fake.AddrAddScopeLinkStub(link, addr)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.addrAddScopeLinkReturns.result1
+}
+
+func (fake *NetlinkAdapter) AddrAddScopeLinkCallCount() int {
+	fake.addrAddScopeLinkMutex.RLock()
+	defer fake.addrAddScopeLinkMutex.RUnlock()
+	return len(fake.addrAddScopeLinkArgsForCall)
+}
+
+func (fake *NetlinkAdapter) AddrAddScopeLinkArgsForCall(i int) (netlink.Link, *netlink.Addr) {
+	fake.addrAddScopeLinkMutex.RLock()
+	defer fake.addrAddScopeLinkMutex.RUnlock()
+	return fake.addrAddScopeLinkArgsForCall[i].link, fake.addrAddScopeLinkArgsForCall[i].addr
+}
+
+func (fake *NetlinkAdapter) AddrAddScopeLinkReturns(result1 error) {
+	fake.AddrAddScopeLinkStub = nil
+	fake.addrAddScopeLinkReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) AddrAddScopeLinkReturnsOnCall(i int, result1 error) {
+	fake.AddrAddScopeLinkStub = nil
+	if fake.addrAddScopeLinkReturnsOnCall == nil {
+		fake.addrAddScopeLinkReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.addrAddScopeLinkReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -201,6 +262,8 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.linkAddMutex.RUnlock()
 	fake.linkSetHardwareAddrMutex.RLock()
 	defer fake.linkSetHardwareAddrMutex.RUnlock()
+	fake.addrAddScopeLinkMutex.RLock()
+	defer fake.addrAddScopeLinkMutex.RUnlock()
 	return fake.invocations
 }
 

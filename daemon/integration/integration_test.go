@@ -109,6 +109,12 @@ var _ = Describe("Daemon Integration", func() {
 			Expect(vtep.Learning).To(Equal(false))
 			Expect(vtep.GBP).To(BeTrue())
 
+			By("getting the addresses on the device")
+			addresses, err := netlink.AddrList(vtep, netlink.FAMILY_V4)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(HaveLen(1))
+			Expect(addresses[0].IP.String()).To(Equal("10.255.30.0"))
+
 			By("responding with a status code ok")
 			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
 			Expect(err).NotTo(HaveOccurred())

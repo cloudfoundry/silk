@@ -75,6 +75,16 @@ var _ = Describe("VtepFactory", func() {
 			link, hardwareAddr := fakeNetlinkAdapter.LinkSetHardwareAddrArgsForCall(0)
 			Expect(link).To(Equal(expectedLink))
 			Expect(hardwareAddr).To(Equal(overlayHardwareAddr))
+
+			Expect(fakeNetlinkAdapter.AddrAddScopeLinkCallCount()).To(Equal(1))
+			link, addr := fakeNetlinkAdapter.AddrAddScopeLinkArgsForCall(0)
+			Expect(link).To(Equal(expectedLink))
+			Expect(addr).To(Equal(&netlink.Addr{
+				IPNet: &net.IPNet{
+					IP:   overlayIP,
+					Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
+				},
+			}))
 		})
 
 		Context("when generating the vtep hardware address fails", func() {
@@ -114,6 +124,16 @@ var _ = Describe("VtepFactory", func() {
 			It("wraps and returns the error", func() {
 				err := vtepFactory.CreateVTEP(deviceName, underlayInterface, underlayIP, overlayIP)
 				Expect(err).To(MatchError("set hardware addr: potato"))
+			})
+		})
+
+		Context("when adding the overlay address", func() {
+			BeforeEach(func() {
+				fakeNetlinkAdapter.AddrAddScopeLinkReturns(errors.New("potato"))
+			})
+			It("wraps and returns the error", func() {
+				err := vtepFactory.CreateVTEP(deviceName, underlayInterface, underlayIP, overlayIP)
+				Expect(err).To(MatchError("add address: potato"))
 			})
 		})
 	})
