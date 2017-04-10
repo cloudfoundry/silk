@@ -4,31 +4,37 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/client/state"
-
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/vishvananda/netlink"
 )
 
 var (
 	DEFAULT_TIMEOUT = "5s"
 
 	testDatabase *testsupport.TestDatabase
+	localIP      string
 )
 
 var _ = BeforeEach(func() {
 	dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
 	dbConnectionInfo := testsupport.GetDBConnectionInfo()
 	testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+	var err error
+	localIP, err = localip.LocalIP()
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterEach(func() {
@@ -39,76 +45,89 @@ var _ = AfterEach(func() {
 
 var _ = Describe("Daemon Integration", func() {
 	var (
-		daemonLeases []state.SubnetLease
-		daemonConfs  []config.Config
-		sessions     []*gexec.Session
-		client       *http.Client
+		daemonLease state.SubnetLease
+		daemonConf  config.Config
+		session     *gexec.Session
+		client      *http.Client
 	)
 
-	BeforeEach(func() {
-		confTemplate := config.Config{
-			SubnetRange: "10.255.0.0/16",
-			SubnetMask:  24,
-			Database:    testDatabase.DBConfig(),
+	startTest := func(numSessions int) {
+		daemonLease = state.SubnetLease{
+			Subnet:     fmt.Sprintf("10.255.30.0/24"),
+			UnderlayIP: localIP,
 		}
-		daemonLeases = configureLeases(20)
-		daemonConfs = configureDaemons(confTemplate, 20)
-		client = http.DefaultClient
-		sessions = startDaemons(daemonConfs, daemonLeases)
+		daemonConf = config.Config{
+			SubnetRange:     "10.255.0.0/16",
+			SubnetMask:      24,
+			Database:        testDatabase.DBConfig(),
+			UnderlayIP:      localIP,
+			HealthCheckPort: 4000,
+		}
+		daemonConf.LocalStateFile = writeStateFile(daemonLease)
+		session = startDaemon(writeConfigFile(daemonConf))
 
-		By("waiting until all sessions are healthy before tests")
-		for i, _ := range sessions {
-			callHealthcheck := func() (int, error) {
-				resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000+i))
-				if resp == nil {
-					return -1, err
-				}
-				return resp.StatusCode, err
+		client = http.DefaultClient
+
+		By("waiting until the daemon is healthy before tests")
+		callHealthcheck := func() (int, error) {
+			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
+			if resp == nil {
+				return -1, err
 			}
-			Eventually(callHealthcheck, "5s").Should(Equal(http.StatusOK))
+			return resp.StatusCode, err
 		}
-	})
+		Eventually(callHealthcheck, "5s").Should(Equal(http.StatusOK))
+
+	}
 
 	AfterEach(func() {
-		stopDaemons(sessions)
+		mustSucceed("ip", "link", "del", "silk-vxlan")
+		session.Interrupt()
+		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
 	})
 
-	It("responds on its health check endpoint", func() {
-		for i, lease := range daemonLeases {
+	Context("when one session is running", func() {
+		BeforeEach(func() {
+			startTest(1)
+		})
+		It("creates a vtep device ", func() {
+			By("getting the device")
+			link, err := netlink.LinkByName("silk-vxlan")
+			Expect(err).NotTo(HaveOccurred())
+			vtep := link.(*netlink.Vxlan)
+
+			By("asserting on the device properties")
+			Expect(vtep.Attrs().Flags & net.FlagUp).To(Equal(net.FlagUp))
+			Expect(vtep.HardwareAddr.String()).To(Equal("ee:ee:0a:ff:1e:00"))
+			Expect(vtep.SrcAddr.String()).To(Equal(localIP))
+			defaultDevice, err := locateInterface(net.ParseIP(localIP))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vtep.VtepDevIndex).To(Equal(defaultDevice.Index))
+			Expect(vtep.VxlanId).To(Equal(42))
+			Expect(vtep.Port).To(Equal(4789))
+			Expect(vtep.Learning).To(Equal(false))
+			Expect(vtep.GBP).To(BeTrue())
+
 			By("responding with a status code ok")
-			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000+i))
+			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
 			Expect(err).NotTo(HaveOccurred())
 			responseBytes, err := ioutil.ReadAll(resp.Body)
 
 			By("responding with its current state")
-			leaseBytes, err := json.Marshal(lease)
+			var responseLease state.SubnetLease
+			err = json.Unmarshal(responseBytes, &responseLease)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(responseBytes).To(Equal(leaseBytes))
-		}
+			Expect(responseLease).To(Equal(daemonLease))
+		})
 	})
 })
 
-func configureLeases(instances int) []state.SubnetLease {
-	var leases []state.SubnetLease
-	for i := 0; i < instances; i++ {
-		lease := state.SubnetLease{
-			Subnet:     fmt.Sprintf("10.255.%d.0/24", i),
-			UnderlayIP: fmt.Sprintf("10.244.0.%d", i),
-		}
-		leases = append(leases, lease)
-	}
-	return leases
-}
-
-func configureDaemons(template config.Config, instances int) []config.Config {
-	var configs []config.Config
-	for i := 0; i < instances; i++ {
-		conf := template
-		conf.UnderlayIP = fmt.Sprintf("10.244.4.%d", i)
-		conf.HealthCheckPort = uint16(4000 + i)
-		configs = append(configs, conf)
-	}
-	return configs
+func mustSucceed(binary string, args ...string) string {
+	cmd := exec.Command(binary, args...)
+	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	Eventually(sess, "10s").Should(gexec.Exit(0))
+	return string(sess.Out.Contents())
 }
 
 func writeStateFile(lease state.SubnetLease) string {
@@ -144,18 +163,27 @@ func startDaemon(configFilePath string) *gexec.Session {
 	return session
 }
 
-func startDaemons(configs []config.Config, leases []state.SubnetLease) []*gexec.Session {
-	var sessions []*gexec.Session
-	for i, conf := range configs {
-		conf.LocalStateFile = writeStateFile(leases[i])
-		sessions = append(sessions, startDaemon(writeConfigFile(conf)))
+func locateInterface(toFind net.IP) (net.Interface, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return net.Interface{}, err
 	}
-	return sessions
-}
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return net.Interface{}, err
+		}
 
-func stopDaemons(sessions []*gexec.Session) {
-	for _, session := range sessions {
-		session.Interrupt()
-		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		for _, addr := range addrs {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err != nil {
+				return net.Interface{}, err
+			}
+			if ip.String() == toFind.String() {
+				return iface, nil
+			}
+		}
 	}
+
+	return net.Interface{}, fmt.Errorf("no interface with address %s", toFind.String())
 }

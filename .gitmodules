@@ -52,3 +52,6 @@
 [submodule "vendor/github.com/bmizerany/pat"]
 	path = vendor/github.com/bmizerany/pat
 	url = https://github.com/bmizerany/pat
+[submodule "vendor/code.cloudfoundry.org/localip"]
+	path = vendor/code.cloudfoundry.org/localip
+	url = https://github.com/cloudfoundry/localip

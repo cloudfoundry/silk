@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
@@ -13,12 +14,14 @@ import (
 	"code.cloudfoundry.org/silk/client/state"
 	"code.cloudfoundry.org/silk/daemon/lib"
 
+	"github.com/containernetworking/cni/pkg/utils/hwaddr"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
+	"github.com/vishvananda/netlink"
 )
 
 func main() {
@@ -59,6 +62,51 @@ func mainWithError() error {
 		return fmt.Errorf("invalid healthcheck port: %d", cfg.HealthCheckPort)
 	}
 
+	vtepDeviceName := "silk-vxlan"
+	overlayIP, _, err := net.ParseCIDR(lease.Subnet)
+	if err != nil {
+		return fmt.Errorf("cannot parse subnetlease: %d", cfg.HealthCheckPort) // not tested
+	}
+
+	localIP := net.ParseIP(cfg.UnderlayIP)
+	if localIP == nil {
+		return fmt.Errorf("could not parse underlay ip: %s", cfg.UnderlayIP) // not tested
+	}
+
+	device, err := locateInterface(localIP)
+	if err != nil {
+		return fmt.Errorf("could not find device from ip %s: %s", localIP, err) // not tested
+	}
+
+	vxlan := &netlink.Vxlan{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: vtepDeviceName,
+		},
+		VxlanId:      42,
+		SrcAddr:      localIP,
+		GBP:          true,
+		Port:         4789,
+		VtepDevIndex: device.Index,
+	}
+	err = netlink.LinkAdd(vxlan)
+	if err != nil {
+		return fmt.Errorf("cannot create link") // not tested
+	}
+	err = netlink.LinkSetUp(vxlan)
+	if err != nil {
+		return fmt.Errorf("cannot up link") // not tested
+	}
+
+	macAddr, err := hwaddr.GenerateHardwareAddr4(overlayIP, []byte{0xee, 0xee}) // not tested
+	if err != nil {
+		return fmt.Errorf("cannot generate MAC address: %d", cfg.HealthCheckPort) // not tested
+	}
+
+	err = netlink.LinkSetHardwareAddr(vxlan, macAddr)
+	if err != nil {
+		return fmt.Errorf("cannot set MAC address") // not tested
+	}
+
 	server := http_server.New(
 		fmt.Sprintf("127.0.0.1:%d", cfg.HealthCheckPort),
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -75,4 +123,29 @@ func mainWithError() error {
 
 	err = <-monitor.Wait()
 	return err
+}
+
+func locateInterface(toFind net.IP) (net.Interface, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return net.Interface{}, err
+	}
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return net.Interface{}, err
+		}
+
+		for _, addr := range addrs {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err != nil {
+				return net.Interface{}, err
+			}
+			if ip.String() == toFind.String() {
+				return iface, nil
+			}
+		}
+	}
+
+	return net.Interface{}, fmt.Errorf("no interface with address %s", toFind.String())
 }
