@@ -125,6 +125,44 @@ var _ = Describe("Silk Controller", func() {
 		Expect(len(leases)).To(Equal(1))
 		Expect(leases[0]).To(Equal(lease))
 	})
+
+	It("assigns unique leases from the whole network to multiple clients acquiring subnets concurrently", func() {
+		parallelRunner := &testsupport.ParallelRunner{
+			NumWorkers: 4,
+		}
+		nHosts := 255
+		underlayIPs := []string{}
+		for i := 0; i < nHosts; i++ {
+			underlayIPs = append(underlayIPs, fmt.Sprintf("10.244.42.%d", i))
+		}
+
+		leases := make(chan (controller.Lease), nHosts)
+		go func() {
+			parallelRunner.RunOnSliceStrings(underlayIPs, func(underlayIP string) {
+				lease, err := testClient.AcquireSubnetLease(underlayIP)
+				Expect(err).NotTo(HaveOccurred())
+				leases <- lease
+			})
+			close(leases)
+		}()
+
+		leaseIPs := make(map[string]struct{})
+		leaseSubnets := make(map[string]struct{})
+		_, network, err := net.ParseCIDR(conf.Network)
+		Expect(err).NotTo(HaveOccurred())
+
+		for lease := range leases {
+			_, subnet, err := net.ParseCIDR(lease.OverlaySubnet)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(network.Contains(subnet.IP)).To(BeTrue())
+
+			leaseIPs[lease.UnderlayIP] = struct{}{}
+			leaseSubnets[lease.OverlaySubnet] = struct{}{}
+		}
+		Expect(len(leaseIPs)).To(Equal(nHosts))
+		Expect(len(leaseSubnets)).To(Equal(nHosts))
+	})
+
 })
 
 func verifyHTTPConnection(httpClient *http.Client, baseURL string) error {

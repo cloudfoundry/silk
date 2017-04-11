@@ -22,26 +22,44 @@ var _ = Describe("Cidrpool", func() {
 		)
 	})
 
-	Describe("GetRandom", func() {
-		It("returns a random subnet from the pool", func() {
+	Describe("GetAvailable", func() {
+		It("returns a subnet from the pool that is not taken", func() {
 			subnetRange := "10.255.0.0/16"
 			_, network, _ := net.ParseCIDR(subnetRange)
 			cidrPool := lib.NewCIDRPool(subnetRange, 24)
 
 			results := map[string]int{}
 
-			for i := 0; i < 20; i++ {
-				s := cidrPool.GetRandom()
+			taken := []string{}
+			for i := 0; i < 255; i++ {
+				s, err := cidrPool.GetAvailable(taken)
+				Expect(err).NotTo(HaveOccurred())
 				results[s]++
+				taken = append(taken, s)
 			}
+			Expect(len(results)).To(Equal(255))
 
-			for result, count := range results {
+			for result, _ := range results {
 				_, subnet, err := net.ParseCIDR(result)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(network.Contains(subnet.IP)).To(BeTrue())
 				Expect(subnet.Mask).To(Equal(net.IPMask{255, 255, 255, 0}))
-				Expect(count).To(BeNumerically("<", 4))
 			}
+		})
+
+		Context("when no subnets are available", func() {
+			It("returns an error", func() {
+				subnetRange := "10.255.0.0/16"
+				cidrPool := lib.NewCIDRPool(subnetRange, 24)
+				taken := []string{}
+				for i := 0; i < 255; i++ {
+					s, err := cidrPool.GetAvailable(taken)
+					Expect(err).NotTo(HaveOccurred())
+					taken = append(taken, s)
+				}
+				_, err := cidrPool.GetAvailable(taken)
+				Expect(err).To(MatchError("no subnets available"))
+			})
 		})
 	})
 })

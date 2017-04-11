@@ -22,7 +22,7 @@ type databaseHandler interface {
 
 //go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
 type cidrPool interface {
-	GetRandom() string
+	GetAvailable([]string) (string, error)
 }
 
 type LeaseController struct {
@@ -131,31 +131,24 @@ func (c *LeaseController) tryRenewLease() (string, error) {
 }
 
 func (c *LeaseController) tryAcquireLease(underlayIP string) (string, error) {
-	subnet, err := c.getFreeSubnet()
+	var subnet string
+	leases, err := c.DatabaseHandler.All()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("getting all subnets: %s", err)
+	}
+	var taken []string
+	for _, lease := range leases {
+		taken = append(taken, lease.OverlaySubnet)
 	}
 
+	subnet, err = c.CIDRPool.GetAvailable(taken)
+	if err != nil {
+		return "", fmt.Errorf("get available subnet: %s", err)
+	}
 	err = c.DatabaseHandler.AddEntry(underlayIP, subnet)
 	if err != nil {
 		return "", fmt.Errorf("adding lease entry: %s", err)
 	}
 
 	return subnet, nil
-}
-
-func (c *LeaseController) getFreeSubnet() (string, error) {
-	maxSubnetAttempts := 10
-	for i := 0; i < maxSubnetAttempts; i++ {
-		subnet := c.CIDRPool.GetRandom()
-		subnetExists, err := c.DatabaseHandler.SubnetExists(subnet)
-		if err != nil {
-			return "", fmt.Errorf("checking if subnet is available: %s", err)
-		}
-
-		if !subnetExists {
-			return subnet, nil
-		}
-	}
-	return "", fmt.Errorf("unable to find a free subnet after %d attempts", maxSubnetAttempts)
 }

@@ -66,8 +66,11 @@ var _ = Describe("LeaseController", func() {
 		})
 
 		It("acquires a lease and logs the success", func() {
-			databaseHandler.SubnetExistsReturns(false, nil)
-			cidrPool.GetRandomReturns("10.255.76.0/24")
+			databaseHandler.AllReturns([]controller.Lease{
+				{UnderlayIP: "10.244.11.22", OverlaySubnet: "10.255.33.0/24"},
+				{UnderlayIP: "10.244.22.33", OverlaySubnet: "10.255.44.0/24"},
+			}, nil)
+			cidrPool.GetAvailableReturns("10.255.76.0/24", nil)
 
 			subnet, err := leaseController.AcquireSubnetLease("10.244.5.6")
 			Expect(err).NotTo(HaveOccurred())
@@ -76,33 +79,36 @@ var _ = Describe("LeaseController", func() {
 			Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
 			Expect(logger.Logs()[0].Message).To(Equal("test.subnet-acquired"))
 
+			Expect(databaseHandler.AllCallCount()).To(Equal(1))
+			Expect(cidrPool.GetAvailableCallCount()).To(Equal(1))
+			Expect(cidrPool.GetAvailableArgsForCall(0)).To(Equal([]string{"10.255.33.0/24", "10.255.44.0/24"}))
 			Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
 			addedIP, addedSubnet := databaseHandler.AddEntryArgsForCall(0)
 			Expect(addedIP).To(Equal("10.244.5.6"))
 			Expect(addedSubnet).To(Equal("10.255.76.0/24"))
 		})
 
-		Context("when checking if a subnet exists returns an error", func() {
+		Context("when getting all taken subnets returns an error", func() {
 			It("returns an error", func() {
-				databaseHandler.SubnetExistsReturns(false, errors.New("guava"))
+				databaseHandler.AllReturns(nil, errors.New("guava"))
 
 				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
-				Expect(err).To(MatchError("checking if subnet is available: guava"))
+				Expect(err).To(MatchError("getting all subnets: guava"))
 
-				Expect(databaseHandler.SubnetExistsCallCount()).To(Equal(10))
+				Expect(databaseHandler.AllCallCount()).To(Equal(10))
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
 			})
 		})
 
-		Context("when no subnets are free but checking if a subnet exists does not error", func() {
+		Context("when no subnets are free but getting all subnets does not error", func() {
 			BeforeEach(func() {
-				databaseHandler.SubnetExistsReturns(true, nil)
+				cidrPool.GetAvailableReturns("", errors.New("pineapple"))
 			})
 			It("eventually returns an error after failing to find a free subnet", func() {
 				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
-				Expect(err).To(MatchError("unable to find a free subnet after 10 attempts"))
+				Expect(err).To(MatchError("get available subnet: pineapple"))
 
-				Expect(databaseHandler.SubnetExistsCallCount()).To(Equal(100))
+				Expect(databaseHandler.AllCallCount()).To(Equal(10))
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
 			})
 		})
@@ -140,7 +146,7 @@ var _ = Describe("LeaseController", func() {
 				databaseHandler.SubnetExistsReturns(false, nil)
 			})
 			It("ignores the error and tries to get a new lease", func() {
-				cidrPool.GetRandomReturns("10.255.76.0/24")
+				cidrPool.GetAvailableReturns("10.255.76.0/24", nil)
 
 				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).NotTo(HaveOccurred())

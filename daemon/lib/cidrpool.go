@@ -2,6 +2,7 @@ package lib
 
 import (
 	cryptoRand "crypto/rand"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -15,7 +16,6 @@ type CIDRPool struct {
 	ipStart       string
 	cidrMask      uint
 	cidrMaskBlock uint
-	pool          []string
 }
 
 func NewCIDRPool(subnetRange string, subnetMask int) *CIDRPool {
@@ -31,27 +31,41 @@ func NewCIDRPool(subnetRange string, subnetMask int) *CIDRPool {
 		ipStart:       ip.String(),
 		cidrMask:      uint(cidrMask),
 		cidrMaskBlock: uint(subnetMask),
-		pool:          generateCIDRPool(ip.String(), uint(cidrMask), uint(subnetMask)),
 	}
 }
 
 func (c *CIDRPool) Size() int {
-	return len(c.pool)
+	return len(c.generateCIDRPool())
 }
 
-func (c *CIDRPool) GetRandom() string {
-	i := mathRand.Intn(c.Size())
-	return c.pool[i]
+func (c *CIDRPool) GetAvailable(taken []string) (string, error) {
+	available := c.generateCIDRPool()
+	for _, subnet := range taken {
+		delete(available, subnet)
+	}
+	if len(available) == 0 {
+		return "", errors.New("no subnets available")
+	}
+	i := mathRand.Intn(len(available))
+	n := 0
+	for subnet, _ := range available {
+		if i == n {
+			return subnet, nil
+		}
+		n++
+	}
+	return "", errors.New("no subnets available")
 }
 
-func generateCIDRPool(ipStart string, cidrMask, cidrMaskBlock uint) []string {
-	pool := []string{}
-	fullRange := 1 << (32 - cidrMask)
-	blockSize := 1 << (32 - cidrMaskBlock)
+func (c *CIDRPool) generateCIDRPool() map[string]struct{} {
+	pool := make(map[string]struct{})
+	fullRange := 1 << (32 - c.cidrMask)
+	blockSize := 1 << (32 - c.cidrMaskBlock)
 	var newIP net.IP
 	for i := blockSize; i < fullRange; i += blockSize {
-		newIP = netaddr.IPAdd(net.ParseIP(ipStart), i)
-		pool = append(pool, fmt.Sprintf("%s/%d", newIP.String(), cidrMaskBlock))
+		newIP = netaddr.IPAdd(net.ParseIP(c.ipStart), i)
+		subnet := fmt.Sprintf("%s/%d", newIP.String(), c.cidrMaskBlock)
+		pool[subnet] = struct{}{}
 	}
 	return pool
 }
