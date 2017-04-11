@@ -1,4 +1,4 @@
-package daemon_test
+package vtep_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestDaemon(t *testing.T) {
+func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Daemon Suite")
+	RunSpecs(t, "Config Suite")
 }

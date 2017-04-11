@@ -5,17 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/client/state"
-	"code.cloudfoundry.org/silk/daemon"
-	daemonConfig "code.cloudfoundry.org/silk/daemon/config"
 	"code.cloudfoundry.org/silk/daemon/lib"
-	libAdapter "code.cloudfoundry.org/silk/lib/adapter"
+	"code.cloudfoundry.org/silk/daemon/vtep"
+	"code.cloudfoundry.org/silk/lib/adapter"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -46,14 +44,6 @@ func BuildHealthCheckServer(healthCheckPort uint16, lease state.SubnetLease) (if
 	), nil
 }
 
-func determineVTEPOverlayIP(lease state.SubnetLease) (net.IP, error) {
-	baseAddress, _, err := net.ParseCIDR(lease.Subnet)
-	if err != nil {
-		return nil, fmt.Errorf("parse subnet lease: %s", err)
-	}
-	return baseAddress, nil
-}
-
 func mainWithError() error {
 	logger := lager.NewLogger("silk-daemon")
 	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
@@ -81,27 +71,20 @@ func mainWithError() error {
 		return fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
 	}
 
-	localIP := net.ParseIP(cfg.UnderlayIP)
-	if localIP == nil {
-		return fmt.Errorf("parse underlay ip: %s", cfg.UnderlayIP)
+	vtepConfigCreator := &vtep.ConfigCreator{
+		NetAdapter:               &adapter.NetAdapter{},
+		HardwareAddressGenerator: &vtep.HardwareAddressGenerator{},
 	}
-
-	overlayIP, err := determineVTEPOverlayIP(lease)
+	vtepConf, err := vtepConfigCreator.Create(cfg, lease)
 	if err != nil {
-		return fmt.Errorf("determine vtep overlay ip: %s", err)
+		return fmt.Errorf("create vtep config: %s", err)
 	}
 
-	underlayInterface, err := daemon.LocateInterface(localIP)
-	if err != nil {
-		return fmt.Errorf("find device from ip %s: %s", localIP, err) // not tested
+	vtepFactory := &vtep.Factory{
+		NetlinkAdapter: &adapter.NetlinkAdapter{},
 	}
 
-	vtepFactory := &daemon.VTEPFactory{
-		NetlinkAdapter:           &libAdapter.NetlinkAdapter{},
-		HardwareAddressGenerator: &daemonConfig.HardwareAddressGenerator{},
-	}
-
-	err = vtepFactory.CreateVTEP(cfg.VTEPName, underlayInterface, localIP, overlayIP)
+	err = vtepFactory.CreateVTEP(vtepConf)
 	if err != nil {
 		return fmt.Errorf("create vtep: %s", err)
 	}

@@ -133,7 +133,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("determine vtep overlay ip: parse subnet lease: invalid CIDR address: banana"))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("determine vtep overlay ip: invalid CIDR address: banana"))
 		})
 	})
 
