@@ -29,21 +29,6 @@ func main() {
 	}
 }
 
-func BuildHealthCheckServer(healthCheckPort uint16, lease state.SubnetLease) (ifrit.Runner, error) {
-	leaseBytes, err := json.Marshal(lease)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshaling lease: %s", err) // not possible
-	}
-
-	return http_server.New(
-		fmt.Sprintf("127.0.0.1:%d", healthCheckPort),
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write(leaseBytes)
-		}),
-	), nil
-}
-
 func mainWithError() error {
 	logger := lager.NewLogger("silk-daemon")
 	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
@@ -60,11 +45,6 @@ func mainWithError() error {
 	lease, err := state.LoadSubnetLease(cfg.LocalStateFile)
 	if err != nil {
 		return fmt.Errorf("loading state file: %s", err)
-	}
-
-	_, err = leaser.NewLeaseController(cfg, logger)
-	if err != nil {
-		return fmt.Errorf("creating lease controller: %s", err)
 	}
 
 	if cfg.HealthCheckPort == 0 {
@@ -89,7 +69,7 @@ func mainWithError() error {
 		return fmt.Errorf("create vtep: %s", err)
 	}
 
-	healthCheckServer, err := BuildHealthCheckServer(cfg.HealthCheckPort, lease)
+	healthCheckServer, err := buildHealthCheckServer(cfg.HealthCheckPort, lease)
 	if err != nil {
 		return fmt.Errorf("create health check server: %s", err) // not tested
 	}
@@ -102,4 +82,19 @@ func mainWithError() error {
 
 	err = <-monitor.Wait()
 	return err
+}
+
+func buildHealthCheckServer(healthCheckPort uint16, lease state.SubnetLease) (ifrit.Runner, error) {
+	leaseBytes, err := json.Marshal(lease)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshaling lease: %s", err) // not possible
+	}
+
+	return http_server.New(
+		fmt.Sprintf("127.0.0.1:%d", healthCheckPort),
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(leaseBytes)
+		}),
+	), nil
 }
