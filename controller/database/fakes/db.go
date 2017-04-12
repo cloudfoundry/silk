@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"sync"
 
-	"code.cloudfoundry.org/silk/controller/lib"
+	"code.cloudfoundry.org/silk/controller/database"
 )
 
 type Db struct {
@@ -281,4 +281,4 @@ func (fake *Db) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ lib.Db = new(Db)
+var _ database.Db = new(Db)

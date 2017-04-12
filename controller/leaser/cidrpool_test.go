@@ -1,9 +1,9 @@
-package lib_test
+package leaser_test
 
 import (
 	"net"
 
-	"code.cloudfoundry.org/silk/controller/lib"
+	"code.cloudfoundry.org/silk/controller/leaser"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -14,7 +14,7 @@ var _ = Describe("Cidrpool", func() {
 	Describe("Size", func() {
 		DescribeTable("returns the number of subnets that can be allocated",
 			func(subnetRange string, subnetMask, expectedSize int) {
-				cidrPool := lib.NewCIDRPool(subnetRange, subnetMask)
+				cidrPool := leaser.NewCIDRPool(subnetRange, subnetMask)
 				Expect(cidrPool.Size()).To(Equal(expectedSize))
 			},
 			Entry("when the range is /16 and mask is /24", "10.255.0.0/16", 24, 255),
@@ -27,7 +27,7 @@ var _ = Describe("Cidrpool", func() {
 		It("returns a subnet from the pool that is not taken", func() {
 			subnetRange := "10.255.0.0/16"
 			_, network, _ := net.ParseCIDR(subnetRange)
-			cidrPool := lib.NewCIDRPool(subnetRange, 24)
+			cidrPool := leaser.NewCIDRPool(subnetRange, 24)
 
 			results := map[string]int{}
 
@@ -51,7 +51,7 @@ var _ = Describe("Cidrpool", func() {
 		Context("when no subnets are available", func() {
 			It("returns an error", func() {
 				subnetRange := "10.255.0.0/16"
-				cidrPool := lib.NewCIDRPool(subnetRange, 24)
+				cidrPool := leaser.NewCIDRPool(subnetRange, 24)
 				taken := []string{}
 				for i := 0; i < 255; i++ {
 					s, err := cidrPool.GetAvailable(taken)

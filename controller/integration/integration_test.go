@@ -14,7 +14,7 @@ import (
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"
-	"code.cloudfoundry.org/silk/lib"
+	"code.cloudfoundry.org/silk/controller/leaser"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -115,7 +115,7 @@ var _ = Describe("Silk Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_, network, err := net.ParseCIDR(conf.Network)
 		Expect(network.Contains(subnet.IP)).To(BeTrue())
-		expectedHardwareAddr, err := (&lib.HardwareAddressGenerator{}).GenerateForVTEP(subnet.IP)
+		expectedHardwareAddr, err := (&leaser.HardwareAddressGenerator{}).GenerateForVTEP(subnet.IP)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(lease.OverlayHardwareAddr).To(Equal(expectedHardwareAddr.String()))
 	})

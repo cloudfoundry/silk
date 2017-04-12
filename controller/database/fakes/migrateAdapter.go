@@ -4,15 +4,15 @@ package fakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/silk/controller/lib"
+	"code.cloudfoundry.org/silk/controller/database"
 	"github.com/rubenv/sql-migrate"
 )
 
 type MigrateAdapter struct {
-	ExecStub        func(db lib.Db, dialect string, m migrate.MigrationSource, dir migrate.MigrationDirection) (int, error)
+	ExecStub        func(db database.Db, dialect string, m migrate.MigrationSource, dir migrate.MigrationDirection) (int, error)
 	execMutex       sync.RWMutex
 	execArgsForCall []struct {
-		db      lib.Db
+		db      database.Db
 		dialect string
 		m       migrate.MigrationSource
 		dir     migrate.MigrationDirection
@@ -29,11 +29,11 @@ type MigrateAdapter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *MigrateAdapter) Exec(db lib.Db, dialect string, m migrate.MigrationSource, dir migrate.MigrationDirection) (int, error) {
+func (fake *MigrateAdapter) Exec(db database.Db, dialect string, m migrate.MigrationSource, dir migrate.MigrationDirection) (int, error) {
 	fake.execMutex.Lock()
 	ret, specificReturn := fake.execReturnsOnCall[len(fake.execArgsForCall)]
 	fake.execArgsForCall = append(fake.execArgsForCall, struct {
-		db      lib.Db
+		db      database.Db
 		dialect string
 		m       migrate.MigrationSource
 		dir     migrate.MigrationDirection
@@ -55,7 +55,7 @@ func (fake *MigrateAdapter) ExecCallCount() int {
 	return len(fake.execArgsForCall)
 }
 
-func (fake *MigrateAdapter) ExecArgsForCall(i int) (lib.Db, string, migrate.MigrationSource, migrate.MigrationDirection) {
+func (fake *MigrateAdapter) ExecArgsForCall(i int) (database.Db, string, migrate.MigrationSource, migrate.MigrationDirection) {
 	fake.execMutex.RLock()
 	defer fake.execMutex.RUnlock()
 	return fake.execArgsForCall[i].db, fake.execArgsForCall[i].dialect, fake.execArgsForCall[i].m, fake.execArgsForCall[i].dir

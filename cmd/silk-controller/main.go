@@ -14,9 +14,9 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller/config"
+	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/handlers"
-	controllerLib "code.cloudfoundry.org/silk/controller/lib"
-	"code.cloudfoundry.org/silk/lib"
+	"code.cloudfoundry.org/silk/controller/leaser"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -59,13 +59,13 @@ func mainWithError() error {
 		return fmt.Errorf("connecting to database: %s", err)
 	}
 
-	leaseController := &controllerLib.LeaseController{
-		DatabaseHandler:               controllerLib.NewDatabaseHandler(&controllerLib.MigrateAdapter{}, sqlDB),
-		HardwareAddressGenerator:      &lib.HardwareAddressGenerator{},
+	leaseController := &leaser.LeaseController{
+		DatabaseHandler:               database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB),
+		HardwareAddressGenerator:      &leaser.HardwareAddressGenerator{},
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
 		AcquireSubnetLeaseAttempts:    10,
-		CIDRPool:                      controllerLib.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
+		CIDRPool:                      leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
 		Logger:                        logger,
 	}
 	if err = leaseController.TryMigrations(); err != nil {

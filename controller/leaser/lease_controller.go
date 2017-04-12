@@ -1,4 +1,4 @@
-package lib
+package leaser
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/lib"
+	"code.cloudfoundry.org/silk/controller/database"
 )
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
@@ -48,10 +48,10 @@ func NewLeaseController(cfg config.Config, logger lager.Logger) (*LeaseControlle
 		return nil, fmt.Errorf("connecting to database: %s", err)
 	}
 
-	databaseHandler := NewDatabaseHandler(&MigrateAdapter{}, sqlDB)
+	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
 	leaseController := &LeaseController{
 		DatabaseHandler:               databaseHandler,
-		HardwareAddressGenerator:      &lib.HardwareAddressGenerator{},
+		HardwareAddressGenerator:      &HardwareAddressGenerator{},
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
 		AcquireSubnetLeaseAttempts:    10,

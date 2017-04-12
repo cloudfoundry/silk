@@ -8,7 +8,7 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
-	"code.cloudfoundry.org/silk/controller/lib"
+	"code.cloudfoundry.org/silk/controller/leaser"
 )
 
 func main() {
@@ -31,7 +31,7 @@ func mainWithError() error {
 
 	os.Remove(cfg.LocalStateFile)
 
-	leaseController, err := lib.NewLeaseController(cfg, logger)
+	leaseController, err := leaser.NewLeaseController(cfg, logger)
 	if err != nil {
 		return fmt.Errorf("creating lease contoller: %s", err)
 	}

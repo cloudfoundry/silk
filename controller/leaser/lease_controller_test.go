@@ -1,4 +1,4 @@
-package lib_test
+package leaser_test
 
 import (
 	"encoding/json"
@@ -10,8 +10,8 @@ import (
 	"code.cloudfoundry.org/lager/lagertest"
 
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/controller/lib"
-	"code.cloudfoundry.org/silk/controller/lib/fakes"
+	"code.cloudfoundry.org/silk/controller/leaser"
+	"code.cloudfoundry.org/silk/controller/leaser/fakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,7 +21,7 @@ var _ = Describe("LeaseController", func() {
 	var (
 		logger                   *lagertest.TestLogger
 		databaseHandler          *fakes.DatabaseHandler
-		leaseController          lib.LeaseController
+		leaseController          leaser.LeaseController
 		cidrPool                 *fakes.CIDRPool
 		hardwareAddressGenerator *fakes.HardwareAddressGenerator
 	)
@@ -30,7 +30,7 @@ var _ = Describe("LeaseController", func() {
 		databaseHandler = &fakes.DatabaseHandler{}
 		cidrPool = &fakes.CIDRPool{}
 		hardwareAddressGenerator = &fakes.HardwareAddressGenerator{}
-		leaseController = lib.LeaseController{
+		leaseController = leaser.LeaseController{
 			DatabaseHandler:          databaseHandler,
 			HardwareAddressGenerator: hardwareAddressGenerator,
 			Logger: logger,

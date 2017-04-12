@@ -1,4 +1,4 @@
-package lib_test
+package database_test
 
 import (
 	"database/sql"
@@ -10,8 +10,8 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/controller/lib"
-	"code.cloudfoundry.org/silk/controller/lib/fakes"
+	"code.cloudfoundry.org/silk/controller/database"
+	"code.cloudfoundry.org/silk/controller/database/fakes"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,9 +20,9 @@ import (
 
 var _ = Describe("DatabaseHandler", func() {
 	var (
-		databaseHandler    *lib.DatabaseHandler
+		databaseHandler    *database.DatabaseHandler
 		realDb             *sqlx.DB
-		realMigrateAdapter *lib.MigrateAdapter
+		realMigrateAdapter *database.MigrateAdapter
 		testDatabase       *testsupport.TestDatabase
 		mockDb             *fakes.Db
 		mockMigrateAdapter *fakes.MigrateAdapter
@@ -41,7 +41,7 @@ var _ = Describe("DatabaseHandler", func() {
 		realDb, err = db.GetConnectionPool(testDatabase.DBConfig())
 		Expect(err).NotTo(HaveOccurred())
 
-		realMigrateAdapter = &lib.MigrateAdapter{}
+		realMigrateAdapter = &database.MigrateAdapter{}
 
 		mockDb.DriverNameReturns(realDb.DriverName())
 		lease = &controller.Lease{
@@ -67,7 +67,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 	Describe("Migrate", func() {
 		BeforeEach(func() {
-			databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+			databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 			mockMigrateAdapter.ExecReturns(43, nil)
 		})
 		It("calls the migrate adapter", func() {
@@ -106,7 +106,7 @@ var _ = Describe("DatabaseHandler", func() {
 		})
 		Context("when the migrator fails", func() {
 			BeforeEach(func() {
-				databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockMigrateAdapter.ExecReturns(0, errors.New("guava"))
 			})
 			It("returns the error", func() {
@@ -118,7 +118,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 	Describe("AddEntry", func() {
 		BeforeEach(func() {
-			databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+			databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 			mockDb.ExecReturns(nil, nil)
 		})
 
@@ -146,7 +146,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 	Describe("DeleteEntry", func() {
 		BeforeEach(func() {
-			databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+			databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 			mockDb.ExecReturns(nil, nil)
 		})
 		It("deletes an entry from the DB", func() {
@@ -173,7 +173,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 	Describe("LeaseForUnderlayIP", func() {
 		BeforeEach(func() {
-			databaseHandler = lib.NewDatabaseHandler(realMigrateAdapter, realDb)
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
 			_, err := databaseHandler.Migrate()
 			Expect(err).NotTo(HaveOccurred())
 			err = databaseHandler.AddEntry(lease)
@@ -195,7 +195,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 	Describe("All", func() {
 		BeforeEach(func() {
-			databaseHandler = lib.NewDatabaseHandler(realMigrateAdapter, realDb)
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
 			_, err := databaseHandler.Migrate()
 			Expect(err).NotTo(HaveOccurred())
 			err = databaseHandler.AddEntry(lease)
@@ -224,7 +224,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 		Context("when the query fails", func() {
 			BeforeEach(func() {
-				databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockDb.QueryReturns(nil, errors.New("strawberry"))
 			})
 			It("returns an error", func() {
@@ -240,7 +240,7 @@ var _ = Describe("DatabaseHandler", func() {
 				rows, err = realDb.Query("SELECT 1")
 				Expect(err).NotTo(HaveOccurred())
 
-				databaseHandler = lib.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockDb.QueryReturns(rows, nil)
 			})
 

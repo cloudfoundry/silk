@@ -1,4 +1,4 @@
-package lib
+package leaser
 
 import (
 	cryptoRand "crypto/rand"
