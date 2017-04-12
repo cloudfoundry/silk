@@ -3,27 +3,29 @@ package fakes
 
 import (
 	"sync"
+
+	"code.cloudfoundry.org/silk/controller"
 )
 
 type LeaseAcquirer struct {
-	AcquireSubnetLeaseStub        func(underlayIP string) (string, error)
+	AcquireSubnetLeaseStub        func(underlayIP string) (*controller.Lease, error)
 	acquireSubnetLeaseMutex       sync.RWMutex
 	acquireSubnetLeaseArgsForCall []struct {
 		underlayIP string
 	}
 	acquireSubnetLeaseReturns struct {
-		result1 string
+		result1 *controller.Lease
 		result2 error
 	}
 	acquireSubnetLeaseReturnsOnCall map[int]struct {
-		result1 string
+		result1 *controller.Lease
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *LeaseAcquirer) AcquireSubnetLease(underlayIP string) (string, error) {
+func (fake *LeaseAcquirer) AcquireSubnetLease(underlayIP string) (*controller.Lease, error) {
 	fake.acquireSubnetLeaseMutex.Lock()
 	ret, specificReturn := fake.acquireSubnetLeaseReturnsOnCall[len(fake.acquireSubnetLeaseArgsForCall)]
 	fake.acquireSubnetLeaseArgsForCall = append(fake.acquireSubnetLeaseArgsForCall, struct {
@@ -52,24 +54,24 @@ func (fake *LeaseAcquirer) AcquireSubnetLeaseArgsForCall(i int) string {
 	return fake.acquireSubnetLeaseArgsForCall[i].underlayIP
 }
 
-func (fake *LeaseAcquirer) AcquireSubnetLeaseReturns(result1 string, result2 error) {
+func (fake *LeaseAcquirer) AcquireSubnetLeaseReturns(result1 *controller.Lease, result2 error) {
 	fake.AcquireSubnetLeaseStub = nil
 	fake.acquireSubnetLeaseReturns = struct {
-		result1 string
+		result1 *controller.Lease
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *LeaseAcquirer) AcquireSubnetLeaseReturnsOnCall(i int, result1 string, result2 error) {
+func (fake *LeaseAcquirer) AcquireSubnetLeaseReturnsOnCall(i int, result1 *controller.Lease, result2 error) {
 	fake.AcquireSubnetLeaseStub = nil
 	if fake.acquireSubnetLeaseReturnsOnCall == nil {
 		fake.acquireSubnetLeaseReturnsOnCall = make(map[int]struct {
-			result1 string
+			result1 *controller.Lease
 			result2 error
 		})
 	}
 	fake.acquireSubnetLeaseReturnsOnCall[i] = struct {
-		result1 string
+		result1 *controller.Lease
 		result2 error
 	}{result1, result2}
 }

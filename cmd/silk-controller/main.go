@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/silk/controller/config"
 	"code.cloudfoundry.org/silk/controller/handlers"
 	"code.cloudfoundry.org/silk/daemon/lib"
+	"code.cloudfoundry.org/silk/daemon/vtep"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -60,6 +61,7 @@ func mainWithError() error {
 
 	leaseController := &lib.LeaseController{
 		DatabaseHandler:               lib.NewDatabaseHandler(&lib.MigrateAdapter{}, sqlDB),
+		HardwareAddressGenerator:      &vtep.HardwareAddressGenerator{},
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
 		AcquireSubnetLeaseAttempts:    10,

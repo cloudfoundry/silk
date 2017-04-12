@@ -2,21 +2,22 @@ package lib
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon/vtep"
 )
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
 type databaseHandler interface {
 	Migrate() (int, error)
-	AddEntry(string, string) error
+	AddEntry(*controller.Lease) error
 	DeleteEntry(string) error
-	SubnetExists(string) (bool, error)
-	SubnetForUnderlayIP(string) (string, error)
+	LeaseForUnderlayIP(string) (*controller.Lease, error)
 	All() ([]controller.Lease, error)
 }
 
@@ -25,8 +26,14 @@ type cidrPool interface {
 	GetAvailable([]string) (string, error)
 }
 
+//go:generate counterfeiter -o fakes/hardwareAddressGenerator.go --fake-name HardwareAddressGenerator . hardwareAddressGenerator
+type hardwareAddressGenerator interface {
+	GenerateForVTEP(containerIP net.IP) (net.HardwareAddr, error)
+}
+
 type LeaseController struct {
 	DatabaseHandler               databaseHandler
+	HardwareAddressGenerator      hardwareAddressGenerator
 	MaxMigrationAttempts          int
 	MigrationAttemptSleepDuration time.Duration
 	AcquireSubnetLeaseAttempts    int
@@ -44,6 +51,7 @@ func NewLeaseController(cfg config.Config, logger lager.Logger) (*LeaseControlle
 	databaseHandler := NewDatabaseHandler(&MigrateAdapter{}, sqlDB)
 	leaseController := &LeaseController{
 		DatabaseHandler:               databaseHandler,
+		HardwareAddressGenerator:      &vtep.HardwareAddressGenerator{},
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
 		AcquireSubnetLeaseAttempts:    10,
@@ -87,29 +95,25 @@ func (c *LeaseController) ReleaseSubnetLease() error {
 	return nil
 }
 
-func (c *LeaseController) AcquireSubnetLease(underlayIP string) (string, error) {
+func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lease, error) {
 	var err error
-	var subnet string
+	var lease *controller.Lease
 
-	subnet, err = c.tryRenewLease()
-	if subnet != "" {
-		c.Logger.Info("subnet-renewed", lager.Data{"subnet": subnet,
-			"underlay ip": underlayIP,
-		})
-		return subnet, nil
+	lease, err = c.DatabaseHandler.LeaseForUnderlayIP(underlayIP)
+	if lease != nil {
+		c.Logger.Info("lease-renewed", lager.Data{"lease": lease})
+		return lease, nil
 	}
 
 	for numErrs := 0; numErrs < c.AcquireSubnetLeaseAttempts; numErrs++ {
-		subnet, err = c.tryAcquireLease(underlayIP)
+		lease, err = c.tryAcquireLease(underlayIP)
 		if err == nil {
-			c.Logger.Info("subnet-acquired", lager.Data{"subnet": subnet,
-				"underlay ip": underlayIP,
-			})
-			return subnet, nil
+			c.Logger.Info("lease-acquired", lager.Data{"lease": lease})
+			return lease, nil
 		}
 	}
 
-	return "", err
+	return lease, err
 }
 
 func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
@@ -121,20 +125,11 @@ func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
 	return leases, nil
 }
 
-func (c *LeaseController) tryRenewLease() (string, error) {
-	subnet, err := c.DatabaseHandler.SubnetForUnderlayIP(c.UnderlayIP)
-	if err != nil {
-		return "", fmt.Errorf("checking if subnet exists for underlay: %s", err)
-	}
-
-	return subnet, nil
-}
-
-func (c *LeaseController) tryAcquireLease(underlayIP string) (string, error) {
+func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease, error) {
 	var subnet string
 	leases, err := c.DatabaseHandler.All()
 	if err != nil {
-		return "", fmt.Errorf("getting all subnets: %s", err)
+		return nil, fmt.Errorf("getting all subnets: %s", err)
 	}
 	var taken []string
 	for _, lease := range leases {
@@ -143,12 +138,27 @@ func (c *LeaseController) tryAcquireLease(underlayIP string) (string, error) {
 
 	subnet, err = c.CIDRPool.GetAvailable(taken)
 	if err != nil {
-		return "", fmt.Errorf("get available subnet: %s", err)
-	}
-	err = c.DatabaseHandler.AddEntry(underlayIP, subnet)
-	if err != nil {
-		return "", fmt.Errorf("adding lease entry: %s", err)
+		return nil, fmt.Errorf("get available subnet: %s", err)
 	}
 
-	return subnet, nil
+	vtepIP, _, err := net.ParseCIDR(subnet)
+	if err != nil {
+		return nil, fmt.Errorf("parse subnet: %s", err)
+	}
+	hwAddr, err := c.HardwareAddressGenerator.GenerateForVTEP(vtepIP)
+	if err != nil {
+		return nil, fmt.Errorf("generate hardware address: %s", err)
+	}
+
+	lease := &controller.Lease{
+		UnderlayIP:          underlayIP,
+		OverlaySubnet:       subnet,
+		OverlayHardwareAddr: hwAddr.String(),
+	}
+
+	err = c.DatabaseHandler.AddEntry(lease)
+	if err != nil {
+		return nil, fmt.Errorf("adding lease entry: %s", err)
+	}
+	return lease, nil
 }

@@ -68,7 +68,7 @@ var _ = Describe("Teardown Integration", func() {
 
 		By("verifying the state file is updated")
 		oldState := readStateFile(conf.LocalStateFile)
-		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("subnet-acquired.*subnet.*%s.*underlay ip.*", oldState.Subnet)))
+		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("lease-acquired.*overlay_subnet.*%s.*", oldState.Subnet)))
 
 		By("calling teardown")
 		session = startTeardown(configFilePath)

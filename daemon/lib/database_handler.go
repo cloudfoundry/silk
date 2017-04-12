@@ -46,19 +46,20 @@ func NewDatabaseHandler(migrator migrateAdapter, db Db) *DatabaseHandler {
 
 func (d *DatabaseHandler) All() ([]controller.Lease, error) {
 	leases := []controller.Lease{}
-	rows, err := d.db.Query("SELECT underlay_ip, subnet FROM subnets")
+	rows, err := d.db.Query("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets")
 	if err != nil {
 		return nil, fmt.Errorf("selecting all subnets: %s", err)
 	}
 	for rows.Next() {
-		var underlayIP, overlaySubnet string
-		err := rows.Scan(&underlayIP, &overlaySubnet)
+		var underlayIP, overlaySubnet, overlayHWAddr string
+		err := rows.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
 		if err != nil {
 			return nil, fmt.Errorf("parsing result for all subnets: %s", err)
 		}
 		leases = append(leases, controller.Lease{
-			UnderlayIP:    underlayIP,
-			OverlaySubnet: overlaySubnet,
+			UnderlayIP:          underlayIP,
+			OverlaySubnet:       overlaySubnet,
+			OverlayHardwareAddr: overlayHWAddr,
 		})
 	}
 
@@ -74,8 +75,8 @@ func (d *DatabaseHandler) Migrate() (int, error) {
 	return numMigrations, nil
 }
 
-func (d *DatabaseHandler) AddEntry(underlayIP, subnet string) error {
-	_, err := d.db.Exec(fmt.Sprintf("INSERT INTO subnets (underlay_ip, subnet) VALUES ('%s', '%s')", underlayIP, subnet))
+func (d *DatabaseHandler) AddEntry(lease *controller.Lease) error {
+	_, err := d.db.Exec(fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr) VALUES ('%s', '%s', '%s')", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr))
 	if err != nil {
 		return fmt.Errorf("adding entry: %s", err)
 	}
@@ -90,17 +91,18 @@ func (d *DatabaseHandler) DeleteEntry(underlayIP string) error {
 	return nil
 }
 
-func (d *DatabaseHandler) SubnetExists(subnet string) (bool, error) {
-	var exists int
-	err := d.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM subnets WHERE subnet = '%s'", subnet)).Scan(&exists)
+func (d *DatabaseHandler) LeaseForUnderlayIP(underlayIP string) (*controller.Lease, error) {
+	var overlaySubnet, overlayHWAddr string
+	result := d.db.QueryRow(fmt.Sprintf("SELECT overlay_subnet, overlay_hwaddr FROM subnets WHERE underlay_ip = '%s'", underlayIP))
+	err := result.Scan(&overlaySubnet, &overlayHWAddr)
 	if err != nil {
-		return false, fmt.Errorf("cannot get subnet: %s")
+		return nil, err
 	}
-	if exists == 1 {
-		return true, nil
-	} else {
-		return false, nil
-	}
+	return &controller.Lease{
+		UnderlayIP:          underlayIP,
+		OverlaySubnet:       overlaySubnet,
+		OverlayHardwareAddr: overlayHWAddr,
+	}, nil
 }
 
 func (d *DatabaseHandler) SubnetForUnderlayIP(underlayIP string) (string, error) {
@@ -117,9 +119,10 @@ func createSubnetTable(dbType string) string {
 	baseCreateTable := "CREATE TABLE IF NOT EXISTS subnets ( " +
 		" %s, " +
 		" underlay_ip varchar(15), " +
-		" subnet varchar(18), " +
+		" overlay_subnet varchar(18), " +
+		" overlay_hwaddr varchar(17), " +
 		" UNIQUE (underlay_ip), " +
-		" UNIQUE (subnet) " +
+		" UNIQUE (overlay_subnet) " +
 		");"
 	mysqlId := "id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id)"
 	psqlId := "id SERIAL PRIMARY KEY"

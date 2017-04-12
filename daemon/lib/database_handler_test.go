@@ -26,6 +26,8 @@ var _ = Describe("DatabaseHandler", func() {
 		testDatabase       *testsupport.TestDatabase
 		mockDb             *fakes.Db
 		mockMigrateAdapter *fakes.MigrateAdapter
+		lease              *controller.Lease
+		lease2             *controller.Lease
 	)
 	BeforeEach(func() {
 		mockDb = &fakes.Db{}
@@ -42,6 +44,16 @@ var _ = Describe("DatabaseHandler", func() {
 		realMigrateAdapter = &lib.MigrateAdapter{}
 
 		mockDb.DriverNameReturns(realDb.DriverName())
+		lease = &controller.Lease{
+			UnderlayIP:          "10.244.11.22",
+			OverlaySubnet:       "10.255.17.0/24",
+			OverlayHardwareAddr: "ee:ee:0a:ff:11:00",
+		}
+		lease2 = &controller.Lease{
+			UnderlayIP:          "10.244.22.33",
+			OverlaySubnet:       "10.255.93.15/32",
+			OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
+		}
 	})
 
 	AfterEach(func() {
@@ -74,7 +86,7 @@ var _ = Describe("DatabaseHandler", func() {
 					Migrations: []*migrate.Migration{
 						&migrate.Migration{
 							Id:   "1",
-							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id SERIAL PRIMARY KEY,  underlay_ip varchar(15),  subnet varchar(18),  UNIQUE (underlay_ip),  UNIQUE (subnet) );"},
+							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id SERIAL PRIMARY KEY,  underlay_ip varchar(15),  overlay_subnet varchar(18),  overlay_hwaddr varchar(17),  UNIQUE (underlay_ip),  UNIQUE (overlay_subnet) );"},
 							Down: []string{"DROP TABLE subnets"},
 						},
 					},
@@ -84,7 +96,7 @@ var _ = Describe("DatabaseHandler", func() {
 					Migrations: []*migrate.Migration{
 						&migrate.Migration{
 							Id:   "1",
-							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id),  underlay_ip varchar(15),  subnet varchar(18),  UNIQUE (underlay_ip),  UNIQUE (subnet) );"},
+							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id),  underlay_ip varchar(15),  overlay_subnet varchar(18),  overlay_hwaddr varchar(17),  UNIQUE (underlay_ip),  UNIQUE (subnet) );"},
 							Down: []string{"DROP TABLE subnets"},
 						},
 					},
@@ -111,11 +123,11 @@ var _ = Describe("DatabaseHandler", func() {
 		})
 
 		It("adds an entry to the DB", func() {
-			err := databaseHandler.AddEntry("some-underlay", "some-subnet")
+			err := databaseHandler.AddEntry(lease)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(mockDb.ExecCallCount()).To(Equal(1))
-			Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, subnet) VALUES ('some-underlay', 'some-subnet')"))
+			Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00')"))
 		})
 
 		Context("when the database exec returns an error", func() {
@@ -123,11 +135,11 @@ var _ = Describe("DatabaseHandler", func() {
 				mockDb.ExecReturns(nil, errors.New("apple"))
 			})
 			It("returns a sensible error", func() {
-				err := databaseHandler.AddEntry("some-underlay", "some-subnet")
+				err := databaseHandler.AddEntry(lease)
 				Expect(err).To(MatchError("adding entry: apple"))
 
 				Expect(mockDb.ExecCallCount()).To(Equal(1))
-				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, subnet) VALUES ('some-underlay', 'some-subnet')"))
+				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00')"))
 			})
 		})
 	})
@@ -159,61 +171,23 @@ var _ = Describe("DatabaseHandler", func() {
 		})
 	})
 
-	Describe("SubnetExists", func() {
-		BeforeEach(func() {
-			databaseHandler = lib.NewDatabaseHandler(realMigrateAdapter, realDb)
-		})
-
-		Context("when subnets table has not been created", func() {
-			It("returns false and an error", func() {
-				_, err := databaseHandler.SubnetExists("any-subnet")
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("cannot get subnet"))
-			})
-		})
-
-		Context("when subnets table has been created", func() {
-			BeforeEach(func() {
-				_, err := databaseHandler.Migrate()
-				Expect(err).NotTo(HaveOccurred())
-			})
-			Context("when no leases exist", func() {
-				It("returns false but no error", func() {
-					exists, err := databaseHandler.SubnetExists("any-subnet")
-					Expect(err).NotTo(HaveOccurred())
-					Expect(exists).To(BeFalse())
-				})
-			})
-			Context("when the lease exists", func() {
-				BeforeEach(func() {
-					databaseHandler.AddEntry("some-underlay", "some-subnet")
-				})
-				It("returns true and no error", func() {
-					exists, err := databaseHandler.SubnetExists("some-subnet")
-					Expect(err).NotTo(HaveOccurred())
-					Expect(exists).To(BeTrue())
-				})
-			})
-		})
-	})
-
-	Describe("SubnetForUnderlayIP", func() {
+	Describe("LeaseForUnderlayIP", func() {
 		BeforeEach(func() {
 			databaseHandler = lib.NewDatabaseHandler(realMigrateAdapter, realDb)
 			_, err := databaseHandler.Migrate()
 			Expect(err).NotTo(HaveOccurred())
-			err = databaseHandler.AddEntry("10.244.11.22", "10.255.17.0/24")
+			err = databaseHandler.AddEntry(lease)
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("returns the subnet for the given underlay IP", func() {
-			subnet, err := databaseHandler.SubnetForUnderlayIP("10.244.11.22")
+			found, err := databaseHandler.LeaseForUnderlayIP("10.244.11.22")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(subnet).To(Equal("10.255.17.0/24"))
+			Expect(found).To(Equal(lease))
 		})
 
 		Context("when there is no entry for the underlay ip", func() {
 			It("returns an error", func() {
-				_, err := databaseHandler.SubnetForUnderlayIP("10.244.11.23")
+				_, err := databaseHandler.LeaseForUnderlayIP("10.244.11.23")
 				Expect(err).To(MatchError("sql: no rows in result set"))
 			})
 		})
@@ -224,9 +198,9 @@ var _ = Describe("DatabaseHandler", func() {
 			databaseHandler = lib.NewDatabaseHandler(realMigrateAdapter, realDb)
 			_, err := databaseHandler.Migrate()
 			Expect(err).NotTo(HaveOccurred())
-			err = databaseHandler.AddEntry("10.244.11.22", "10.255.17.0/24")
+			err = databaseHandler.AddEntry(lease)
 			Expect(err).NotTo(HaveOccurred())
-			err = databaseHandler.AddEntry("10.244.22.33", "10.255.93.15/32")
+			err = databaseHandler.AddEntry(lease2)
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("all the saved subnets", func() {
@@ -236,12 +210,14 @@ var _ = Describe("DatabaseHandler", func() {
 			Expect(len(leases)).To(Equal(2))
 			Expect(leases).To(ConsistOf([]controller.Lease{
 				{
-					UnderlayIP:    "10.244.11.22",
-					OverlaySubnet: "10.255.17.0/24",
+					UnderlayIP:          "10.244.11.22",
+					OverlaySubnet:       "10.255.17.0/24",
+					OverlayHardwareAddr: "ee:ee:0a:ff:11:00",
 				},
 				{
-					UnderlayIP:    "10.244.22.33",
-					OverlaySubnet: "10.255.93.15/32",
+					UnderlayIP:          "10.244.22.33",
+					OverlaySubnet:       "10.255.93.15/32",
+					OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
 				},
 			}))
 		})

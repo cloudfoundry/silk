@@ -11,7 +11,7 @@ import (
 
 //go:generate counterfeiter -o fakes/lease_acquirer.go --fake-name LeaseAcquirer . leaseAcquirer
 type leaseAcquirer interface {
-	AcquireSubnetLease(underlayIP string) (string, error)
+	AcquireSubnetLease(underlayIP string) (*controller.Lease, error)
 }
 
 type LeasesAcquire struct {
@@ -42,16 +42,11 @@ func (l *LeasesAcquire) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	subnet, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP)
+	lease, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP)
 	if err != nil {
 		logger.Error("acquire-subnet-lease", err)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
-	}
-
-	lease := controller.Lease{
-		UnderlayIP:    payload.UnderlayIP,
-		OverlaySubnet: subnet,
 	}
 
 	bytes, err := l.Marshaler.Marshal(lease)

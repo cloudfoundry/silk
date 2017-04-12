@@ -39,20 +39,22 @@ var _ = Describe("LeasesIndex", func() {
 		resp = httptest.NewRecorder()
 		leaseRepository.RoutableLeasesReturns([]controller.Lease{
 			{
-				UnderlayIP:    "10.244.5.9",
-				OverlaySubnet: "10.255.16.0/24",
+				UnderlayIP:          "10.244.5.9",
+				OverlaySubnet:       "10.255.16.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:ff:10:00",
 			},
 			{
-				UnderlayIP:    "10.244.22.33",
-				OverlaySubnet: "10.255.75.0/32",
+				UnderlayIP:          "10.244.22.33",
+				OverlaySubnet:       "10.255.75.0/32",
+				OverlayHardwareAddr: "ee:ee:0a:ff:4b:00",
 			},
 		}, nil)
 	})
 
 	It("returns the routable leases", func() {
 		expectedResponseJSON := `{ "leases": [
-		  { "underlay_ip": "10.244.5.9", "overlay_subnet": "10.255.16.0/24" },
-		  { "underlay_ip": "10.244.22.33", "overlay_subnet": "10.255.75.0/32" }
+		{ "underlay_ip": "10.244.5.9", "overlay_subnet": "10.255.16.0/24", "overlay_hardware_addr": "ee:ee:0a:ff:10:00" },
+		  { "underlay_ip": "10.244.22.33", "overlay_subnet": "10.255.75.0/32", "overlay_hardware_addr": "ee:ee:0a:ff:4b:00" }
 		] }`
 		request, err := http.NewRequest("GET", "/leases", nil)
 		Expect(err).NotTo(HaveOccurred())

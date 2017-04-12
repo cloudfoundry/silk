@@ -44,13 +44,13 @@ func mainWithError() error {
 		return fmt.Errorf("releasing subnet lease: %s", err) // not tested
 	}
 
-	subnet, err := leaseController.AcquireSubnetLease(cfg.UnderlayIP)
+	lease, err := leaseController.AcquireSubnetLease(cfg.UnderlayIP)
 	if err != nil {
 		return fmt.Errorf("acquiring subnet: %s", err) // not tested
 	}
 
 	subnetLease := state.SubnetLease{
-		Subnet:     subnet,
+		Subnet:     lease.OverlaySubnet,
 		UnderlayIP: cfg.UnderlayIP,
 	}
 

@@ -1,8 +1,10 @@
 package lib_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"code.cloudfoundry.org/lager/lagertest"
@@ -17,19 +19,25 @@ import (
 
 var _ = Describe("LeaseController", func() {
 	var (
-		logger          *lagertest.TestLogger
-		databaseHandler *fakes.DatabaseHandler
-		leaseController lib.LeaseController
-		cidrPool        *fakes.CIDRPool
+		logger                   *lagertest.TestLogger
+		databaseHandler          *fakes.DatabaseHandler
+		leaseController          lib.LeaseController
+		cidrPool                 *fakes.CIDRPool
+		hardwareAddressGenerator *fakes.HardwareAddressGenerator
 	)
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		databaseHandler = &fakes.DatabaseHandler{}
 		cidrPool = &fakes.CIDRPool{}
+		hardwareAddressGenerator = &fakes.HardwareAddressGenerator{}
 		leaseController = lib.LeaseController{
-			DatabaseHandler: databaseHandler,
-			Logger:          logger,
+			DatabaseHandler:          databaseHandler,
+			HardwareAddressGenerator: hardwareAddressGenerator,
+			Logger: logger,
 		}
+		hardwareAddressGenerator.GenerateForVTEPReturns(
+			net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x4c, 0x00}, nil,
+		)
 	})
 	Describe("TryMigrations", func() {
 		BeforeEach(func() {
@@ -63,29 +71,34 @@ var _ = Describe("LeaseController", func() {
 		BeforeEach(func() {
 			leaseController.AcquireSubnetLeaseAttempts = 10
 			leaseController.CIDRPool = cidrPool
-		})
-
-		It("acquires a lease and logs the success", func() {
 			databaseHandler.AllReturns([]controller.Lease{
 				{UnderlayIP: "10.244.11.22", OverlaySubnet: "10.255.33.0/24"},
 				{UnderlayIP: "10.244.22.33", OverlaySubnet: "10.255.44.0/24"},
 			}, nil)
 			cidrPool.GetAvailableReturns("10.255.76.0/24", nil)
+		})
 
-			subnet, err := leaseController.AcquireSubnetLease("10.244.5.6")
+		It("acquires a lease and logs the success", func() {
+			lease, err := leaseController.AcquireSubnetLease("10.244.5.6")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(subnet).To(Equal("10.255.76.0/24"))
-			Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
-			Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
-			Expect(logger.Logs()[0].Message).To(Equal("test.subnet-acquired"))
+			Expect(lease.UnderlayIP).To(Equal("10.244.5.6"))
+			Expect(lease.OverlaySubnet).To(Equal("10.255.76.0/24"))
+			Expect(lease.OverlayHardwareAddr).To(Equal("ee:ee:0a:ff:4c:00"))
+			Expect(logger.Logs()[0].Message).To(Equal("test.lease-acquired"))
+
+			loggedLease, err := json.Marshal(logger.Logs()[0].Data["lease"])
+			Expect(err).NotTo(HaveOccurred())
+			Expect(loggedLease).To(MatchJSON(`{"underlay_ip":"10.244.5.6","overlay_subnet":"10.255.76.0/24","overlay_hardware_addr":"ee:ee:0a:ff:4c:00"}`))
 
 			Expect(databaseHandler.AllCallCount()).To(Equal(1))
 			Expect(cidrPool.GetAvailableCallCount()).To(Equal(1))
 			Expect(cidrPool.GetAvailableArgsForCall(0)).To(Equal([]string{"10.255.33.0/24", "10.255.44.0/24"}))
 			Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
-			addedIP, addedSubnet := databaseHandler.AddEntryArgsForCall(0)
-			Expect(addedIP).To(Equal("10.244.5.6"))
-			Expect(addedSubnet).To(Equal("10.255.76.0/24"))
+
+			savedLease := databaseHandler.AddEntryArgsForCall(0)
+			Expect(savedLease.UnderlayIP).To(Equal("10.244.5.6"))
+			Expect(savedLease.OverlaySubnet).To(Equal("10.255.76.0/24"))
+			Expect(savedLease.OverlayHardwareAddr).To(Equal("ee:ee:0a:ff:4c:00"))
 		})
 
 		Context("when getting all taken subnets returns an error", func() {
@@ -113,6 +126,32 @@ var _ = Describe("LeaseController", func() {
 			})
 		})
 
+		Context("when the subnet is an invalid CIDR", func() {
+			BeforeEach(func() {
+				cidrPool.GetAvailableReturns("foo", nil)
+			})
+			It("eventually returns an error after failing to find a free subnet", func() {
+				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
+				Expect(err).To(MatchError("parse subnet: invalid CIDR address: foo"))
+
+				Expect(databaseHandler.AllCallCount()).To(Equal(10))
+				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when generating the hardware address fails", func() {
+			BeforeEach(func() {
+				hardwareAddressGenerator.GenerateForVTEPReturns(nil, errors.New("guava"))
+			})
+			It("eventually returns an error after failing to find a free subnet", func() {
+				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
+				Expect(err).To(MatchError("generate hardware address: guava"))
+
+				Expect(databaseHandler.AllCallCount()).To(Equal(10))
+				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+			})
+		})
+
 		Context("when adding the lease entry fails", func() {
 			It("returns an error", func() {
 				databaseHandler.AddEntryReturns(errors.New("guava"))
@@ -126,15 +165,21 @@ var _ = Describe("LeaseController", func() {
 
 		Context("when a lease has already been assigned", func() {
 			BeforeEach(func() {
-				databaseHandler.SubnetForUnderlayIPReturns("10.255.76.0/24", nil)
+				existingLease := &controller.Lease{
+					UnderlayIP:          "10.244.5.6",
+					OverlaySubnet:       "10.255.76.0/24",
+					OverlayHardwareAddr: "ee:ee:0a:ff:4c:00",
+				}
+				databaseHandler.LeaseForUnderlayIPReturns(existingLease, nil)
 			})
 
 			It("gets the previously assigned lease", func() {
 				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
-				Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
-				Expect(logger.Logs()[0].Message).To(Equal("test.subnet-renewed"))
+				Expect(logger.Logs()[0].Message).To(Equal("test.lease-renewed"))
+				loggedLease, err := json.Marshal(logger.Logs()[0].Data["lease"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(loggedLease).To(MatchJSON(`{"underlay_ip":"10.244.5.6","overlay_subnet":"10.255.76.0/24","overlay_hardware_addr":"ee:ee:0a:ff:4c:00"}`))
 
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
 			})
@@ -142,17 +187,13 @@ var _ = Describe("LeaseController", func() {
 
 		Context("when checking for an existing lease fails", func() {
 			BeforeEach(func() {
-				databaseHandler.SubnetForUnderlayIPReturns("", fmt.Errorf("fruit"))
-				databaseHandler.SubnetExistsReturns(false, nil)
+				databaseHandler.LeaseForUnderlayIPReturns(nil, fmt.Errorf("fruit"))
 			})
 			It("ignores the error and tries to get a new lease", func() {
 				cidrPool.GetAvailableReturns("10.255.76.0/24", nil)
 
 				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(logger.Logs()[0].Data["subnet"]).To(Equal("10.255.76.0/24"))
-				Expect(logger.Logs()[0].Data["underlay ip"]).To(Equal("10.244.5.6"))
-				Expect(logger.Logs()[0].Message).To(Equal("test.subnet-acquired"))
 
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
 			})

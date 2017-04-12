@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/handlers"
 	"code.cloudfoundry.org/silk/controller/handlers/fakes"
 
@@ -45,11 +46,16 @@ var _ = Describe("LeasesAcquire", func() {
 		}
 		resp = httptest.NewRecorder()
 
-		leaseAcquirer.AcquireSubnetLeaseReturns("10.255.17.0/24", nil)
+		lease := &controller.Lease{
+			UnderlayIP:          "10.244.16.11",
+			OverlaySubnet:       "10.255.17.0/24",
+			OverlayHardwareAddr: "ee:ee:0a:ff:11:00",
+		}
+		leaseAcquirer.AcquireSubnetLeaseReturns(lease, nil)
 	})
 
 	It("acquires a lease for subnet", func() {
-		expectedResponseJSON := `{ "underlay_ip": "10.244.16.11", "overlay_subnet": "10.255.17.0/24" }`
+		expectedResponseJSON := `{ "underlay_ip": "10.244.16.11", "overlay_subnet": "10.255.17.0/24", "overlay_hardware_addr": "ee:ee:0a:ff:11:00" }`
 		requestBody := bytes.NewBuffer([]byte(`{ "underlay_ip": "10.244.16.11" }`))
 		request, err := http.NewRequest("PUT", "/leases/acquire", requestBody)
 		Expect(err).NotTo(HaveOccurred())
@@ -59,6 +65,7 @@ var _ = Describe("LeasesAcquire", func() {
 		handler.ServeHTTP(resp, request)
 		Expect(leaseAcquirer.AcquireSubnetLeaseCallCount()).To(Equal(1))
 		Expect(leaseAcquirer.AcquireSubnetLeaseArgsForCall(0)).To(Equal("10.244.16.11"))
+
 		Expect(resp.Code).To(Equal(http.StatusOK))
 		Expect(resp.Body).To(MatchJSON(expectedResponseJSON))
 
@@ -106,7 +113,7 @@ var _ = Describe("LeasesAcquire", func() {
 
 	Context("when a lease cannot be acquired", func() {
 		BeforeEach(func() {
-			leaseAcquirer.AcquireSubnetLeaseReturns("", errors.New("kiwi"))
+			leaseAcquirer.AcquireSubnetLeaseReturns(nil, errors.New("kiwi"))
 		})
 
 		It("logs the error and returns a 503", func() {

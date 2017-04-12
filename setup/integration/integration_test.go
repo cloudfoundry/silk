@@ -63,7 +63,7 @@ var _ = Describe("Setup Integration", func() {
 		sessions = startSetups(setupConfs)
 		By("waiting for each setup to acquire a subnet")
 		for _, s := range sessions {
-			Eventually(s.Out, "4s").Should(gbytes.Say("subnet-acquired.*subnet.*underlay ip.*"))
+			Eventually(s.Out, "4s").Should(gbytes.Say("lease-acquired.*underlay_ip.*overlay_subnet"))
 		}
 
 		By("verifying all setups exit with status 0")
@@ -97,7 +97,7 @@ var _ = Describe("Setup Integration", func() {
 
 		By("verifying the state file is updated")
 		oldState := readStateFile(conf.LocalStateFile)
-		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("subnet-acquired.*subnet.*%s.*underlay ip.*", oldState.Subnet)))
+		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("lease-acquired.*overlay_subnet.*%s.*", oldState.Subnet)))
 
 		By("calling setup again")
 		session = startSetup(configFilePath)
@@ -110,7 +110,7 @@ var _ = Describe("Setup Integration", func() {
 
 		By("verifying the state file is updated")
 		newState := readStateFile(conf.LocalStateFile)
-		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("subnet-acquired.*subnet.*%s.*underlay ip.*", newState.Subnet)))
+		Eventually(session.Out, "4s").Should(gbytes.Say(fmt.Sprintf("lease-acquired.*overlay_subnet.*%s.*", newState.Subnet)))
 	})
 })
 

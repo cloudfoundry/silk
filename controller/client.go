@@ -10,8 +10,9 @@ type Client struct {
 }
 
 type Lease struct {
-	UnderlayIP    string `json:"underlay_ip"`
-	OverlaySubnet string `json:"overlay_subnet"`
+	UnderlayIP          string `json:"underlay_ip"`
+	OverlaySubnet       string `json:"overlay_subnet"`
+	OverlayHardwareAddr string `json:"overlay_hardware_addr"`
 }
 
 type AcquireLeaseRequest struct {
