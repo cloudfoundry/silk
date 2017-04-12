@@ -38,7 +38,26 @@ func (c *CIDRPool) Size() int {
 	return len(c.generateCIDRPool())
 }
 
-func (c *CIDRPool) GetAvailable(taken []string) (string, error) {
+func (c *CIDRPool) GetAvailable(taken []string) string {
+	available := c.generateCIDRPool()
+	for _, subnet := range taken {
+		delete(available, subnet)
+	}
+	if len(available) == 0 {
+		return ""
+	}
+	i := mathRand.Intn(len(available))
+	n := 0
+	for subnet, _ := range available {
+		if i == n {
+			return subnet
+		}
+		n++
+	}
+	return ""
+}
+
+func (c *CIDRPool) GetAvailableOld(taken []string) (string, error) {
 	available := c.generateCIDRPool()
 	for _, subnet := range taken {
 		delete(available, subnet)

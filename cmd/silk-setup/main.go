@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -47,6 +48,9 @@ func mainWithError() error {
 	lease, err := leaseController.AcquireSubnetLease(cfg.UnderlayIP)
 	if err != nil {
 		return fmt.Errorf("acquiring subnet: %s", err) // not tested
+	}
+	if lease == nil {
+		return fmt.Errorf("acquiring subnet: %s", errors.New("no subnet available")) // not tested
 	}
 
 	subnetLease := state.SubnetLease{

@@ -8,17 +8,6 @@ import (
 )
 
 type DatabaseHandler struct {
-	MigrateStub        func() (int, error)
-	migrateMutex       sync.RWMutex
-	migrateArgsForCall []struct{}
-	migrateReturns     struct {
-		result1 int
-		result2 error
-	}
-	migrateReturnsOnCall map[int]struct {
-		result1 int
-		result2 error
-	}
 	AddEntryStub        func(*controller.Lease) error
 	addEntryMutex       sync.RWMutex
 	addEntryArgsForCall []struct {
@@ -67,49 +56,6 @@ type DatabaseHandler struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *DatabaseHandler) Migrate() (int, error) {
-	fake.migrateMutex.Lock()
-	ret, specificReturn := fake.migrateReturnsOnCall[len(fake.migrateArgsForCall)]
-	fake.migrateArgsForCall = append(fake.migrateArgsForCall, struct{}{})
-	fake.recordInvocation("Migrate", []interface{}{})
-	fake.migrateMutex.Unlock()
-	if fake.MigrateStub != nil {
-		return fake.MigrateStub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.migrateReturns.result1, fake.migrateReturns.result2
-}
-
-func (fake *DatabaseHandler) MigrateCallCount() int {
-	fake.migrateMutex.RLock()
-	defer fake.migrateMutex.RUnlock()
-	return len(fake.migrateArgsForCall)
-}
-
-func (fake *DatabaseHandler) MigrateReturns(result1 int, result2 error) {
-	fake.MigrateStub = nil
-	fake.migrateReturns = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *DatabaseHandler) MigrateReturnsOnCall(i int, result1 int, result2 error) {
-	fake.MigrateStub = nil
-	if fake.migrateReturnsOnCall == nil {
-		fake.migrateReturnsOnCall = make(map[int]struct {
-			result1 int
-			result2 error
-		})
-	}
-	fake.migrateReturnsOnCall[i] = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
 }
 
 func (fake *DatabaseHandler) AddEntry(arg1 *controller.Lease) error {
@@ -305,8 +251,6 @@ func (fake *DatabaseHandler) AllReturnsOnCall(i int, result1 []controller.Lease,
 func (fake *DatabaseHandler) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.migrateMutex.RLock()
-	defer fake.migrateMutex.RUnlock()
 	fake.addEntryMutex.RLock()
 	defer fake.addEntryMutex.RUnlock()
 	fake.deleteEntryMutex.RLock()

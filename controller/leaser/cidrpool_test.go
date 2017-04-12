@@ -4,7 +4,6 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/silk/controller/leaser"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -33,8 +32,7 @@ var _ = Describe("Cidrpool", func() {
 
 			taken := []string{}
 			for i := 0; i < 255; i++ {
-				s, err := cidrPool.GetAvailable(taken)
-				Expect(err).NotTo(HaveOccurred())
+				s := cidrPool.GetAvailable(taken)
 				results[s]++
 				taken = append(taken, s)
 			}
@@ -54,12 +52,11 @@ var _ = Describe("Cidrpool", func() {
 				cidrPool := leaser.NewCIDRPool(subnetRange, 24)
 				taken := []string{}
 				for i := 0; i < 255; i++ {
-					s, err := cidrPool.GetAvailable(taken)
-					Expect(err).NotTo(HaveOccurred())
+					s := cidrPool.GetAvailable(taken)
 					taken = append(taken, s)
 				}
-				_, err := cidrPool.GetAvailable(taken)
-				Expect(err).To(MatchError("no subnets available"))
+				s := cidrPool.GetAvailable(taken)
+				Expect(s).To(Equal(""))
 			})
 		})
 	})

@@ -22,7 +22,7 @@ type databaseHandler interface {
 
 //go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
 type cidrPool interface {
-	GetAvailable([]string) (string, error)
+	GetAvailable([]string) string
 }
 
 //go:generate counterfeiter -o fakes/hardwareAddressGenerator.go --fake-name HardwareAddressGenerator . hardwareAddressGenerator
@@ -92,13 +92,13 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lea
 
 	for numErrs := 0; numErrs < c.AcquireSubnetLeaseAttempts; numErrs++ {
 		lease, err = c.tryAcquireLease(underlayIP)
-		if err == nil {
+		if lease != nil {
 			c.Logger.Info("lease-acquired", lager.Data{"lease": lease})
 			return lease, nil
 		}
 	}
 
-	return lease, err
+	return nil, err
 }
 
 func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
@@ -121,9 +121,9 @@ func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease,
 		taken = append(taken, lease.OverlaySubnet)
 	}
 
-	subnet, err = c.CIDRPool.GetAvailable(taken)
-	if err != nil {
-		return nil, fmt.Errorf("get available subnet: %s", err)
+	subnet = c.CIDRPool.GetAvailable(taken)
+	if subnet == "" {
+		return nil, nil
 	}
 
 	vtepIP, _, err := net.ParseCIDR(subnet)

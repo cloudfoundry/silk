@@ -4,24 +4,22 @@ package fakes
 import "sync"
 
 type CIDRPool struct {
-	GetAvailableStub        func([]string) (string, error)
+	GetAvailableStub        func([]string) string
 	getAvailableMutex       sync.RWMutex
 	getAvailableArgsForCall []struct {
 		arg1 []string
 	}
 	getAvailableReturns struct {
 		result1 string
-		result2 error
 	}
 	getAvailableReturnsOnCall map[int]struct {
 		result1 string
-		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CIDRPool) GetAvailable(arg1 []string) (string, error) {
+func (fake *CIDRPool) GetAvailable(arg1 []string) string {
 	var arg1Copy []string
 	if arg1 != nil {
 		arg1Copy = make([]string, len(arg1))
@@ -38,9 +36,9 @@ func (fake *CIDRPool) GetAvailable(arg1 []string) (string, error) {
 		return fake.GetAvailableStub(arg1)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1
 	}
-	return fake.getAvailableReturns.result1, fake.getAvailableReturns.result2
+	return fake.getAvailableReturns.result1
 }
 
 func (fake *CIDRPool) GetAvailableCallCount() int {
@@ -55,26 +53,23 @@ func (fake *CIDRPool) GetAvailableArgsForCall(i int) []string {
 	return fake.getAvailableArgsForCall[i].arg1
 }
 
-func (fake *CIDRPool) GetAvailableReturns(result1 string, result2 error) {
+func (fake *CIDRPool) GetAvailableReturns(result1 string) {
 	fake.GetAvailableStub = nil
 	fake.getAvailableReturns = struct {
 		result1 string
-		result2 error
-	}{result1, result2}
+	}{result1}
 }
 
-func (fake *CIDRPool) GetAvailableReturnsOnCall(i int, result1 string, result2 error) {
+func (fake *CIDRPool) GetAvailableReturnsOnCall(i int, result1 string) {
 	fake.GetAvailableStub = nil
 	if fake.getAvailableReturnsOnCall == nil {
 		fake.getAvailableReturnsOnCall = make(map[int]struct {
 			result1 string
-			result2 error
 		})
 	}
 	fake.getAvailableReturnsOnCall[i] = struct {
 		result1 string
-		result2 error
-	}{result1, result2}
+	}{result1}
 }
 
 func (fake *CIDRPool) Invocations() map[string][][]interface{} {

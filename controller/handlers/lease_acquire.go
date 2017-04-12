@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 
@@ -45,6 +46,11 @@ func (l *LeasesAcquire) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	lease, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP)
 	if err != nil {
 		logger.Error("acquire-subnet-lease", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if lease == nil {
+		logger.Error("acquire-subnet-lease", errors.New("No lease available"))
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}

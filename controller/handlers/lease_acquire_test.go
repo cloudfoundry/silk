@@ -111,9 +111,28 @@ var _ = Describe("LeasesAcquire", func() {
 		})
 	})
 
-	Context("when a lease cannot be acquired", func() {
+	Context("when acquiring a lease fails", func() {
 		BeforeEach(func() {
 			leaseAcquirer.AcquireSubnetLeaseReturns(nil, errors.New("kiwi"))
+		})
+
+		It("logs the error and returns a 500", func() {
+			requestBody := bytes.NewBuffer([]byte(`{ "underlay_ip": "10.244.16.11" }`))
+			request, err := http.NewRequest("PUT", "/leases/acquire", requestBody)
+			Expect(err).NotTo(HaveOccurred())
+
+			handler.ServeHTTP(resp, request)
+
+			Expect(resp.Code).To(Equal(500))
+			Expect(logger.Logs()).To(HaveLen(2))
+			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
+			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*acquire-subnet-lease.*kiwi"))
+		})
+	})
+
+	Context("when no leases are available", func() {
+		BeforeEach(func() {
+			leaseAcquirer.AcquireSubnetLeaseReturns(nil, nil)
 		})
 
 		It("logs the error and returns a 503", func() {
@@ -126,7 +145,7 @@ var _ = Describe("LeasesAcquire", func() {
 			Expect(resp.Code).To(Equal(503))
 			Expect(logger.Logs()).To(HaveLen(2))
 			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*acquire-subnet-lease.*kiwi"))
+			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*acquire-subnet-lease.*No lease available"))
 		})
 	})
 
