@@ -68,34 +68,6 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the config has an unsupported type", func() {
-		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.Database.Type = "bad-type"
-			configFilePath = writeConfigFile(daemonConf)
-		})
-
-		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("creating lease controller: connecting to database:"))
-		})
-	})
-
-	Context("when the config has a bad connection string", func() {
-		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.Database.ConnectionString = "some-bad-connection-string"
-			configFilePath = writeConfigFile(daemonConf)
-		})
-
-		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
-			Eventually(session, "10s").Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("creating lease controller: connecting to database:"))
-		})
-	})
-
 	Context("when the port is invalid", func() {
 		BeforeEach(func() {
 			os.Remove(configFilePath)
