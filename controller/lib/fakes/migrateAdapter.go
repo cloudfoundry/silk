@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/silk/daemon/lib"
+	"code.cloudfoundry.org/silk/controller/lib"
 	"github.com/rubenv/sql-migrate"
 )
 

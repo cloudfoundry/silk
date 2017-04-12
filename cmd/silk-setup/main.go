@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/client/state"
-	"code.cloudfoundry.org/silk/daemon/lib"
+	"code.cloudfoundry.org/silk/controller/lib"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"sync"
 
-	"code.cloudfoundry.org/silk/daemon/lib"
+	"code.cloudfoundry.org/silk/controller/lib"
 )
 
 type Db struct {

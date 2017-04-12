@@ -10,8 +10,8 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/daemon/lib"
-	"code.cloudfoundry.org/silk/daemon/lib/fakes"
+	"code.cloudfoundry.org/silk/controller/lib"
+	"code.cloudfoundry.org/silk/controller/lib/fakes"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

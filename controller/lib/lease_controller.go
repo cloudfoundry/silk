@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/daemon/vtep"
+	"code.cloudfoundry.org/silk/lib"
 )
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
@@ -51,7 +51,7 @@ func NewLeaseController(cfg config.Config, logger lager.Logger) (*LeaseControlle
 	databaseHandler := NewDatabaseHandler(&MigrateAdapter{}, sqlDB)
 	leaseController := &LeaseController{
 		DatabaseHandler:               databaseHandler,
-		HardwareAddressGenerator:      &vtep.HardwareAddressGenerator{},
+		HardwareAddressGenerator:      &lib.HardwareAddressGenerator{},
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
 		AcquireSubnetLeaseAttempts:    10,

@@ -11,8 +11,9 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/client/state"
-	"code.cloudfoundry.org/silk/daemon/lib"
+	controllerLib "code.cloudfoundry.org/silk/controller/lib"
 	"code.cloudfoundry.org/silk/daemon/vtep"
+	"code.cloudfoundry.org/silk/lib"
 	"code.cloudfoundry.org/silk/lib/adapter"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -62,7 +63,7 @@ func mainWithError() error {
 		return fmt.Errorf("loading state file: %s", err)
 	}
 
-	_, err = lib.NewLeaseController(cfg, logger)
+	_, err = controllerLib.NewLeaseController(cfg, logger)
 	if err != nil {
 		return fmt.Errorf("creating lease controller: %s", err)
 	}
@@ -73,7 +74,7 @@ func mainWithError() error {
 
 	vtepConfigCreator := &vtep.ConfigCreator{
 		NetAdapter:               &adapter.NetAdapter{},
-		HardwareAddressGenerator: &vtep.HardwareAddressGenerator{},
+		HardwareAddressGenerator: &lib.HardwareAddressGenerator{},
 	}
 	vtepConf, err := vtepConfigCreator.Create(cfg, lease)
 	if err != nil {

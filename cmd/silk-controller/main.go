@@ -15,8 +15,8 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller/config"
 	"code.cloudfoundry.org/silk/controller/handlers"
-	"code.cloudfoundry.org/silk/daemon/lib"
-	"code.cloudfoundry.org/silk/daemon/vtep"
+	controllerLib "code.cloudfoundry.org/silk/controller/lib"
+	"code.cloudfoundry.org/silk/lib"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -59,13 +59,13 @@ func mainWithError() error {
 		return fmt.Errorf("connecting to database: %s", err)
 	}
 
-	leaseController := &lib.LeaseController{
-		DatabaseHandler:               lib.NewDatabaseHandler(&lib.MigrateAdapter{}, sqlDB),
-		HardwareAddressGenerator:      &vtep.HardwareAddressGenerator{},
+	leaseController := &controllerLib.LeaseController{
+		DatabaseHandler:               controllerLib.NewDatabaseHandler(&controllerLib.MigrateAdapter{}, sqlDB),
+		HardwareAddressGenerator:      &lib.HardwareAddressGenerator{},
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
 		AcquireSubnetLeaseAttempts:    10,
-		CIDRPool:                      lib.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
+		CIDRPool:                      controllerLib.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
 		Logger:                        logger,
 	}
 	if err = leaseController.TryMigrations(); err != nil {

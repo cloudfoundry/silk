@@ -3,7 +3,8 @@ package lib_test
 import (
 	"net"
 
-	"code.cloudfoundry.org/silk/daemon/lib"
+	"code.cloudfoundry.org/silk/controller/lib"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

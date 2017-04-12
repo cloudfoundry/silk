@@ -12,7 +12,7 @@ import (
 
 func TestLib(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Daemon Lib Suite")
+	RunSpecs(t, "Controller Lib Suite")
 }
 
 var _ = BeforeSuite(func() {

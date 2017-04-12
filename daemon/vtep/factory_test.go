@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net"
 
+	"code.cloudfoundry.org/silk/cni/lib/fakes"
 	"code.cloudfoundry.org/silk/daemon/vtep"
-	"code.cloudfoundry.org/silk/daemon/vtep/fakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

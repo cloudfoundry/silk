@@ -1,4 +1,4 @@
-package vtep
+package lib
 
 import (
 	"net"
