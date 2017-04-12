@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"time"
 
 	"code.cloudfoundry.org/lager/lagertest"
 
@@ -38,33 +37,6 @@ var _ = Describe("LeaseController", func() {
 		hardwareAddressGenerator.GenerateForVTEPReturns(
 			net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x4c, 0x00}, nil,
 		)
-	})
-	Describe("TryMigrations", func() {
-		BeforeEach(func() {
-			leaseController.MaxMigrationAttempts = 5
-			leaseController.MigrationAttemptSleepDuration = time.Nanosecond
-		})
-
-		It("calls migrate and logs the success", func() {
-			databaseHandler.MigrateReturns(1, nil)
-
-			err := leaseController.TryMigrations()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(logger.Logs()[0].Data["num-applied"]).To(BeEquivalentTo(1))
-			Expect(logger.Logs()[0].Message).To(Equal("test.db-migration-complete"))
-
-			Expect(databaseHandler.MigrateCallCount()).To(Equal(1))
-		})
-
-		Context("when the database cannot be migrated within the max migration attempts", func() {
-			It("returns an error", func() {
-				databaseHandler.MigrateReturns(1, errors.New("peach"))
-				err := leaseController.TryMigrations()
-
-				Expect(err).To(MatchError("creating table: peach"))
-				Expect(databaseHandler.MigrateCallCount()).To(Equal(5))
-			})
-		})
 	})
 
 	Describe("AcquireSubnetLease", func() {

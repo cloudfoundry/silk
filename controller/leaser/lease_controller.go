@@ -14,7 +14,6 @@ import (
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
 type databaseHandler interface {
-	Migrate() (int, error)
 	AddEntry(*controller.Lease) error
 	DeleteEntry(string) error
 	LeaseForUnderlayIP(string) (*controller.Lease, error)
@@ -32,16 +31,16 @@ type hardwareAddressGenerator interface {
 }
 
 type LeaseController struct {
-	DatabaseHandler               databaseHandler
-	HardwareAddressGenerator      hardwareAddressGenerator
-	MaxMigrationAttempts          int
-	MigrationAttemptSleepDuration time.Duration
-	AcquireSubnetLeaseAttempts    int
-	CIDRPool                      cidrPool
-	UnderlayIP                    string
-	Logger                        lager.Logger
+	DatabaseHandler            databaseHandler
+	HardwareAddressGenerator   hardwareAddressGenerator
+	AcquireSubnetLeaseAttempts int
+	CIDRPool                   cidrPool
+	UnderlayIP                 string
+	Logger                     lager.Logger
 }
 
+//TODO: remove this after we remove the direct dependency
+//on the database from daemon, setup and teardown
 func NewLeaseController(cfg config.Config, logger lager.Logger) (*LeaseController, error) {
 	sqlDB, err := db.GetConnectionPool(cfg.Database)
 	if err != nil {
@@ -50,38 +49,24 @@ func NewLeaseController(cfg config.Config, logger lager.Logger) (*LeaseControlle
 
 	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
 	leaseController := &LeaseController{
-		DatabaseHandler:               databaseHandler,
-		HardwareAddressGenerator:      &HardwareAddressGenerator{},
+		DatabaseHandler:            databaseHandler,
+		HardwareAddressGenerator:   &HardwareAddressGenerator{},
+		AcquireSubnetLeaseAttempts: 10,
+		CIDRPool:                   NewCIDRPool(cfg.SubnetRange, cfg.SubnetMask),
+		UnderlayIP:                 cfg.UnderlayIP,
+		Logger:                     logger,
+	}
+	migrator := &database.Migrator{
+		DatabaseMigrator:              databaseHandler,
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
-		AcquireSubnetLeaseAttempts:    10,
-		CIDRPool:                      NewCIDRPool(cfg.SubnetRange, cfg.SubnetMask),
-		UnderlayIP:                    cfg.UnderlayIP,
-		Logger:                        logger,
+		Logger: logger,
 	}
-	if err = leaseController.TryMigrations(); err != nil {
+	if err = migrator.TryMigrations(); err != nil {
 		return nil, fmt.Errorf("migrating database: %s", err)
 	}
 
 	return leaseController, nil
-}
-
-func (c *LeaseController) TryMigrations() error {
-	nErrors := 0
-	var err error
-	for nErrors < c.MaxMigrationAttempts {
-		var n int
-		n, err = c.DatabaseHandler.Migrate()
-		if err == nil {
-			c.Logger.Info("db-migration-complete", lager.Data{"num-applied": n})
-			return nil
-		}
-
-		nErrors++
-		time.Sleep(c.MigrationAttemptSleepDuration)
-	}
-
-	return fmt.Errorf("creating table: %s", err)
 }
 
 func (c *LeaseController) ReleaseSubnetLease() error {

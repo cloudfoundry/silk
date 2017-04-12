@@ -59,16 +59,21 @@ func mainWithError() error {
 		return fmt.Errorf("connecting to database: %s", err)
 	}
 
+	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
 	leaseController := &leaser.LeaseController{
-		DatabaseHandler:               database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB),
-		HardwareAddressGenerator:      &leaser.HardwareAddressGenerator{},
+		DatabaseHandler:            databaseHandler,
+		HardwareAddressGenerator:   &leaser.HardwareAddressGenerator{},
+		AcquireSubnetLeaseAttempts: 10,
+		CIDRPool:                   leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
+		Logger:                     logger,
+	}
+	migrator := &database.Migrator{
+		DatabaseMigrator:              databaseHandler,
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
-		AcquireSubnetLeaseAttempts:    10,
-		CIDRPool:                      leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
-		Logger:                        logger,
+		Logger: logger,
 	}
-	if err = leaseController.TryMigrations(); err != nil {
+	if err = migrator.TryMigrations(); err != nil {
 		return fmt.Errorf("migrating database: %s", err)
 	}
 
