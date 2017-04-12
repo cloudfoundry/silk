@@ -96,7 +96,7 @@ var _ = Describe("DatabaseHandler", func() {
 					Migrations: []*migrate.Migration{
 						&migrate.Migration{
 							Id:   "1",
-							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id),  underlay_ip varchar(15),  overlay_subnet varchar(18),  overlay_hwaddr varchar(17),  UNIQUE (underlay_ip),  UNIQUE (subnet) );"},
+							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id),  underlay_ip varchar(15),  overlay_subnet varchar(18),  overlay_hwaddr varchar(17),  UNIQUE (underlay_ip),  UNIQUE (overlay_subnet) );"},
 							Down: []string{"DROP TABLE subnets"},
 						},
 					},
