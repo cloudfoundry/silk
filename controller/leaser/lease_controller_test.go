@@ -99,6 +99,13 @@ var _ = Describe("LeaseController", func() {
 			})
 		})
 
+		Context("when the underlay ip is not an IPv4 addr", func() {
+			It("returns an error", func() {
+				_, err := leaseController.AcquireSubnetLease("banana")
+				Expect(err).To(MatchError("invalid ipv4 address: banana"))
+			})
+		})
+
 		Context("when the subnet is an invalid CIDR", func() {
 			BeforeEach(func() {
 				cidrPool.GetAvailableReturns("foo")

@@ -84,6 +84,10 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lea
 	var err error
 	var lease *controller.Lease
 
+	if net.ParseIP(underlayIP).To4() == nil {
+		return nil, fmt.Errorf("invalid ipv4 address: %s", underlayIP)
+	}
+
 	lease, err = c.DatabaseHandler.LeaseForUnderlayIP(underlayIP)
 	if lease != nil {
 		c.Logger.Info("lease-renewed", lager.Data{"lease": lease})
