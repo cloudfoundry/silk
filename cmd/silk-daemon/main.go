@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"code.cloudfoundry.org/go-db-helpers/json_client"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
@@ -58,6 +59,10 @@ func mainWithError() error {
 	client := controller.NewClient(lagertest.NewTestLogger("test"), httpClient, cfg.ConnectivityServerURL)
 	leaseResponse, err := client.AcquireSubnetLease(cfg.UnderlayIP)
 	if err != nil {
+		httpError, isHttpError := err.(*json_client.HttpResponseCodeError)
+		if isHttpError && httpError.StatusCode == http.StatusInternalServerError {
+			return fmt.Errorf("acquire subnet lease: %d", httpError.StatusCode)
+		}
 		return fmt.Errorf("acquire subnet lease: %s", err)
 	}
 	lease := state.SubnetLease{

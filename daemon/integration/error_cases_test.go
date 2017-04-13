@@ -2,11 +2,18 @@ package integration_test
 
 import (
 	"io/ioutil"
+	"net/http"
 	"os"
+
+	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+	"github.com/tedsuo/ifrit/http_server"
+	"github.com/tedsuo/ifrit/sigmon"
 )
 
 var _ = Describe("error cases", func() {
@@ -57,59 +64,45 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	//TODO do we still want to parse this beforehand?
-	PContext("when the underlay ip is invalid", func() {
+	Context("when the controller is reachable and returns a 500", func() {
 		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.UnderlayIP = "banana"
-			configFilePath = writeConfigFile(daemonConf)
+			stopServer(fakeServer)
+
+			tlsConfig, err := mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			})
+
+			someServer := http_server.NewTLSServer(serverListenAddr, testHandler, tlsConfig)
+
+			members := grouper.Members{{
+				Name:   "http_server",
+				Runner: someServer,
+			}}
+			group := grouper.NewOrdered(os.Interrupt, members)
+			fakeServer = ifrit.Invoke(sigmon.New(group))
+
+			Eventually(fakeServer.Ready()).Should(BeClosed())
+
 		})
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("parse underlay ip: banana"))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: 500"))
 		})
 	})
 
-	Context("when the controller returns a 500", func() {
+	Context("when the controller address is not reachable", func() {
 		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.UnderlayIP = "500"
-			configFilePath = writeConfigFile(daemonConf)
+			stopServer(fakeServer)
 		})
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			//TODO better error string?
-			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease:"))
-		})
-	})
-
-	Context("when the controller returns a 500", func() {
-		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.UnderlayIP = "503"
-			configFilePath = writeConfigFile(daemonConf)
-		})
-		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			//TODO better error string?
-			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease:"))
-		})
-	})
-
-	Context("when the controller address is wrong", func() {
-		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.ConnectivityServerURL = "https://wrong-address"
-			configFilePath = writeConfigFile(daemonConf)
-		})
-		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			//TODO better error string?
-			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease:"))
+			Expect(string(session.Err.Contents())).To(MatchRegexp(`.*acquire subnet lease:.*dial tcp.*`))
 		})
 	})
 
