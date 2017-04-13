@@ -29,8 +29,6 @@ func mainWithError() error {
 		return fmt.Errorf("loading config: %s", err)
 	}
 
-	os.Remove(cfg.LocalStateFile)
-
 	leaseController, err := leaser.NewLeaseController(cfg, logger)
 	if err != nil {
 		return fmt.Errorf("creating lease contoller: %s", err)
