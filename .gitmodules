@@ -55,3 +55,6 @@
 [submodule "vendor/code.cloudfoundry.org/localip"]
 	path = vendor/code.cloudfoundry.org/localip
 	url = https://github.com/cloudfoundry/localip
+[submodule "vendor/github.com/square/certstrap"]
+	path = vendor/github.com/square/certstrap
+	url = https://github.com/square/certstrap

@@ -26,7 +26,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startDaemon("/some/bad/path")
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("loading config file: reading file /some/bad/path"))
+			Expect(session.Err.Contents()).To(ContainSubstring("load config file: reading file /some/bad/path"))
 
 			session.Interrupt()
 		})
@@ -40,31 +40,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("loading config file: unmarshaling contents"))
-		})
-	})
-
-	Context("when the path to the state file is bad", func() {
-		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.LocalStateFile = "/some/bad/path"
-			configFilePath = writeConfigFile(daemonConf)
-		})
-		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("loading state file: reading file /some/bad/path"))
-		})
-	})
-
-	Context("when the contents of the state file cannot be parsed", func() {
-		BeforeEach(func() {
-			Expect(ioutil.WriteFile(daemonConf.LocalStateFile, []byte("some-bad-contents"), os.ModePerm)).To(Succeed())
-		})
-		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("loading state file: unmarshaling contents"))
+			Expect(session.Err.Contents()).To(ContainSubstring("load config file: unmarshaling contents"))
 		})
 	})
 
@@ -81,7 +57,8 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the underlay ip is invalid", func() {
+	//TODO do we still want to parse this beforehand?
+	PContext("when the underlay ip is invalid", func() {
 		BeforeEach(func() {
 			os.Remove(configFilePath)
 			daemonConf.UnderlayIP = "banana"
@@ -94,18 +71,45 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the local state subnet is invalid", func() {
+	Context("when the controller returns a 500", func() {
 		BeforeEach(func() {
 			os.Remove(configFilePath)
-			os.Remove(daemonConf.LocalStateFile)
-			daemonLease.Subnet = "banana"
-			daemonConf.LocalStateFile = writeStateFile(daemonLease)
+			daemonConf.UnderlayIP = "500"
 			configFilePath = writeConfigFile(daemonConf)
 		})
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("determine vtep overlay ip: invalid CIDR address: banana"))
+			//TODO better error string?
+			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease:"))
+		})
+	})
+
+	Context("when the controller returns a 500", func() {
+		BeforeEach(func() {
+			os.Remove(configFilePath)
+			daemonConf.UnderlayIP = "503"
+			configFilePath = writeConfigFile(daemonConf)
+		})
+		It("exits with status 1", func() {
+			session := startDaemon(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			//TODO better error string?
+			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease:"))
+		})
+	})
+
+	Context("when the controller address is wrong", func() {
+		BeforeEach(func() {
+			os.Remove(configFilePath)
+			daemonConf.ConnectivityServerURL = "https://wrong-address"
+			configFilePath = writeConfigFile(daemonConf)
+		})
+		It("exits with status 1", func() {
+			session := startDaemon(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			//TODO better error string?
+			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease:"))
 		})
 	})
 

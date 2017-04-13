@@ -8,9 +8,12 @@ import (
 	"net/http"
 	"os"
 
+	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/client/state"
+	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/leaser"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
@@ -39,12 +42,27 @@ func mainWithError() error {
 
 	cfg, err := config.LoadConfig(*configFilePath)
 	if err != nil {
-		return fmt.Errorf("loading config file: %s", err)
+		return fmt.Errorf("load config file: %s", err)
 	}
 
-	lease, err := state.LoadSubnetLease(cfg.LocalStateFile)
+	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
 	if err != nil {
-		return fmt.Errorf("loading state file: %s", err)
+		return fmt.Errorf("create tls config: %s", err)
+	}
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	client := controller.NewClient(lagertest.NewTestLogger("test"), httpClient, cfg.ConnectivityServerURL)
+	leaseResponse, err := client.AcquireSubnetLease(cfg.UnderlayIP)
+	if err != nil {
+		return fmt.Errorf("acquire subnet lease: %s", err)
+	}
+	lease := state.SubnetLease{
+		UnderlayIP: leaseResponse.UnderlayIP,
+		Subnet:     leaseResponse.OverlaySubnet,
 	}
 
 	if cfg.HealthCheckPort == 0 {
