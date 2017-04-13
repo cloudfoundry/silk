@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/json_client"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/client/state"
 	"code.cloudfoundry.org/silk/controller"
@@ -56,7 +55,7 @@ func mainWithError() error {
 		},
 	}
 
-	client := controller.NewClient(lagertest.NewTestLogger("test"), httpClient, cfg.ConnectivityServerURL)
+	client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
 	leaseResponse, err := client.AcquireSubnetLease(cfg.UnderlayIP)
 	if err != nil {
 		httpError, isHttpError := err.(*json_client.HttpResponseCodeError)
@@ -69,6 +68,7 @@ func mainWithError() error {
 		UnderlayIP: leaseResponse.UnderlayIP,
 		Subnet:     leaseResponse.OverlaySubnet,
 	}
+	logger.Info("acquired-lease", lager.Data{"lease": lease})
 
 	if cfg.HealthCheckPort == 0 {
 		return fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
