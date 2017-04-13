@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"os/exec"
 
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 
@@ -43,28 +42,17 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	certDir, err = ioutil.TempDir("", "silk-certs")
 	Expect(err).NotTo(HaveOccurred())
 
-	// TODO
-	// Stop doing this!
-	// Change CertWriter to use certstrap as a library instead
-	certstrapBin := fmt.Sprintf("/%s/certstrap", certDir)
-	cmd := exec.Command("go", "build", "-o", certstrapBin, ".")
-	fmt.Println(os.Getwd())
-	cmd.Dir = "../../vendor/github.com/square/certstrap"
-	Expect(cmd.Run()).NotTo(HaveOccurred())
-
-	certWriter := &testsupport.CertWriter{
-		BinPath:  certstrapBin,
-		CertPath: certDir,
-	}
+	certWriter, err := testsupport.NewCertWriter(certDir)
+	Expect(err).NotTo(HaveOccurred())
 
 	paths.ServerCACertFile, err = certWriter.WriteCA("server-ca")
 	Expect(err).NotTo(HaveOccurred())
-	paths.ServerCertFile, paths.ServerKeyFile, err = certWriter.WriteAndSignForServer("server", "server-ca")
+	paths.ServerCertFile, paths.ServerKeyFile, err = certWriter.WriteAndSign("server", "server-ca")
 	Expect(err).NotTo(HaveOccurred())
 
 	paths.ClientCACertFile, err = certWriter.WriteCA("client-ca")
 	Expect(err).NotTo(HaveOccurred())
-	paths.ClientCertFile, paths.ClientKeyFile, err = certWriter.WriteAndSignForClient("client", "client-ca")
+	paths.ClientCertFile, paths.ClientKeyFile, err = certWriter.WriteAndSign("client", "client-ca")
 	Expect(err).NotTo(HaveOccurred())
 
 	fmt.Fprintf(GinkgoWriter, "building binary...")
