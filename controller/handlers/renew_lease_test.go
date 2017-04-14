@@ -25,7 +25,6 @@ var _ = Describe("RenewLease", func() {
 		logger            *lagertest.TestLogger
 		handler           *handlers.RenewLease
 		resp              *httptest.ResponseRecorder
-		marshaler         *hfakes.Marshaler
 		unmarshaler       *hfakes.Unmarshaler
 		leaseRenewer      *fakes.LeaseRenewer
 		fakeErrorResponse *fakes.ErrorResponse
@@ -36,8 +35,6 @@ var _ = Describe("RenewLease", func() {
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		marshaler = &hfakes.Marshaler{}
-		marshaler.MarshalStub = json.Marshal
 		unmarshaler = &hfakes.Unmarshaler{}
 		unmarshaler.UnmarshalStub = json.Unmarshal
 		leaseRenewer = &fakes.LeaseRenewer{}
@@ -45,7 +42,6 @@ var _ = Describe("RenewLease", func() {
 
 		handler = &handlers.RenewLease{
 			Logger:        logger,
-			Marshaler:     marshaler,
 			Unmarshaler:   unmarshaler,
 			LeaseRenewer:  leaseRenewer,
 			ErrorResponse: fakeErrorResponse,

@@ -65,6 +65,7 @@ func mainWithError() error {
 	leaseController := &leaser.LeaseController{
 		DatabaseHandler:            databaseHandler,
 		HardwareAddressGenerator:   &leaser.HardwareAddressGenerator{},
+		LeaseValidator:             &leaser.LeaseValidator{},
 		AcquireSubnetLeaseAttempts: 10,
 		CIDRPool:                   leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
 		Logger:                     logger,
@@ -105,16 +106,25 @@ func mainWithError() error {
 		ErrorResponse: errorResponse,
 	}
 
+	leasesRenew := &handlers.RenewLease{
+		Logger:        logger,
+		Unmarshaler:   marshal.UnmarshalFunc(json.Unmarshal),
+		LeaseRenewer:  leaseController,
+		ErrorResponse: errorResponse,
+	}
+
 	router, err := rata.NewRouter(
 		rata.Routes{
 			{Name: "leases-index", Method: "GET", Path: "/leases"},
 			{Name: "leases-acquire", Method: "PUT", Path: "/leases/acquire"},
 			{Name: "leases-release", Method: "PUT", Path: "/leases/release"},
+			{Name: "leases-renew", Method: "PUT", Path: "/leases/renew"},
 		},
 		rata.Handlers{
 			"leases-index":   leasesIndex,
 			"leases-acquire": leasesAcquire,
 			"leases-release": leasesRelease,
+			"leases-renew":   leasesRenew,
 		},
 	)
 	if err != nil {

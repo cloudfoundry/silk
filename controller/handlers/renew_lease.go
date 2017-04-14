@@ -23,7 +23,6 @@ type errorResponse interface {
 
 type RenewLease struct {
 	Logger        lager.Logger
-	Marshaler     marshal.Marshaler
 	Unmarshaler   marshal.Unmarshaler
 	LeaseRenewer  leaseRenewer
 	ErrorResponse errorResponse

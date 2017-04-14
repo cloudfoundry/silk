@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 
 	"code.cloudfoundry.org/silk/controller"
@@ -22,6 +23,7 @@ var _ = Describe("LeaseController", func() {
 		logger                   *lagertest.TestLogger
 		databaseHandler          *fakes.DatabaseHandler
 		leaseController          leaser.LeaseController
+		validator                *fakes.LeaseValidator
 		cidrPool                 *fakes.CIDRPool
 		hardwareAddressGenerator *fakes.HardwareAddressGenerator
 	)
@@ -30,10 +32,12 @@ var _ = Describe("LeaseController", func() {
 		databaseHandler = &fakes.DatabaseHandler{}
 		cidrPool = &fakes.CIDRPool{}
 		hardwareAddressGenerator = &fakes.HardwareAddressGenerator{}
+		validator = &fakes.LeaseValidator{}
 		leaseController = leaser.LeaseController{
 			DatabaseHandler:          databaseHandler,
 			HardwareAddressGenerator: hardwareAddressGenerator,
-			Logger: logger,
+			LeaseValidator:           validator,
+			Logger:                   logger,
 		}
 		hardwareAddressGenerator.GenerateForVTEPReturns(
 			net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x4c, 0x00}, nil,
@@ -170,13 +174,143 @@ var _ = Describe("LeaseController", func() {
 			BeforeEach(func() {
 				databaseHandler.LeaseForUnderlayIPReturns(nil, fmt.Errorf("fruit"))
 			})
-			It("ignores the error and tries to get a new lease", func() {
-				cidrPool.GetAvailableReturns("10.255.76.0/24")
-
+			It("returns an error", func() {
 				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
+				Expect(err).To(MatchError("getting lease for underlay ip: fruit"))
+				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+			})
+		})
+	})
+
+	Describe("RenewSubnetLease", func() {
+		var leaseToRenew controller.Lease
+		var lastRenewedAt int64
+		BeforeEach(func() {
+			leaseToRenew = controller.Lease{
+				UnderlayIP:          "10.244.11.22",
+				OverlaySubnet:       "10.255.33.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:ff:21:00",
+			}
+			databaseHandler.LeaseForUnderlayIPReturns(&leaseToRenew, nil)
+			lastRenewedAt = 42
+			databaseHandler.LastRenewedAtForUnderlayIPReturns(lastRenewedAt, nil)
+		})
+
+		It("renews a lease and logs the success", func() {
+			err := leaseController.RenewSubnetLease(leaseToRenew)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(databaseHandler.LeaseForUnderlayIPCallCount()).To(Equal(1))
+			Expect(databaseHandler.LeaseForUnderlayIPArgsForCall(0)).To(Equal("10.244.11.22"))
+			Expect(databaseHandler.RenewLeaseForUnderlayIPCallCount()).To(Equal(1))
+			Expect(databaseHandler.RenewLeaseForUnderlayIPArgsForCall(0)).To(Equal("10.244.11.22"))
+			Expect(databaseHandler.LastRenewedAtForUnderlayIPCallCount()).To(Equal(1))
+
+			Expect(logger.Logs()).To(HaveLen(1))
+			Expect(logger.Logs()[0].Message).To(Equal("test.lease-renewed"))
+			Expect(logger.Logs()[0].LogLevel).To(Equal(lager.DEBUG))
+			loggedLease, err := json.Marshal(logger.Logs()[0].Data["lease"])
+			Expect(err).NotTo(HaveOccurred())
+			Expect(loggedLease).To(MatchJSON(`{"underlay_ip":"10.244.11.22","overlay_subnet":"10.255.33.0/24","overlay_hardware_addr":"ee:ee:0a:ff:21:00"}`))
+			Expect(int64(logger.Logs()[0].Data["last_renewed_at"].(float64))).To(Equal(lastRenewedAt))
+		})
+
+		Context("when the existing lease does not equal the one we are renewing", func() {
+			BeforeEach(func() {
+				existingLease := &controller.Lease{
+					UnderlayIP:          leaseToRenew.UnderlayIP,
+					OverlaySubnet:       "10.255.77.0/24",
+					OverlayHardwareAddr: leaseToRenew.OverlayHardwareAddr,
+				}
+				databaseHandler.LeaseForUnderlayIPReturns(existingLease, nil)
+			})
+			It("returns a non-retriable error", func() {
+				err := leaseController.RenewSubnetLease(leaseToRenew)
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(controller.NonRetriableError("")))
+				Expect(err).To(MatchError("lease mismatch"))
+			})
+		})
+
+		Context("when the existing lease does not exist", func() {
+			BeforeEach(func() {
+				databaseHandler.LeaseForUnderlayIPReturns(nil, nil)
+			})
+			It("adds the entry and logs the success", func() {
+				err := leaseController.RenewSubnetLease(leaseToRenew)
 				Expect(err).NotTo(HaveOccurred())
 
+				Expect(databaseHandler.LeaseForUnderlayIPCallCount()).To(Equal(1))
+				Expect(databaseHandler.LeaseForUnderlayIPArgsForCall(0)).To(Equal("10.244.11.22"))
+
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
+				Expect(databaseHandler.AddEntryArgsForCall(0)).To(Equal(leaseToRenew))
+
+				Expect(databaseHandler.RenewLeaseForUnderlayIPCallCount()).To(Equal(1))
+				Expect(databaseHandler.RenewLeaseForUnderlayIPArgsForCall(0)).To(Equal("10.244.11.22"))
+				Expect(databaseHandler.LastRenewedAtForUnderlayIPCallCount()).To(Equal(1))
+
+				Expect(logger.Logs()).To(HaveLen(1))
+				Expect(logger.Logs()[0].Message).To(Equal("test.lease-renewed"))
+				Expect(logger.Logs()[0].LogLevel).To(Equal(lager.DEBUG))
+				loggedLease, err := json.Marshal(logger.Logs()[0].Data["lease"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(loggedLease).To(MatchJSON(`{"underlay_ip":"10.244.11.22","overlay_subnet":"10.255.33.0/24","overlay_hardware_addr":"ee:ee:0a:ff:21:00"}`))
+				Expect(int64(logger.Logs()[0].Data["last_renewed_at"].(float64))).To(Equal(lastRenewedAt))
+			})
+
+			Context("when adding the entry fails", func() {
+				BeforeEach(func() {
+					databaseHandler.AddEntryReturns(errors.New("pineapple"))
+				})
+				It("returns a non-retriable error", func() {
+					err := leaseController.RenewSubnetLease(leaseToRenew)
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(BeAssignableToTypeOf(controller.NonRetriableError("")))
+					Expect(err).To(MatchError("pineapple"))
+				})
+			})
+		})
+
+		Context("when the lease is not valid", func() {
+			BeforeEach(func() {
+				validator.ValidateReturns(errors.New("banana"))
+			})
+			It("returns a non-retriable error", func() {
+				err := leaseController.RenewSubnetLease(leaseToRenew)
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(controller.NonRetriableError("")))
+				Expect(err).To(MatchError("banana"))
+			})
+		})
+
+		Context("when checking the lease for the underlay ip fails", func() {
+			BeforeEach(func() {
+				databaseHandler.LeaseForUnderlayIPReturns(nil, errors.New("banana"))
+			})
+			It("returns an error", func() {
+				err := leaseController.RenewSubnetLease(leaseToRenew)
+				Expect(err).To(MatchError("getting lease for underlay ip: banana"))
+			})
+		})
+
+		Context("when renewing the lease for the underlay ip fails", func() {
+			BeforeEach(func() {
+				databaseHandler.RenewLeaseForUnderlayIPReturns(errors.New("banana"))
+			})
+			It("returns an error", func() {
+				err := leaseController.RenewSubnetLease(leaseToRenew)
+				Expect(err).To(MatchError("renewing lease for underlay ip: banana"))
+			})
+		})
+
+		Context("when getting the last renewed at time fails", func() {
+			BeforeEach(func() {
+				databaseHandler.LastRenewedAtForUnderlayIPReturns(0, errors.New("banana"))
+			})
+			It("returns an error", func() {
+				err := leaseController.RenewSubnetLease(leaseToRenew)
+				Expect(err).To(MatchError("getting last renewed at: banana"))
 			})
 		})
 	})

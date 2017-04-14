@@ -11,11 +11,18 @@ import (
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
 type databaseHandler interface {
-	AddEntry(*controller.Lease) error
+	AddEntry(controller.Lease) error
 	DeleteEntry(string) error
 	LeaseForUnderlayIP(string) (*controller.Lease, error)
 	Release(controller.Lease) error
+	LastRenewedAtForUnderlayIP(string) (int64, error)
+	RenewLeaseForUnderlayIP(string) error
 	All() ([]controller.Lease, error)
+}
+
+//go:generate counterfeiter -o fakes/lease_validator.go --fake-name LeaseValidator . leaseValidator
+type leaseValidator interface {
+	Validate(controller.Lease) error
 }
 
 //go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
@@ -33,6 +40,7 @@ type LeaseController struct {
 	HardwareAddressGenerator   hardwareAddressGenerator
 	AcquireSubnetLeaseAttempts int
 	CIDRPool                   cidrPool
+	LeaseValidator             leaseValidator
 	Logger                     lager.Logger
 }
 
@@ -63,6 +71,10 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lea
 	}
 
 	lease, err = c.DatabaseHandler.LeaseForUnderlayIP(underlayIP)
+	if err != nil {
+		return nil, fmt.Errorf("getting lease for underlay ip: %s", err)
+	}
+
 	if lease != nil {
 		c.Logger.Info("lease-renewed", lager.Data{"lease": lease})
 		return lease, nil
@@ -77,6 +89,39 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lea
 	}
 
 	return nil, err
+}
+
+func (c *LeaseController) RenewSubnetLease(lease controller.Lease) error {
+	err := c.LeaseValidator.Validate(lease)
+	if err != nil {
+		return controller.NonRetriableError(err.Error())
+	}
+
+	existingLease, err := c.DatabaseHandler.LeaseForUnderlayIP(lease.UnderlayIP)
+	if err != nil {
+		return fmt.Errorf("getting lease for underlay ip: %s", err)
+	}
+	if existingLease == nil {
+		err := c.DatabaseHandler.AddEntry(lease)
+		if err != nil {
+			return controller.NonRetriableError(err.Error())
+		}
+	} else if lease != *existingLease {
+		return controller.NonRetriableError("lease mismatch")
+	}
+
+	err = c.DatabaseHandler.RenewLeaseForUnderlayIP(lease.UnderlayIP)
+	if err != nil {
+		return fmt.Errorf("renewing lease for underlay ip: %s", err)
+	}
+	lastRenewedAt, err := c.DatabaseHandler.LastRenewedAtForUnderlayIP(lease.UnderlayIP)
+	if err != nil {
+		return fmt.Errorf("getting last renewed at: %s", err)
+	}
+
+	c.Logger.Debug("lease-renewed", lager.Data{"lease": lease, "last_renewed_at": lastRenewedAt})
+
+	return nil
 }
 
 func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
@@ -113,7 +158,7 @@ func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease,
 		return nil, fmt.Errorf("generate hardware address: %s", err)
 	}
 
-	lease := &controller.Lease{
+	lease := controller.Lease{
 		UnderlayIP:          underlayIP,
 		OverlaySubnet:       subnet,
 		OverlayHardwareAddr: hwAddr.String(),
@@ -123,5 +168,5 @@ func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease,
 	if err != nil {
 		return nil, fmt.Errorf("adding lease entry: %s", err)
 	}
-	return lease, nil
+	return &lease, nil
 }

@@ -169,8 +169,7 @@ var _ = Describe("Silk Controller", func() {
 		})
 	})
 
-	// Pended because feature is in flight
-	PDescribe("renewal", func() {
+	Describe("renewal", func() {
 		It("successfully renews", func() {
 			By("getting a valid lease")
 			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
@@ -204,7 +203,7 @@ var _ = Describe("Silk Controller", func() {
 				err = testClient.RenewSubnetLease(invalidLease)
 				Expect(err).To(BeAssignableToTypeOf(controller.NonRetriableError("")))
 				typedError := err.(controller.NonRetriableError)
-				Expect(typedError.Error()).To(Equal("non-retriable: invalid lease"))
+				Expect(typedError.Error()).To(Equal("non-retriable: renew-subnet-lease: lease mismatch"))
 
 				By("checking that the corrupted lease is not present in the list of routable leases")
 				leases, err := testClient.GetRoutableLeases()

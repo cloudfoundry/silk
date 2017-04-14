@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
@@ -26,8 +27,8 @@ var _ = Describe("DatabaseHandler", func() {
 		testDatabase       *testsupport.TestDatabase
 		mockDb             *fakes.Db
 		mockMigrateAdapter *fakes.MigrateAdapter
-		lease              *controller.Lease
-		lease2             *controller.Lease
+		lease              controller.Lease
+		lease2             controller.Lease
 	)
 	BeforeEach(func() {
 		mockDb = &fakes.Db{}
@@ -44,12 +45,12 @@ var _ = Describe("DatabaseHandler", func() {
 		realMigrateAdapter = &database.MigrateAdapter{}
 
 		mockDb.DriverNameReturns(realDb.DriverName())
-		lease = &controller.Lease{
+		lease = controller.Lease{
 			UnderlayIP:          "10.244.11.22",
 			OverlaySubnet:       "10.255.17.0/24",
 			OverlayHardwareAddr: "ee:ee:0a:ff:11:00",
 		}
-		lease2 = &controller.Lease{
+		lease2 = controller.Lease{
 			UnderlayIP:          "10.244.22.33",
 			OverlaySubnet:       "10.255.93.15/32",
 			OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
@@ -86,7 +87,7 @@ var _ = Describe("DatabaseHandler", func() {
 					Migrations: []*migrate.Migration{
 						&migrate.Migration{
 							Id:   "1",
-							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id SERIAL PRIMARY KEY,  underlay_ip varchar(15),  overlay_subnet varchar(18),  overlay_hwaddr varchar(17),  UNIQUE (underlay_ip),  UNIQUE (overlay_subnet) );"},
+							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (id SERIAL PRIMARY KEY, underlay_ip varchar(15) NOT NULL, overlay_subnet varchar(18) NOT NULL, overlay_hwaddr varchar(17) NOT NULL, last_renewed_at bigint NOT NULL, UNIQUE (underlay_ip), UNIQUE (overlay_subnet), UNIQUE (overlay_hwaddr));"},
 							Down: []string{"DROP TABLE subnets"},
 						},
 					},
@@ -96,7 +97,7 @@ var _ = Describe("DatabaseHandler", func() {
 					Migrations: []*migrate.Migration{
 						&migrate.Migration{
 							Id:   "1",
-							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (  id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id),  underlay_ip varchar(15),  overlay_subnet varchar(18),  overlay_hwaddr varchar(17),  UNIQUE (underlay_ip),  UNIQUE (overlay_subnet) );"},
+							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id), underlay_ip varchar(15) NOT NULL, overlay_subnet varchar(18) NOT NULL, overlay_hwaddr varchar(17) NOT NULL, last_renewed_at bigint NOT NULL, UNIQUE (underlay_ip), UNIQUE (overlay_subnet), UNIQUE (overlay_hwaddr));"},
 							Down: []string{"DROP TABLE subnets"},
 						},
 					},
@@ -122,12 +123,40 @@ var _ = Describe("DatabaseHandler", func() {
 			mockDb.ExecReturns(nil, nil)
 		})
 
-		It("adds an entry to the DB", func() {
-			err := databaseHandler.AddEntry(lease)
-			Expect(err).NotTo(HaveOccurred())
+		Context("when the database type is postgres", func() {
+			BeforeEach(func() {
+				mockDb.DriverNameReturns("postgres")
+			})
+			It("adds an entry to the DB", func() {
+				err := databaseHandler.AddEntry(lease)
+				Expect(err).NotTo(HaveOccurred())
 
-			Expect(mockDb.ExecCallCount()).To(Equal(1))
-			Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00')"))
+				Expect(mockDb.ExecCallCount()).To(Equal(1))
+				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00', EXTRACT(EPOCH FROM now())::numeric::integer)"))
+			})
+		})
+
+		Context("when the database type is mysql", func() {
+			BeforeEach(func() {
+				mockDb.DriverNameReturns("mysql")
+			})
+			It("adds an entry to the DB", func() {
+				err := databaseHandler.AddEntry(lease)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(mockDb.ExecCallCount()).To(Equal(1))
+				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00', UNIX_TIMESTAMP())"))
+			})
+		})
+
+		Context("when the datbase type is not supported", func() {
+			BeforeEach(func() {
+				mockDb.DriverNameReturns("foo")
+			})
+			It("returns an error", func() {
+				err := databaseHandler.RenewLeaseForUnderlayIP("1.2.3.4")
+				Expect(err).To(MatchError("database type foo is not supported"))
+			})
 		})
 
 		Context("when the database exec returns an error", func() {
@@ -137,9 +166,6 @@ var _ = Describe("DatabaseHandler", func() {
 			It("returns a sensible error", func() {
 				err := databaseHandler.AddEntry(lease)
 				Expect(err).To(MatchError("adding entry: apple"))
-
-				Expect(mockDb.ExecCallCount()).To(Equal(1))
-				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00')"))
 			})
 		})
 	})
@@ -182,12 +208,97 @@ var _ = Describe("DatabaseHandler", func() {
 		It("returns the subnet for the given underlay IP", func() {
 			found, err := databaseHandler.LeaseForUnderlayIP("10.244.11.22")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(found).To(Equal(lease))
+			Expect(*found).To(Equal(lease))
+		})
+
+		Context("when there is no entry for the underlay ip", func() {
+			It("returns nil", func() {
+				entry, err := databaseHandler.LeaseForUnderlayIP("10.244.11.23")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(entry).To(BeNil())
+			})
+		})
+	})
+
+	Describe("RenewLeaseForUnderlayIP", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+		})
+
+		Context("when the datbase is postgres", func() {
+			BeforeEach(func() {
+				mockDb.DriverNameReturns("postgres")
+			})
+			It("updates the last renewed at time", func() {
+				err := databaseHandler.RenewLeaseForUnderlayIP("1.2.3.4")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(mockDb.ExecCallCount()).To(Equal(1))
+				Expect(mockDb.ExecArgsForCall(0)).To(Equal("UPDATE subnets SET last_renewed_at = EXTRACT(EPOCH FROM now())::numeric::integer WHERE underlay_ip = '1.2.3.4'"))
+			})
+		})
+
+		Context("when the datbase is mysql", func() {
+			BeforeEach(func() {
+				mockDb.DriverNameReturns("mysql")
+			})
+			It("updates the last renewed at time", func() {
+				err := databaseHandler.RenewLeaseForUnderlayIP("1.2.3.4")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(mockDb.ExecCallCount()).To(Equal(1))
+				Expect(mockDb.ExecArgsForCall(0)).To(Equal("UPDATE subnets SET last_renewed_at = UNIX_TIMESTAMP() WHERE underlay_ip = '1.2.3.4'"))
+			})
+		})
+
+		Context("when the datbase type is not supported", func() {
+			BeforeEach(func() {
+				mockDb.DriverNameReturns("foo")
+			})
+			It("returns an error", func() {
+				err := databaseHandler.RenewLeaseForUnderlayIP("1.2.3.4")
+				Expect(err).To(MatchError("database type foo is not supported"))
+			})
+		})
+
+		Context("when the database exec returns an error", func() {
+			BeforeEach(func() {
+				mockDb.ExecReturns(nil, errors.New("apple"))
+			})
+			It("returns a sensible error", func() {
+				err := databaseHandler.RenewLeaseForUnderlayIP("1.2.3.4")
+				Expect(err).To(MatchError("renewing lease: apple"))
+			})
+		})
+	})
+
+	Describe("LastRenewedAtForUnderlayIP", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("selects the last_renewed_at time for the lease", func() {
+			lastRenewedAt, err := databaseHandler.LastRenewedAtForUnderlayIP("10.244.11.22")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(lastRenewedAt).To(BeNumerically(">", 0))
+		})
+		It("gets updated when the lease is renewed", func() {
+			createdAt, err := databaseHandler.LastRenewedAtForUnderlayIP("10.244.11.22")
+			Expect(err).NotTo(HaveOccurred())
+			time.Sleep(1 * time.Second)
+			err = databaseHandler.RenewLeaseForUnderlayIP("10.244.11.22")
+			Expect(err).NotTo(HaveOccurred())
+			updatedAt, err := databaseHandler.LastRenewedAtForUnderlayIP("10.244.11.22")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedAt).To(BeNumerically(">", createdAt))
 		})
 
 		Context("when there is no entry for the underlay ip", func() {
 			It("returns an error", func() {
-				_, err := databaseHandler.LeaseForUnderlayIP("10.244.11.23")
+				_, err := databaseHandler.LastRenewedAtForUnderlayIP("10.244.11.23")
 				Expect(err).To(MatchError("sql: no rows in result set"))
 			})
 		})
@@ -257,8 +368,6 @@ var _ = Describe("DatabaseHandler", func() {
 	})
 
 	Describe("Release", func() {
-		var leaseToRelease controller.Lease
-
 		BeforeEach(func() {
 			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
 			_, err := databaseHandler.Migrate()
@@ -268,24 +377,23 @@ var _ = Describe("DatabaseHandler", func() {
 			err = databaseHandler.AddEntry(lease2)
 			Expect(err).NotTo(HaveOccurred())
 
-			leaseToRelease = *lease
-
-			By("checking that the leaseToRelease is present")
+			By("checking that the lease is present")
 			leases, err := databaseHandler.All()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(leases).To(ContainElement(leaseToRelease))
+			Expect(leases).To(ContainElement(lease))
 		})
 
 		It("removes the lease", func() {
-			err := databaseHandler.Release(leaseToRelease)
+			err := databaseHandler.Release(lease)
 			Expect(err).NotTo(HaveOccurred())
 
 			leases, err := databaseHandler.All()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(leases).NotTo(ContainElement(leaseToRelease))
+			Expect(leases).NotTo(ContainElement(lease))
 		})
 
 		Context("when the lease does not exist", func() {
+			var leaseToRelease controller.Lease
 			BeforeEach(func() {
 				leaseToRelease = controller.Lease{
 					UnderlayIP:          "10.244.22.33",
@@ -300,8 +408,8 @@ var _ = Describe("DatabaseHandler", func() {
 
 				leases, err := databaseHandler.All()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(leases).To(ContainElement(*lease))
-				Expect(leases).To(ContainElement(*lease2))
+				Expect(leases).To(ContainElement(lease))
+				Expect(leases).To(ContainElement(lease2))
 			})
 		})
 
@@ -311,7 +419,7 @@ var _ = Describe("DatabaseHandler", func() {
 				mockDb.ExecReturns(nil, errors.New("strawberry"))
 			})
 			It("returns an error", func() {
-				err := databaseHandler.Release(leaseToRelease)
+				err := databaseHandler.Release(lease)
 				Expect(err).To(MatchError("release lease: strawberry"))
 			})
 		})
@@ -325,7 +433,7 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 
 			It("returns an error", func() {
-				err := databaseHandler.Release(leaseToRelease)
+				err := databaseHandler.Release(lease)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("parse result: potato"))
 			})
@@ -340,7 +448,7 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 
 			It("returns a MultipleRecordsAffectedError", func() {
-				err := databaseHandler.Release(leaseToRelease)
+				err := databaseHandler.Release(lease)
 				Expect(err).To(Equal(database.MultipleRecordsAffectedError))
 			})
 		})

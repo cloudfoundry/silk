@@ -79,8 +79,17 @@ func (d *DatabaseHandler) Migrate() (int, error) {
 	return numMigrations, nil
 }
 
-func (d *DatabaseHandler) AddEntry(lease *controller.Lease) error {
-	_, err := d.db.Exec(fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr) VALUES ('%s', '%s', '%s')", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr))
+func (d *DatabaseHandler) AddEntry(lease controller.Lease) error {
+	var query string
+	switch d.db.DriverName() {
+	case "mysql":
+		query = fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('%s', '%s', '%s', UNIX_TIMESTAMP())", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr)
+	case "postgres":
+		query = fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('%s', '%s', '%s', EXTRACT(EPOCH FROM now())::numeric::integer)", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr)
+	default:
+		return fmt.Errorf("database type %s is not supported", d.db.DriverName())
+	}
+	_, err := d.db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("adding entry: %s", err)
 	}
@@ -100,6 +109,9 @@ func (d *DatabaseHandler) LeaseForUnderlayIP(underlayIP string) (*controller.Lea
 	result := d.db.QueryRow(fmt.Sprintf("SELECT overlay_subnet, overlay_hwaddr FROM subnets WHERE underlay_ip = '%s'", underlayIP))
 	err := result.Scan(&overlaySubnet, &overlayHWAddr)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &controller.Lease{
@@ -107,6 +119,33 @@ func (d *DatabaseHandler) LeaseForUnderlayIP(underlayIP string) (*controller.Lea
 		OverlaySubnet:       overlaySubnet,
 		OverlayHardwareAddr: overlayHWAddr,
 	}, nil
+}
+
+func (d *DatabaseHandler) RenewLeaseForUnderlayIP(underlayIP string) error {
+	var query string
+	switch d.db.DriverName() {
+	case "mysql":
+		query = fmt.Sprintf("UPDATE subnets SET last_renewed_at = UNIX_TIMESTAMP() WHERE underlay_ip = '%s'", underlayIP)
+	case "postgres":
+		query = fmt.Sprintf("UPDATE subnets SET last_renewed_at = EXTRACT(EPOCH FROM now())::numeric::integer WHERE underlay_ip = '%s'", underlayIP)
+	default:
+		return fmt.Errorf("database type %s is not supported", d.db.DriverName())
+	}
+	_, err := d.db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("renewing lease: %s", err)
+	}
+	return nil
+}
+
+func (d *DatabaseHandler) LastRenewedAtForUnderlayIP(underlayIP string) (int64, error) {
+	var lastRenewedAt int64
+	result := d.db.QueryRow(fmt.Sprintf("SELECT last_renewed_at FROM subnets WHERE underlay_ip = '%s'", underlayIP))
+	err := result.Scan(&lastRenewedAt)
+	if err != nil {
+		return 0, err
+	}
+	return lastRenewedAt, nil
 }
 
 func (d *DatabaseHandler) SubnetForUnderlayIP(underlayIP string) (string, error) {
@@ -139,13 +178,15 @@ func (d *DatabaseHandler) Release(lease controller.Lease) error {
 }
 
 func createSubnetTable(dbType string) string {
-	baseCreateTable := "CREATE TABLE IF NOT EXISTS subnets ( " +
-		" %s, " +
-		" underlay_ip varchar(15), " +
-		" overlay_subnet varchar(18), " +
-		" overlay_hwaddr varchar(17), " +
-		" UNIQUE (underlay_ip), " +
-		" UNIQUE (overlay_subnet) " +
+	baseCreateTable := "CREATE TABLE IF NOT EXISTS subnets (" +
+		"%s" +
+		", underlay_ip varchar(15) NOT NULL" +
+		", overlay_subnet varchar(18) NOT NULL" +
+		", overlay_hwaddr varchar(17) NOT NULL" +
+		", last_renewed_at bigint NOT NULL" +
+		", UNIQUE (underlay_ip)" +
+		", UNIQUE (overlay_subnet)" +
+		", UNIQUE (overlay_hwaddr)" +
 		");"
 	mysqlId := "id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id)"
 	psqlId := "id SERIAL PRIMARY KEY"

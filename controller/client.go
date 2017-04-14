@@ -11,7 +11,7 @@ import (
 type NonRetriableError string
 
 func (n NonRetriableError) Error() string {
-	return fmt.Sprintf("non-retriable: %s", string(n))
+	return string(n)
 }
 
 type Client struct {
@@ -62,7 +62,7 @@ func (c *Client) RenewSubnetLease(lease Lease) error {
 	if err != nil {
 		httpResponseErr, ok := err.(*json_client.HttpResponseCodeError)
 		if ok && httpResponseErr.StatusCode == http.StatusConflict {
-			return NonRetriableError(httpResponseErr.Message)
+			return NonRetriableError(fmt.Sprintf("non-retriable: %s", httpResponseErr.Message))
 		}
 	}
 	return err

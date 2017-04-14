@@ -144,7 +144,7 @@ var _ = Describe("Client", func() {
 			Expect(token).To(BeEmpty())
 		})
 
-		Context("when the json client fails due to a non-retriable error", func() {
+		Context("when the json client fails due to a HTTP 409 Conflict", func() {
 			BeforeEach(func() {
 				jsonClient.DoReturns(&json_client.HttpResponseCodeError{
 					StatusCode: http.StatusConflict,
