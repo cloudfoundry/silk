@@ -3,11 +3,8 @@ package leaser
 import (
 	"fmt"
 	"net"
-	"time"
 
-	"code.cloudfoundry.org/go-db-helpers/db"
 	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/database"
 )
@@ -17,6 +14,7 @@ type databaseHandler interface {
 	AddEntry(*controller.Lease) error
 	DeleteEntry(string) error
 	LeaseForUnderlayIP(string) (*controller.Lease, error)
+	Release(controller.Lease) error
 	All() ([]controller.Lease, error)
 }
 
@@ -35,49 +33,25 @@ type LeaseController struct {
 	HardwareAddressGenerator   hardwareAddressGenerator
 	AcquireSubnetLeaseAttempts int
 	CIDRPool                   cidrPool
-	UnderlayIP                 string
 	Logger                     lager.Logger
 }
 
-//TODO: remove this after we remove the direct dependency
-//on the database from daemon, setup and teardown
-func NewLeaseController(cfg config.Config, logger lager.Logger) (*LeaseController, error) {
-	sqlDB, err := db.GetConnectionPool(cfg.Database)
+func (c *LeaseController) ReleaseSubnetLease(lease controller.Lease) error {
+	err := c.DatabaseHandler.Release(lease)
+	if err == database.RecordNotAffectedError {
+		c.Logger.Error("lease-not-found", err, lager.Data{"lease": lease})
+		return nil
+	}
+	if err == database.MultipleRecordsAffectedError {
+		c.Logger.Error("multiple-leases-deleted", err, lager.Data{"lease": lease})
+		return nil
+	}
 	if err != nil {
-		return nil, fmt.Errorf("connecting to database: %s", err)
+		return fmt.Errorf("release lease: %s", err)
 	}
 
-	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
-	leaseController := &LeaseController{
-		DatabaseHandler:            databaseHandler,
-		HardwareAddressGenerator:   &HardwareAddressGenerator{},
-		AcquireSubnetLeaseAttempts: 10,
-		CIDRPool:                   NewCIDRPool(cfg.SubnetRange, cfg.SubnetMask),
-		UnderlayIP:                 cfg.UnderlayIP,
-		Logger:                     logger,
-	}
-	migrator := &database.Migrator{
-		DatabaseMigrator:              databaseHandler,
-		MaxMigrationAttempts:          5,
-		MigrationAttemptSleepDuration: time.Second,
-		Logger: logger,
-	}
-	if err = migrator.TryMigrations(); err != nil {
-		return nil, fmt.Errorf("migrating database: %s", err)
-	}
-
-	return leaseController, nil
-}
-
-func (c *LeaseController) ReleaseSubnetLease() error {
-	err := c.DatabaseHandler.DeleteEntry(c.UnderlayIP)
-	if err != nil {
-		return fmt.Errorf("releasing lease: %s", err)
-	}
-	c.Logger.Info("subnet-released", lager.Data{
-		"underlay ip": c.UnderlayIP,
-	})
-	return nil
+	c.Logger.Info("lease-released", lager.Data{"lease": lease})
+	return err
 }
 
 func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lease, error) {

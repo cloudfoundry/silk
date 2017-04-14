@@ -67,3 +67,8 @@ func (c *Client) RenewSubnetLease(lease Lease) error {
 	}
 	return err
 }
+
+func (c *Client) ReleaseSubnetLease(lease Lease) error {
+	err := c.JsonClient.Do("PUT", "/leases/release", lease, nil, "")
+	return err
+}

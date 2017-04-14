@@ -10,7 +10,9 @@ import (
 
 	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/go-db-helpers/db"
+	"code.cloudfoundry.org/go-db-helpers/httperror"
 	"code.cloudfoundry.org/go-db-helpers/marshal"
+	"code.cloudfoundry.org/go-db-helpers/metrics"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller/config"
@@ -90,14 +92,29 @@ func mainWithError() error {
 		LeaseAcquirer: leaseController,
 	}
 
+	errorResponse := &httperror.ErrorResponse{
+		Logger:        logger,
+		MetricsSender: &metrics.NoOpMetricsSender{},
+	}
+
+	leasesRelease := &handlers.ReleaseLease{
+		Logger:        logger,
+		Marshaler:     marshal.MarshalFunc(json.Marshal),
+		Unmarshaler:   marshal.UnmarshalFunc(json.Unmarshal),
+		LeaseReleaser: leaseController,
+		ErrorResponse: errorResponse,
+	}
+
 	router, err := rata.NewRouter(
 		rata.Routes{
 			{Name: "leases-index", Method: "GET", Path: "/leases"},
 			{Name: "leases-acquire", Method: "PUT", Path: "/leases/acquire"},
+			{Name: "leases-release", Method: "PUT", Path: "/leases/release"},
 		},
 		rata.Handlers{
 			"leases-index":   leasesIndex,
 			"leases-acquire": leasesAcquire,
+			"leases-release": leasesRelease,
 		},
 	)
 	if err != nil {

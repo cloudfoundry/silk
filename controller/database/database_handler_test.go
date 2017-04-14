@@ -256,4 +256,98 @@ var _ = Describe("DatabaseHandler", func() {
 
 	})
 
+	Describe("Release", func() {
+		var leaseToRelease controller.Lease
+
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease2)
+			Expect(err).NotTo(HaveOccurred())
+
+			leaseToRelease = *lease
+
+			By("checking that the leaseToRelease is present")
+			leases, err := databaseHandler.All()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(leases).To(ContainElement(leaseToRelease))
+		})
+
+		It("removes the lease", func() {
+			err := databaseHandler.Release(leaseToRelease)
+			Expect(err).NotTo(HaveOccurred())
+
+			leases, err := databaseHandler.All()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(leases).NotTo(ContainElement(leaseToRelease))
+		})
+
+		Context("when the lease does not exist", func() {
+			BeforeEach(func() {
+				leaseToRelease = controller.Lease{
+					UnderlayIP:          "10.244.22.33",
+					OverlaySubnet:       "10.255.9.0/24",
+					OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
+				}
+			})
+
+			It("returns a RecordNotAffectedError", func() {
+				err := databaseHandler.Release(leaseToRelease)
+				Expect(err).To(Equal(database.RecordNotAffectedError))
+
+				leases, err := databaseHandler.All()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(leases).To(ContainElement(*lease))
+				Expect(leases).To(ContainElement(*lease2))
+			})
+		})
+
+		Context("when the query fails", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.ExecReturns(nil, errors.New("strawberry"))
+			})
+			It("returns an error", func() {
+				err := databaseHandler.Release(leaseToRelease)
+				Expect(err).To(MatchError("release lease: strawberry"))
+			})
+		})
+
+		Context("when the parsing the result fails", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				badResult := &fakes.SqlResult{}
+				badResult.RowsAffectedReturns(0, errors.New("potato"))
+				mockDb.ExecReturns(badResult, nil)
+			})
+
+			It("returns an error", func() {
+				err := databaseHandler.Release(leaseToRelease)
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError("parse result: potato"))
+			})
+		})
+
+		Context("when more than one row in result", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				badResult := &fakes.SqlResult{}
+				badResult.RowsAffectedReturns(2, nil)
+				mockDb.ExecReturns(badResult, nil)
+			})
+
+			It("returns a MultipleRecordsAffectedError", func() {
+				err := databaseHandler.Release(leaseToRelease)
+				Expect(err).To(Equal(database.MultipleRecordsAffectedError))
+			})
+		})
+	})
 })
+
+//go:generate counterfeiter -o fakes/sqlResult.go --fake-name SqlResult . sqlResult
+type sqlResult interface {
+	sql.Result
+}
