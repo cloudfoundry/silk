@@ -1,9 +1,18 @@
 package controller
 
 import (
+	"fmt"
+	"net/http"
+
 	"code.cloudfoundry.org/go-db-helpers/json_client"
 	"code.cloudfoundry.org/lager"
 )
+
+type NonRetriableError string
+
+func (n NonRetriableError) Error() string {
+	return fmt.Sprintf("non-retriable: %s", string(n))
+}
 
 type Client struct {
 	JsonClient json_client.JsonClient
@@ -46,4 +55,15 @@ func (c *Client) AcquireSubnetLease(underlayIP string) (Lease, error) {
 		return Lease{}, err
 	}
 	return response, nil
+}
+
+func (c *Client) RenewSubnetLease(lease Lease) error {
+	err := c.JsonClient.Do("PUT", "/leases/renew", lease, nil, "")
+	if err != nil {
+		httpResponseErr, ok := err.(*json_client.HttpResponseCodeError)
+		if ok && httpResponseErr.StatusCode == http.StatusConflict {
+			return NonRetriableError(httpResponseErr.Message)
+		}
+	}
+	return err
 }

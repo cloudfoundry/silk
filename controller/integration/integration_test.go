@@ -120,6 +120,72 @@ var _ = Describe("Silk Controller", func() {
 		Expect(lease.OverlayHardwareAddr).To(Equal(expectedHardwareAddr.String()))
 	})
 
+	// Pended because feature is in flight
+	PDescribe("renewal", func() {
+		It("successfully renews", func() {
+			By("getting a valid lease")
+			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+			Expect(err).NotTo(HaveOccurred())
+
+			By("attempting to renew it")
+			err = testClient.RenewSubnetLease(lease)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("checking that the lease is present in the list of routable leases")
+			leases, err := testClient.GetRoutableLeases()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(leases)).To(Equal(1))
+			Expect(leases[0]).To(Equal(lease))
+		})
+
+		Context("when the lease is not valid for some reason", func() {
+			It("returns a non-retriable error", func() {
+				By("getting a valid lease")
+				validLease, err := testClient.AcquireSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+
+				By("corrupting it somehow")
+				invalidLease := controller.Lease{
+					UnderlayIP:          validLease.UnderlayIP,
+					OverlaySubnet:       "10.9.9.9/24",
+					OverlayHardwareAddr: validLease.OverlayHardwareAddr,
+				}
+
+				By("attempting to renew it")
+				err = testClient.RenewSubnetLease(invalidLease)
+				Expect(err).To(BeAssignableToTypeOf(controller.NonRetriableError("")))
+				typedError := err.(controller.NonRetriableError)
+				Expect(typedError.Error()).To(Equal("non-retriable: invalid lease"))
+
+				By("checking that the corrupted lease is not present in the list of routable leases")
+				leases, err := testClient.GetRoutableLeases()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(leases)).To(Equal(1))
+				Expect(leases[0]).To(Equal(validLease))
+			})
+		})
+
+		Context("when the local lease is not present in the database", func() {
+			It("the renew succeeds (even though its really more of an acquire)", func() {
+				lease := controller.Lease{
+					UnderlayIP:          "10.244.9.9",
+					OverlaySubnet:       "10.255.9.0/24",
+					OverlayHardwareAddr: "ee:ee:0a:ff:09:00",
+				}
+
+				By("attempting to renew something new but ok")
+				err := testClient.RenewSubnetLease(lease)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("checking that the lease is present in the list of routable leases")
+				leases, err := testClient.GetRoutableLeases()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(leases)).To(Equal(1))
+				Expect(leases[0]).To(Equal(lease))
+			})
+		})
+	})
+
 	It("provides an endpoint to get the current routable leases", func() {
 		lease, err := testClient.AcquireSubnetLease("10.244.4.5")
 		Expect(err).NotTo(HaveOccurred())
