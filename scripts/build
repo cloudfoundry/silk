@@ -3,8 +3,8 @@
 set -e -u
 set -o pipefail
 
-echo "building silk-teardown"
-go build -o /tmp/client/silk-teardown -race cmd/silk-teardown/main.go
+echo "SKIPPING: building silk-teardown"
+#go build -o /tmp/client/silk-teardown -race cmd/silk-teardown/main.go
 
 echo "building silk-daemon"
 go build -o /tmp/client/silk-daemon -race cmd/silk-daemon/main.go
