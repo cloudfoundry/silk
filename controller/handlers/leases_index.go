@@ -17,6 +17,7 @@ type LeasesIndex struct {
 	Logger          lager.Logger
 	Marshaler       marshal.Marshaler
 	LeaseRepository leaseRepository
+	ErrorResponse   errorResponse
 }
 
 func (l *LeasesIndex) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -25,8 +26,7 @@ func (l *LeasesIndex) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	leases, err := l.LeaseRepository.RoutableLeases()
 	if err != nil {
-		logger.Error("all-routable-leases", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		l.ErrorResponse.InternalServerError(w, err, "all-routable-leases", err.Error())
 		return
 	}
 
@@ -35,8 +35,7 @@ func (l *LeasesIndex) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}{leases}
 	bytes, err := l.Marshaler.Marshal(response)
 	if err != nil {
-		logger.Error("marshal-response", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		l.ErrorResponse.InternalServerError(w, err, "marshal-response", err.Error())
 		return
 	}
 

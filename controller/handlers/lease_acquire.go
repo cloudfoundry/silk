@@ -20,6 +20,7 @@ type LeasesAcquire struct {
 	Marshaler     marshal.Marshaler
 	Unmarshaler   marshal.Unmarshaler
 	LeaseAcquirer leaseAcquirer
+	ErrorResponse errorResponse
 }
 
 func (l *LeasesAcquire) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -28,8 +29,7 @@ func (l *LeasesAcquire) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		logger.Error("read-body", err)
-		w.WriteHeader(http.StatusBadRequest)
+		l.ErrorResponse.BadRequest(w, err, "read-body", err.Error())
 		return
 	}
 
@@ -38,27 +38,24 @@ func (l *LeasesAcquire) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &payload)
 	if err != nil {
-		logger.Error("unmarshal-request", err)
-		w.WriteHeader(http.StatusBadRequest)
+		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
 		return
 	}
 
 	lease, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP)
 	if err != nil {
-		logger.Error("acquire-subnet-lease", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		l.ErrorResponse.InternalServerError(w, err, "acquire-subnet-lease", err.Error())
 		return
 	}
 	if lease == nil {
-		logger.Error("acquire-subnet-lease", errors.New("No lease available"))
-		w.WriteHeader(http.StatusServiceUnavailable)
+		err := errors.New("No lease available")
+		l.ErrorResponse.Conflict(w, err, "acquire-subnet-lease", err.Error())
 		return
 	}
 
 	bytes, err := l.Marshaler.Marshal(lease)
 	if err != nil {
-		logger.Error("marshal-response", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		l.ErrorResponse.InternalServerError(w, err, "marshal-response", err.Error())
 		return
 	}
 

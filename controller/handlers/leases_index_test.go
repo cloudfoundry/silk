@@ -19,11 +19,12 @@ import (
 
 var _ = Describe("LeasesIndex", func() {
 	var (
-		logger          *lagertest.TestLogger
-		handler         *handlers.LeasesIndex
-		leaseRepository *fakes.LeaseRepository
-		resp            *httptest.ResponseRecorder
-		marshaler       *hfakes.Marshaler
+		logger            *lagertest.TestLogger
+		handler           *handlers.LeasesIndex
+		leaseRepository   *fakes.LeaseRepository
+		resp              *httptest.ResponseRecorder
+		marshaler         *hfakes.Marshaler
+		fakeErrorResponse *fakes.ErrorResponse
 	)
 
 	BeforeEach(func() {
@@ -31,10 +32,12 @@ var _ = Describe("LeasesIndex", func() {
 		marshaler = &hfakes.Marshaler{}
 		marshaler.MarshalStub = json.Marshal
 		leaseRepository = &fakes.LeaseRepository{}
+		fakeErrorResponse = &fakes.ErrorResponse{}
 		handler = &handlers.LeasesIndex{
 			Logger:          logger,
 			Marshaler:       marshaler,
 			LeaseRepository: leaseRepository,
+			ErrorResponse:   fakeErrorResponse,
 		}
 		resp = httptest.NewRecorder()
 		leaseRepository.RoutableLeasesReturns([]controller.Lease{
@@ -82,10 +85,12 @@ var _ = Describe("LeasesIndex", func() {
 
 			handler.ServeHTTP(resp, request)
 
-			Expect(resp.Code).To(Equal(500))
-			Expect(logger.Logs()).To(HaveLen(2))
-			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("all-routable-leases.*butter"))
+			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
+			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(w).To(Equal(resp))
+			Expect(err).To(MatchError("butter"))
+			Expect(message).To(Equal("all-routable-leases"))
+			Expect(description).To(Equal("butter"))
 		})
 	})
 
@@ -102,10 +107,12 @@ var _ = Describe("LeasesIndex", func() {
 
 			handler.ServeHTTP(resp, request)
 
-			Expect(resp.Code).To(Equal(500))
-			Expect(logger.Logs()).To(HaveLen(2))
-			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("marshal.*grapes"))
+			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
+			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(w).To(Equal(resp))
+			Expect(err).To(MatchError("grapes"))
+			Expect(message).To(Equal("marshal-response"))
+			Expect(description).To(Equal("grapes"))
 		})
 	})
 })

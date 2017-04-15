@@ -22,12 +22,13 @@ import (
 
 var _ = Describe("LeasesAcquire", func() {
 	var (
-		logger        *lagertest.TestLogger
-		handler       *handlers.LeasesAcquire
-		resp          *httptest.ResponseRecorder
-		marshaler     *hfakes.Marshaler
-		unmarshaler   *hfakes.Unmarshaler
-		leaseAcquirer *fakes.LeaseAcquirer
+		logger            *lagertest.TestLogger
+		handler           *handlers.LeasesAcquire
+		resp              *httptest.ResponseRecorder
+		marshaler         *hfakes.Marshaler
+		unmarshaler       *hfakes.Unmarshaler
+		leaseAcquirer     *fakes.LeaseAcquirer
+		fakeErrorResponse *fakes.ErrorResponse
 	)
 
 	BeforeEach(func() {
@@ -37,12 +38,14 @@ var _ = Describe("LeasesAcquire", func() {
 		unmarshaler = &hfakes.Unmarshaler{}
 		unmarshaler.UnmarshalStub = json.Unmarshal
 		leaseAcquirer = &fakes.LeaseAcquirer{}
+		fakeErrorResponse = &fakes.ErrorResponse{}
 
 		handler = &handlers.LeasesAcquire{
 			Logger:        logger,
 			Marshaler:     marshaler,
 			Unmarshaler:   unmarshaler,
 			LeaseAcquirer: leaseAcquirer,
+			ErrorResponse: fakeErrorResponse,
 		}
 		resp = httptest.NewRecorder()
 
@@ -82,13 +85,15 @@ var _ = Describe("LeasesAcquire", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("logs the error and returns a 400", func() {
+		It("calls the BadRequest error handler", func() {
 			handler.ServeHTTP(resp, request)
 
-			Expect(resp.Code).To(Equal(400))
-			Expect(logger.Logs()).To(HaveLen(2))
-			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*read-body.*banana"))
+			Expect(fakeErrorResponse.BadRequestCallCount()).To(Equal(1))
+			w, err, message, description := fakeErrorResponse.BadRequestArgsForCall(0)
+			Expect(w).To(Equal(resp))
+			Expect(err).To(MatchError("banana"))
+			Expect(message).To(Equal("read-body"))
+			Expect(description).To(Equal("banana"))
 		})
 	})
 
@@ -104,10 +109,12 @@ var _ = Describe("LeasesAcquire", func() {
 
 			handler.ServeHTTP(resp, request)
 
-			Expect(resp.Code).To(Equal(400))
-			Expect(logger.Logs()).To(HaveLen(2))
-			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*unmarshal-request.*fig"))
+			Expect(fakeErrorResponse.BadRequestCallCount()).To(Equal(1))
+			w, err, message, description := fakeErrorResponse.BadRequestArgsForCall(0)
+			Expect(w).To(Equal(resp))
+			Expect(err).To(MatchError("fig"))
+			Expect(message).To(Equal("unmarshal-request"))
+			Expect(description).To(Equal("fig"))
 		})
 	})
 
@@ -123,10 +130,12 @@ var _ = Describe("LeasesAcquire", func() {
 
 			handler.ServeHTTP(resp, request)
 
-			Expect(resp.Code).To(Equal(500))
-			Expect(logger.Logs()).To(HaveLen(2))
-			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*acquire-subnet-lease.*kiwi"))
+			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
+			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(w).To(Equal(resp))
+			Expect(err).To(MatchError("kiwi"))
+			Expect(message).To(Equal("acquire-subnet-lease"))
+			Expect(description).To(Equal("kiwi"))
 		})
 	})
 
@@ -142,10 +151,12 @@ var _ = Describe("LeasesAcquire", func() {
 
 			handler.ServeHTTP(resp, request)
 
-			Expect(resp.Code).To(Equal(503))
-			Expect(logger.Logs()).To(HaveLen(2))
-			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*acquire-subnet-lease.*No lease available"))
+			Expect(fakeErrorResponse.ConflictCallCount()).To(Equal(1))
+			w, err, message, description := fakeErrorResponse.ConflictArgsForCall(0)
+			Expect(w).To(Equal(resp))
+			Expect(err).To(MatchError("No lease available"))
+			Expect(message).To(Equal("acquire-subnet-lease"))
+			Expect(description).To(Equal("No lease available"))
 		})
 	})
 
@@ -163,10 +174,12 @@ var _ = Describe("LeasesAcquire", func() {
 
 			handler.ServeHTTP(resp, request)
 
-			Expect(resp.Code).To(Equal(500))
-			Expect(logger.Logs()).To(HaveLen(2))
-			Expect(logger.Logs()[1].LogLevel).To(Equal(lager.ERROR))
-			Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("leases-acquire.*marshal-response.*grapes"))
+			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
+			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(w).To(Equal(resp))
+			Expect(err).To(MatchError("grapes"))
+			Expect(message).To(Equal("marshal-response"))
+			Expect(description).To(Equal("grapes"))
 		})
 	})
 })

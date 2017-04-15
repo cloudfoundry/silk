@@ -80,10 +80,16 @@ func mainWithError() error {
 		return fmt.Errorf("migrating database: %s", err)
 	}
 
+	errorResponse := &httperror.ErrorResponse{
+		Logger:        logger,
+		MetricsSender: &metrics.NoOpMetricsSender{},
+	}
+
 	leasesIndex := &handlers.LeasesIndex{
 		Logger:          logger,
 		Marshaler:       marshal.MarshalFunc(json.Marshal),
 		LeaseRepository: leaseController,
+		ErrorResponse:   errorResponse,
 	}
 
 	leasesAcquire := &handlers.LeasesAcquire{
@@ -91,11 +97,7 @@ func mainWithError() error {
 		Marshaler:     marshal.MarshalFunc(json.Marshal),
 		Unmarshaler:   marshal.UnmarshalFunc(json.Unmarshal),
 		LeaseAcquirer: leaseController,
-	}
-
-	errorResponse := &httperror.ErrorResponse{
-		Logger:        logger,
-		MetricsSender: &metrics.NoOpMetricsSender{},
+		ErrorResponse: errorResponse,
 	}
 
 	leasesRelease := &handlers.ReleaseLease{
