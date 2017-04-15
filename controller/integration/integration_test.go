@@ -164,7 +164,7 @@ var _ = Describe("Silk Controller", func() {
 				httpErr, ok := err.(*json_client.HttpResponseCodeError)
 				Expect(ok).To(BeTrue())
 				Expect(httpErr.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(err).To(MatchError("validate-request: missing required field overlay_subnet"))
+				Expect(err).To(MatchError("http status 400: validate-request: missing required field overlay_subnet"))
 			})
 		})
 	})

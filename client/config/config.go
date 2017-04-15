@@ -19,6 +19,7 @@ type Config struct {
 	ServerCACertFile      string    `json:"ca_cert_file" validate:"nonzero"`
 	ClientCertFile        string    `json:"client_cert_file" validate:"nonzero"`
 	ClientKeyFile         string    `json:"client_key_file" validate:"nonzero"`
+	VNI                   int       `json:"vni"`
 }
 
 func LoadConfig(filePath string) (Config, error) {

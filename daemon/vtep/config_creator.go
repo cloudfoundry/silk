@@ -32,6 +32,7 @@ type Config struct {
 	UnderlayIP          net.IP
 	OverlayIP           net.IP
 	OverlayHardwareAddr net.HardwareAddr
+	VNI                 int
 }
 
 func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease state.SubnetLease) (*Config, error) {
@@ -65,6 +66,7 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease state.Subne
 		UnderlayIP:          underlayIP,
 		OverlayIP:           overlayIP,
 		OverlayHardwareAddr: overlayHardwareAddr,
+		VNI:                 clientConf.VNI,
 	}, nil
 }
 

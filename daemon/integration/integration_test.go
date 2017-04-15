@@ -57,6 +57,7 @@ var _ = BeforeEach(func() {
 		ServerCACertFile:      paths.ServerCACertFile,
 		ClientCertFile:        paths.ClientCertFile,
 		ClientKeyFile:         paths.ClientKeyFile,
+		VNI:                   42,
 	}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)

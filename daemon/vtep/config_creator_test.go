@@ -33,6 +33,7 @@ var _ = Describe("ConfigCreator", func() {
 				SubnetRange: "10.255.0.0/16",
 				SubnetMask:  24,
 				VTEPName:    "some-vtep-name",
+				VNI:         99,
 			}
 			lease = state.SubnetLease{
 				UnderlayIP: "172.255.30.20",
@@ -60,6 +61,7 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.UnderlayIP.String()).To(Equal("172.255.30.2"))
 			Expect(conf.OverlayIP.String()).To(Equal("10.255.30.0"))
 			Expect(conf.OverlayHardwareAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00}))
+			Expect(conf.VNI).To(Equal(99))
 
 			Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(1))
 

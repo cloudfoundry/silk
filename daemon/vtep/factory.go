@@ -27,7 +27,7 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 		LinkAttrs: netlink.LinkAttrs{
 			Name: cfg.VTEPName,
 		},
-		VxlanId:      42,
+		VxlanId:      cfg.VNI,
 		SrcAddr:      cfg.UnderlayIP,
 		GBP:          true,
 		Port:         4789,
@@ -35,7 +35,7 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 	}
 	err := f.NetlinkAdapter.LinkAdd(vxlan)
 	if err != nil {
-		return fmt.Errorf("create link: %s", err)
+		return fmt.Errorf("create link %s: %s", cfg.VTEPName, err)
 	}
 	err = f.NetlinkAdapter.LinkSetUp(vxlan)
 	if err != nil {
@@ -60,17 +60,17 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 	return nil
 }
 
-func (f *Factory) GetVTEPOverlayIPAddress(vtepName string) (net.IP, error) {
+func (f *Factory) GetVTEPState(vtepName string) (net.HardwareAddr, net.IP, error) {
 	link, err := f.NetlinkAdapter.LinkByName(vtepName)
 	if err != nil {
-		return nil, fmt.Errorf("find link: %s", err)
+		return nil, nil, fmt.Errorf("find link: %s", err)
 	}
 	addresses, err := f.NetlinkAdapter.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
-		return nil, fmt.Errorf("list addresses: %s", err)
+		return nil, nil, fmt.Errorf("list addresses: %s", err)
 	}
 	if len(addresses) == 0 {
-		return nil, errors.New("no addresses")
+		return nil, nil, errors.New("no addresses")
 	}
-	return addresses[0].IP, nil
+	return link.Attrs().HardwareAddr, addresses[0].IP, nil
 }

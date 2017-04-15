@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
@@ -33,34 +34,44 @@ func mainWithError() error {
 		return fmt.Errorf("load config file: %s", err)
 	}
 
-	_, err = mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
+	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
 	if err != nil {
 		return fmt.Errorf("create tls config: %s", err)
 	}
-	// httpClient := &http.Client{
-	// 	Transport: &http.Transport{
-	// 		TLSClientConfig: tlsConfig,
-	// 	},
-	// }
-	// client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
-	// err := client.ReleaseSubnetLease(cfg.UnderlayIP)
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+	client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
 
-	return nil
+	localLease, err := discoverLocalLease(cfg)
+	if err != nil {
+		return fmt.Errorf("discover local lease: %s", err) // UNTESTED
+	}
+	err = client.ReleaseSubnetLease(localLease)
+	if err != nil {
+		return fmt.Errorf("release subnet lease: %s", err)
+	}
+
+	return err
 }
 
 func discoverLocalLease(clientConfig config.Config) (controller.Lease, error) {
 	vtepFactory := &vtep.Factory{
 		NetlinkAdapter: &adapter.NetlinkAdapter{},
 	}
-	overlayIP, err := vtepFactory.GetVTEPOverlayIPAddress(clientConfig.VTEPName)
+	overlayHwAddr, overlayIP, err := vtepFactory.GetVTEPState(clientConfig.VTEPName)
 	if err != nil {
 		return controller.Lease{}, fmt.Errorf("get vtep overlay ip: %s", err)
 	}
+	overlaySubnet := &net.IPNet{
+		IP:   overlayIP,
+		Mask: net.CIDRMask(clientConfig.SubnetMask, 32),
+	}
 	return controller.Lease{
-		UnderlayIP: clientConfig.UnderlayIP,
-		OverlaySubnet: (&net.IPNet{
-			IP:   overlayIP,
-			Mask: net.CIDRMask(clientConfig.SubnetMask, 32),
-		}).String(),
+		UnderlayIP:          clientConfig.UnderlayIP,
+		OverlaySubnet:       overlaySubnet.String(),
+		OverlayHardwareAddr: overlayHwAddr.String(),
 	}, nil
 }

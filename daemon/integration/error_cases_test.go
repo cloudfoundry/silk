@@ -119,7 +119,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session := startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("create vtep: create link: file exists"))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("create vtep: create link vtep-name: file exists"))
 		})
 	})
 })
