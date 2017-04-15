@@ -47,7 +47,7 @@ func mainWithError() error {
 
 	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
 	if err != nil {
-		return fmt.Errorf("create tls config: %s", err)
+		return fmt.Errorf("create tls config: %s", err) // TODO not tested - see teardown
 	}
 	httpClient := &http.Client{
 		Transport: &http.Transport{

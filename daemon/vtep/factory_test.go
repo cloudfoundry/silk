@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net"
 
-	"code.cloudfoundry.org/silk/cni/lib/fakes"
 	"code.cloudfoundry.org/silk/daemon/vtep"
+	"code.cloudfoundry.org/silk/daemon/vtep/fakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -116,6 +116,71 @@ var _ = Describe("Factory", func() {
 			It("wraps and returns the error", func() {
 				err := factory.CreateVTEP(vtepConfig)
 				Expect(err).To(MatchError("add address: potato"))
+			})
+		})
+	})
+
+	Describe("GetVTEPOverlayAddress", func() {
+		BeforeEach(func() {
+			fakeNetlinkAdapter.LinkByNameReturns(&netlink.Vxlan{
+				LinkAttrs: netlink.LinkAttrs{
+					Name: "some-device",
+				},
+			}, nil)
+			fakeNetlinkAdapter.AddrListReturns([]netlink.Addr{
+				netlink.Addr{
+					IPNet: &net.IPNet{
+						IP:   net.IP{10, 255, 32, 0},
+						Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
+					},
+				},
+			}, nil)
+		})
+		It("returns the overlay address", func() {
+			ip, err := factory.GetVTEPOverlayIPAddress(vtepConfig.VTEPName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ip).To(Equal(net.IP{10, 255, 32, 0}))
+
+			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(1))
+			Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal(vtepConfig.VTEPName))
+
+			Expect(fakeNetlinkAdapter.AddrListCallCount()).To(Equal(1))
+			link, family := (fakeNetlinkAdapter.AddrListArgsForCall(0))
+			Expect(link).To(Equal(&netlink.Vxlan{
+				LinkAttrs: netlink.LinkAttrs{
+					Name: "some-device",
+				},
+			}))
+			Expect(family).To(Equal(netlink.FAMILY_V4))
+		})
+
+		Context("when finding the link errors", func() {
+			BeforeEach(func() {
+				fakeNetlinkAdapter.LinkByNameReturns(nil, errors.New("potato"))
+			})
+			It("returns an error", func() {
+				_, err := factory.GetVTEPOverlayIPAddress(vtepConfig.VTEPName)
+				Expect(err).To(MatchError("find link: potato"))
+			})
+		})
+
+		Context("when listing the addresses fails", func() {
+			BeforeEach(func() {
+				fakeNetlinkAdapter.AddrListReturns(nil, errors.New("potato"))
+			})
+			It("returns an error", func() {
+				_, err := factory.GetVTEPOverlayIPAddress(vtepConfig.VTEPName)
+				Expect(err).To(MatchError("list addresses: potato"))
+			})
+		})
+
+		Context("when there are no addresses", func() {
+			BeforeEach(func() {
+				fakeNetlinkAdapter.AddrListReturns(nil, nil)
+			})
+			It("returns an error", func() {
+				_, err := factory.GetVTEPOverlayIPAddress(vtepConfig.VTEPName)
+				Expect(err).To(MatchError("no addresses"))
 			})
 		})
 	})

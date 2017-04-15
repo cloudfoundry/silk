@@ -4,11 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 
+	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
-	"code.cloudfoundry.org/silk/controller/leaser"
+	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon/vtep"
+	"code.cloudfoundry.org/silk/lib/adapter"
 )
 
 func main() {
@@ -26,18 +30,37 @@ func mainWithError() error {
 	flag.Parse()
 	cfg, err := config.LoadConfig(*configFilePath)
 	if err != nil {
-		return fmt.Errorf("loading config: %s", err)
+		return fmt.Errorf("load config file: %s", err)
 	}
 
-	leaseController, err := leaser.NewLeaseController(cfg, logger)
+	_, err = mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
 	if err != nil {
-		return fmt.Errorf("creating lease contoller: %s", err)
+		return fmt.Errorf("create tls config: %s", err)
 	}
-
-	err = leaseController.ReleaseSubnetLease()
-	if err != nil {
-		return fmt.Errorf("releasing subnet lease: %s", err) // not tested
-	}
+	// httpClient := &http.Client{
+	// 	Transport: &http.Transport{
+	// 		TLSClientConfig: tlsConfig,
+	// 	},
+	// }
+	// client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
+	// err := client.ReleaseSubnetLease(cfg.UnderlayIP)
 
 	return nil
+}
+
+func discoverLocalLease(clientConfig config.Config) (controller.Lease, error) {
+	vtepFactory := &vtep.Factory{
+		NetlinkAdapter: &adapter.NetlinkAdapter{},
+	}
+	overlayIP, err := vtepFactory.GetVTEPOverlayIPAddress(clientConfig.VTEPName)
+	if err != nil {
+		return controller.Lease{}, fmt.Errorf("get vtep overlay ip: %s", err)
+	}
+	return controller.Lease{
+		UnderlayIP: clientConfig.UnderlayIP,
+		OverlaySubnet: (&net.IPNet{
+			IP:   overlayIP,
+			Mask: net.CIDRMask(clientConfig.SubnetMask, 32),
+		}).String(),
+	}, nil
 }

@@ -41,11 +41,11 @@ var (
 var _ = BeforeEach(func() {
 	var err error
 	localIP, err = localip.LocalIP()
+	Expect(err).NotTo(HaveOccurred())
 	daemonLease = state.SubnetLease{
 		UnderlayIP: localIP,
 		Subnet:     "10.255.30.0/24",
 	}
-	Expect(err).NotTo(HaveOccurred())
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
 	daemonConf = config.Config{
 		UnderlayIP:            localIP,

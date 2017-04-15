@@ -31,6 +31,19 @@ type NetlinkAdapter struct {
 	linkAddReturnsOnCall map[int]struct {
 		result1 error
 	}
+	LinkByNameStub        func(string) (netlink.Link, error)
+	linkByNameMutex       sync.RWMutex
+	linkByNameArgsForCall []struct {
+		arg1 string
+	}
+	linkByNameReturns struct {
+		result1 netlink.Link
+		result2 error
+	}
+	linkByNameReturnsOnCall map[int]struct {
+		result1 netlink.Link
+		result2 error
+	}
 	LinkSetHardwareAddrStub        func(netlink.Link, net.HardwareAddr) error
 	linkSetHardwareAddrMutex       sync.RWMutex
 	linkSetHardwareAddrArgsForCall []struct {
@@ -54,6 +67,20 @@ type NetlinkAdapter struct {
 	}
 	addrAddScopeLinkReturnsOnCall map[int]struct {
 		result1 error
+	}
+	AddrListStub        func(link netlink.Link, family int) ([]netlink.Addr, error)
+	addrListMutex       sync.RWMutex
+	addrListArgsForCall []struct {
+		link   netlink.Link
+		family int
+	}
+	addrListReturns struct {
+		result1 []netlink.Addr
+		result2 error
+	}
+	addrListReturnsOnCall map[int]struct {
+		result1 []netlink.Addr
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -155,6 +182,57 @@ func (fake *NetlinkAdapter) LinkAddReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) LinkByName(arg1 string) (netlink.Link, error) {
+	fake.linkByNameMutex.Lock()
+	ret, specificReturn := fake.linkByNameReturnsOnCall[len(fake.linkByNameArgsForCall)]
+	fake.linkByNameArgsForCall = append(fake.linkByNameArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	fake.recordInvocation("LinkByName", []interface{}{arg1})
+	fake.linkByNameMutex.Unlock()
+	if fake.LinkByNameStub != nil {
+		return fake.LinkByNameStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.linkByNameReturns.result1, fake.linkByNameReturns.result2
+}
+
+func (fake *NetlinkAdapter) LinkByNameCallCount() int {
+	fake.linkByNameMutex.RLock()
+	defer fake.linkByNameMutex.RUnlock()
+	return len(fake.linkByNameArgsForCall)
+}
+
+func (fake *NetlinkAdapter) LinkByNameArgsForCall(i int) string {
+	fake.linkByNameMutex.RLock()
+	defer fake.linkByNameMutex.RUnlock()
+	return fake.linkByNameArgsForCall[i].arg1
+}
+
+func (fake *NetlinkAdapter) LinkByNameReturns(result1 netlink.Link, result2 error) {
+	fake.LinkByNameStub = nil
+	fake.linkByNameReturns = struct {
+		result1 netlink.Link
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NetlinkAdapter) LinkByNameReturnsOnCall(i int, result1 netlink.Link, result2 error) {
+	fake.LinkByNameStub = nil
+	if fake.linkByNameReturnsOnCall == nil {
+		fake.linkByNameReturnsOnCall = make(map[int]struct {
+			result1 netlink.Link
+			result2 error
+		})
+	}
+	fake.linkByNameReturnsOnCall[i] = struct {
+		result1 netlink.Link
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *NetlinkAdapter) LinkSetHardwareAddr(arg1 netlink.Link, arg2 net.HardwareAddr) error {
 	fake.linkSetHardwareAddrMutex.Lock()
 	ret, specificReturn := fake.linkSetHardwareAddrReturnsOnCall[len(fake.linkSetHardwareAddrArgsForCall)]
@@ -253,6 +331,58 @@ func (fake *NetlinkAdapter) AddrAddScopeLinkReturnsOnCall(i int, result1 error) 
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	fake.addrListMutex.Lock()
+	ret, specificReturn := fake.addrListReturnsOnCall[len(fake.addrListArgsForCall)]
+	fake.addrListArgsForCall = append(fake.addrListArgsForCall, struct {
+		link   netlink.Link
+		family int
+	}{link, family})
+	fake.recordInvocation("AddrList", []interface{}{link, family})
+	fake.addrListMutex.Unlock()
+	if fake.AddrListStub != nil {
+		return fake.AddrListStub(link, family)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.addrListReturns.result1, fake.addrListReturns.result2
+}
+
+func (fake *NetlinkAdapter) AddrListCallCount() int {
+	fake.addrListMutex.RLock()
+	defer fake.addrListMutex.RUnlock()
+	return len(fake.addrListArgsForCall)
+}
+
+func (fake *NetlinkAdapter) AddrListArgsForCall(i int) (netlink.Link, int) {
+	fake.addrListMutex.RLock()
+	defer fake.addrListMutex.RUnlock()
+	return fake.addrListArgsForCall[i].link, fake.addrListArgsForCall[i].family
+}
+
+func (fake *NetlinkAdapter) AddrListReturns(result1 []netlink.Addr, result2 error) {
+	fake.AddrListStub = nil
+	fake.addrListReturns = struct {
+		result1 []netlink.Addr
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NetlinkAdapter) AddrListReturnsOnCall(i int, result1 []netlink.Addr, result2 error) {
+	fake.AddrListStub = nil
+	if fake.addrListReturnsOnCall == nil {
+		fake.addrListReturnsOnCall = make(map[int]struct {
+			result1 []netlink.Addr
+			result2 error
+		})
+	}
+	fake.addrListReturnsOnCall[i] = struct {
+		result1 []netlink.Addr
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -260,10 +390,14 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.linkSetUpMutex.RUnlock()
 	fake.linkAddMutex.RLock()
 	defer fake.linkAddMutex.RUnlock()
+	fake.linkByNameMutex.RLock()
+	defer fake.linkByNameMutex.RUnlock()
 	fake.linkSetHardwareAddrMutex.RLock()
 	defer fake.linkSetHardwareAddrMutex.RUnlock()
 	fake.addrAddScopeLinkMutex.RLock()
 	defer fake.addrAddScopeLinkMutex.RUnlock()
+	fake.addrListMutex.RLock()
+	defer fake.addrListMutex.RUnlock()
 	return fake.invocations
 }
 

@@ -21,6 +21,10 @@ func (*NetlinkAdapter) AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) e
 	return netlink.AddrAdd(link, addr)
 }
 
+func (*NetlinkAdapter) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	return netlink.AddrList(link, family)
+}
+
 func (*NetlinkAdapter) LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error {
 	return netlink.LinkSetHardwareAddr(link, hwaddr)
 }

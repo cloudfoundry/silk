@@ -1,6 +1,7 @@
 package vtep
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -11,8 +12,10 @@ import (
 type netlinkAdapter interface {
 	LinkSetUp(netlink.Link) error
 	LinkAdd(netlink.Link) error
+	LinkByName(string) (netlink.Link, error)
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
 	AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) error
+	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 }
 
 type Factory struct {
@@ -55,4 +58,19 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 	}
 
 	return nil
+}
+
+func (f *Factory) GetVTEPOverlayIPAddress(vtepName string) (net.IP, error) {
+	link, err := f.NetlinkAdapter.LinkByName(vtepName)
+	if err != nil {
+		return nil, fmt.Errorf("find link: %s", err)
+	}
+	addresses, err := f.NetlinkAdapter.AddrList(link, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, fmt.Errorf("list addresses: %s", err)
+	}
+	if len(addresses) == 0 {
+		return nil, errors.New("no addresses")
+	}
+	return addresses[0].IP, nil
 }
