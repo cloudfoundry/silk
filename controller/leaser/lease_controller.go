@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/controller/database"
 )
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
@@ -44,6 +45,10 @@ type LeaseController struct {
 
 func (c *LeaseController) ReleaseSubnetLease(underlayIP string) error {
 	err := c.DatabaseHandler.DeleteEntry(underlayIP)
+	if err == database.RecordNotAffectedError {
+		c.Logger.Debug("lease-not-found", lager.Data{"underlay_ip": underlayIP})
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("release lease: %s", err)
 	}

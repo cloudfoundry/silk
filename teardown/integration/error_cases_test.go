@@ -57,17 +57,6 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the vtep is missing", func() {
-		BeforeEach(func() {
-			mustSucceed("ip", "link", "del", vtepConfig.VTEPName)
-		})
-		It("exits with status 1", func() {
-			session := runTeardown(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("silk-teardown error: discover local lease: get vtep overlay ip: find link: Link not found"))
-		})
-	})
-
 	Context("when the controller address is not reachable", func() {
 		BeforeEach(func() {
 			stopServer(fakeServer)

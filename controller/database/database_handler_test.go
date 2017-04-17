@@ -172,19 +172,21 @@ var _ = Describe("DatabaseHandler", func() {
 
 	Describe("DeleteEntry", func() {
 		BeforeEach(func() {
-			databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
-			mockDb.ExecReturns(nil, nil)
-		})
-		It("deletes an entry from the DB", func() {
-			err := databaseHandler.DeleteEntry("some-underlay")
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(mockDb.ExecCallCount()).To(Equal(1))
-			Expect(mockDb.ExecArgsForCall(0)).To(Equal("DELETE FROM subnets WHERE underlay_ip = 'some-underlay'"))
+			By("checking that the lease is present")
+			leases, err := databaseHandler.All()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(leases).To(ContainElement(lease))
 		})
 
-		Context("when the database exec returns an error", func() {
+		Context("when the database exec returns some other error", func() {
 			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockDb.ExecReturns(nil, errors.New("carrot"))
 			})
 			It("returns a sensible error", func() {
@@ -193,6 +195,52 @@ var _ = Describe("DatabaseHandler", func() {
 
 				Expect(mockDb.ExecCallCount()).To(Equal(1))
 				Expect(mockDb.ExecArgsForCall(0)).To(Equal("DELETE FROM subnets WHERE underlay_ip = 'some-underlay'"))
+			})
+		})
+
+		Context("when the parsing the result fails", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				badResult := &fakes.SqlResult{}
+				badResult.RowsAffectedReturns(0, errors.New("potato"))
+				mockDb.ExecReturns(badResult, nil)
+			})
+
+			It("returns an error", func() {
+				err := databaseHandler.DeleteEntry("10.244.11.22")
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError("parse result: potato"))
+			})
+		})
+
+		It("deletes an entry from the DB", func() {
+			err := databaseHandler.DeleteEntry("10.244.11.22")
+			Expect(err).NotTo(HaveOccurred())
+
+			By("checking that the lease is not present")
+			leases, err := databaseHandler.All()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(leases).NotTo(ContainElement(lease))
+		})
+
+		Context("when no entry exists", func() {
+			It("returns a RecordNotAffectedError", func() {
+				err := databaseHandler.DeleteEntry("8.8.8.8")
+				Expect(err).To(Equal(database.RecordNotAffectedError))
+			})
+		})
+
+		Context("when more than one row in result", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				badResult := &fakes.SqlResult{}
+				badResult.RowsAffectedReturns(2, nil)
+				mockDb.ExecReturns(badResult, nil)
+			})
+
+			It("returns a MultipleRecordsAffectedError", func() {
+				err := databaseHandler.DeleteEntry("10.244.11.22")
+				Expect(err).To(Equal(database.MultipleRecordsAffectedError))
 			})
 		})
 	})

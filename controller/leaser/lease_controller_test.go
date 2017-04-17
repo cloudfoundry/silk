@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/lager/lagertest"
 
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/leaser"
 	"code.cloudfoundry.org/silk/controller/leaser/fakes"
 
@@ -331,6 +332,21 @@ var _ = Describe("LeaseController", func() {
 			Expect(logger.Logs()).To(HaveLen(1))
 			Expect(logger.Logs()[0].Data["underlay_ip"]).To(Equal("10.244.5.0"))
 			Expect(logger.Logs()[0].Message).To(Equal("test.lease-released"))
+		})
+
+		Context("when the database returns RecordNotAffectedError", func() {
+			BeforeEach(func() {
+				databaseHandler.DeleteEntryReturns(database.RecordNotAffectedError)
+			})
+			It("swallows the error and logs it at DEBUG level", func() {
+				err := leaseController.ReleaseSubnetLease(underlayIP)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(logger.Logs()).To(HaveLen(1))
+				Expect(logger.Logs()[0].Message).To(Equal("test.lease-not-found"))
+				Expect(logger.Logs()[0].Data).To(HaveKeyWithValue("underlay_ip", "10.244.5.0"))
+				Expect(logger.Logs()[0].LogLevel).To(Equal(lager.DEBUG))
+			})
 		})
 
 		Context("when the database returns some other error", func() {

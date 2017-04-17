@@ -97,9 +97,19 @@ func (d *DatabaseHandler) AddEntry(lease controller.Lease) error {
 }
 
 func (d *DatabaseHandler) DeleteEntry(underlayIP string) error {
-	_, err := d.db.Exec(fmt.Sprintf("DELETE FROM subnets WHERE underlay_ip = '%s'", underlayIP))
+	result, err := d.db.Exec(fmt.Sprintf("DELETE FROM subnets WHERE underlay_ip = '%s'", underlayIP))
 	if err != nil {
 		return fmt.Errorf("deleting entry: %s", err)
+	}
+	nRows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("parse result: %s", err)
+	}
+	if nRows == 0 {
+		return RecordNotAffectedError
+	}
+	if nRows > 1 {
+		return MultipleRecordsAffectedError
 	}
 	return nil
 }
