@@ -88,6 +88,11 @@ func mainWithError() error {
 		if err != nil {
 			return fmt.Errorf("create vtep: %s", err)
 		}
+	} else {
+		err = client.RenewSubnetLease(lease)
+		if err != nil {
+			return fmt.Errorf("renew subnet lease: %s", err) // not tested
+		}
 	}
 
 	healthCheckServer, err := buildHealthCheckServer(cfg.HealthCheckPort, lease)

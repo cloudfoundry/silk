@@ -135,23 +135,43 @@ var _ = Describe("Daemon Integration", func() {
 			Expect(addresses).To(HaveLen(1))
 			Expect(addresses[0].IP.String()).To(Equal("10.255.30.0"))
 
-			By("responding with a status code ok")
-			resp, err := http.Get(daemonHealthCheckURL)
-			Expect(err).NotTo(HaveOccurred())
-			responseBytes, err := ioutil.ReadAll(resp.Body)
+			By("checking the daemon's healthcheck")
+			doHealthCheck()
 
-			By("responding with its current lease")
-			var responseLease controller.Lease
-			err = json.Unmarshal(responseBytes, &responseLease)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(responseLease).To(Equal(daemonLease))
-
-			By("surviving a restart")
+			By("stopping the daemon")
 			stopDaemon()
+
+			By("set up renew handler")
+			handler := &testsupport.FakeHandler{
+				ResponseCode: 200,
+				ResponseBody: struct{}{},
+			}
+			fakeServer.SetHandler("/leases/renew", handler)
+
+			By("restarting the daemon")
 			startAndWaitForDaemon(1)
+
+			By("renewing it's lease")
+			var renewRequest controller.Lease
+			Expect(json.Unmarshal(handler.LastRequestBody, &renewRequest)).To(Succeed())
+			Expect(renewRequest).To(Equal(daemonLease))
+
+			By("checking the daemon's healthcheck")
+			doHealthCheck()
 		})
 	})
 })
+
+func doHealthCheck() {
+	resp, err := http.Get(daemonHealthCheckURL)
+	Expect(err).NotTo(HaveOccurred())
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+
+	var response controller.Lease
+	err = json.Unmarshal(responseBytes, &response)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(response).To(Equal(daemonLease))
+}
 
 func mustSucceed(binary string, args ...string) string {
 	cmd := exec.Command(binary, args...)
