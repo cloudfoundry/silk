@@ -2,18 +2,13 @@ package integration_test
 
 import (
 	"io/ioutil"
-	"net/http"
 	"os"
 
-	"code.cloudfoundry.org/go-db-helpers/mutualtls"
+	"code.cloudfoundry.org/silk/testsupport"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
-	"github.com/tedsuo/ifrit/http_server"
-	"github.com/tedsuo/ifrit/sigmon"
 )
 
 var _ = Describe("error cases", func() {
@@ -63,28 +58,13 @@ var _ = Describe("error cases", func() {
 
 	Context("when the controller is reachable and returns a 500", func() {
 		BeforeEach(func() {
-			stopServer(fakeServer)
-
-			tlsConfig, err := mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
-			Expect(err).NotTo(HaveOccurred())
-
-			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			})
-
-			someServer := http_server.NewTLSServer(serverListenAddr, testHandler, tlsConfig)
-
-			members := grouper.Members{{
-				Name:   "http_server",
-				Runner: someServer,
-			}}
-			group := grouper.NewOrdered(os.Interrupt, members)
-			fakeServer = ifrit.Invoke(sigmon.New(group))
-
-			Eventually(fakeServer.Ready()).Should(BeClosed())
-
+			handler := &testsupport.FakeHandler{
+				ResponseCode: 500,
+				ResponseBody: struct{}{},
+			}
+			fakeServer.SetHandler("/leases/acquire", handler)
 		})
+
 		It("exits with status 1", func() {
 			session = startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
@@ -94,7 +74,7 @@ var _ = Describe("error cases", func() {
 
 	Context("when the controller address is not reachable", func() {
 		BeforeEach(func() {
-			stopServer(fakeServer)
+			fakeServer.Stop()
 		})
 		It("exits with status 1", func() {
 			session = startDaemon(configFilePath)

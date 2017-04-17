@@ -9,21 +9,18 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strconv"
 
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/testsupport"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
-	"github.com/tedsuo/ifrit/http_server"
-	"github.com/tedsuo/ifrit/sigmon"
 	"github.com/vishvananda/netlink"
 )
 
@@ -33,7 +30,7 @@ var (
 	localIP              string
 	daemonConf           config.Config
 	daemonLease          controller.Lease
-	fakeServer           ifrit.Process
+	fakeServer           *testsupport.FakeController
 	serverListenAddr     string
 	serverTLSConfig      *tls.Config
 	session              *gexec.Session
@@ -71,11 +68,21 @@ var _ = BeforeEach(func() {
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
 	Expect(err).NotTo(HaveOccurred())
-	fakeServer = startServer(serverListenAddr, serverTLSConfig)
+	fakeServer = testsupport.StartServer(serverListenAddr, serverTLSConfig)
+
+	handler := &testsupport.FakeHandler{
+		ResponseCode: 200,
+		ResponseBody: &controller.Lease{
+			UnderlayIP:          localIP,
+			OverlaySubnet:       "10.255.30.0/24",
+			OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
+		},
+	}
+	fakeServer.SetHandler("/leases/acquire", handler)
 })
 
 var _ = AfterEach(func() {
-	stopServer(fakeServer)
+	fakeServer.Stop()
 })
 
 var _ = Describe("Daemon Integration", func() {
@@ -202,60 +209,6 @@ func locateInterface(toFind net.IP) (net.Interface, error) {
 	}
 
 	return net.Interface{}, fmt.Errorf("no interface with address %s", toFind.String())
-}
-
-func startServer(serverListenAddr string, tlsConfig *tls.Config) ifrit.Process {
-	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/leases/acquire" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		bodyBytes, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		var payload struct {
-			UnderlayIP string `json:"underlay_ip"`
-		}
-		err = json.Unmarshal(bodyBytes, &payload)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if payload.UnderlayIP != localIP {
-			statusCode, err := strconv.Atoi(localIP)
-			if err != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				return
-			}
-			w.WriteHeader(statusCode)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`
-			{
-				"underlay_ip": "%s",
-				"overlay_subnet": "10.255.30.0/24",
-				"overlay_hardware_addr": "ee:ee:0a:ff:1e:00"
-			}
-	  `, localIP)))
-		return
-	})
-
-	someServer := http_server.NewTLSServer(serverListenAddr, testHandler, tlsConfig)
-
-	members := grouper.Members{{
-		Name:   "http_server",
-		Runner: someServer,
-	}}
-	group := grouper.NewOrdered(os.Interrupt, members)
-	monitor := ifrit.Invoke(sigmon.New(group))
-
-	Eventually(monitor.Ready()).Should(BeClosed())
-	return monitor
 }
 
 func stopServer(server ifrit.Process) {
