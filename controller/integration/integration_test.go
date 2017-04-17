@@ -59,13 +59,13 @@ var _ = Describe("Silk Controller", func() {
 		}
 		baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 
-		configFile, err := ioutil.TempFile("", "config-file-")
+		configFile, err := ioutil.TempFile("", "config-")
 		Expect(err).NotTo(HaveOccurred())
 		configFilePath = configFile.Name()
 		Expect(configFile.Close()).To(Succeed())
 		Expect(conf.WriteToFile(configFilePath)).To(Succeed())
 
-		cmd := exec.Command(controllerBinaryPath, "-config-file", configFilePath)
+		cmd := exec.Command(controllerBinaryPath, "-config", configFilePath)
 		session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 		Expect(err).NotTo(HaveOccurred())
 

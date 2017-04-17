@@ -41,7 +41,7 @@ func mainWithError() error {
 	logger.Info("starting")
 
 	var configFilePath string
-	flag.StringVar(&configFilePath, "config-file", "", "path to config file")
+	flag.StringVar(&configFilePath, "config", "", "path to config file")
 	flag.Parse()
 
 	conf, err := config.ReadFromFile(configFilePath)
