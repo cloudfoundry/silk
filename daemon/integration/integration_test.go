@@ -30,13 +30,16 @@ import (
 var (
 	DEFAULT_TIMEOUT = "5s"
 
-	localIP          string
-	daemonConf       config.Config
-	daemonLease      controller.Lease
-	fakeServer       ifrit.Process
-	serverListenAddr string
-	serverTLSConfig  *tls.Config
-	session          *gexec.Session
+	localIP              string
+	daemonConf           config.Config
+	daemonLease          controller.Lease
+	fakeServer           ifrit.Process
+	serverListenAddr     string
+	serverTLSConfig      *tls.Config
+	session              *gexec.Session
+	daemonHealthCheckURL string
+	vtepName             string
+	vni                  int
 )
 
 var _ = BeforeEach(func() {
@@ -48,18 +51,22 @@ var _ = BeforeEach(func() {
 		OverlaySubnet:       "10.255.30.0/24",
 		OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
 	}
+	vni = GinkgoParallelNode()
+	vtepName = fmt.Sprintf("silk-vtep-%d", GinkgoParallelNode())
+	daemonHealthCheckPort := 4000 + GinkgoParallelNode()
+	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
 	daemonConf = config.Config{
 		UnderlayIP:            localIP,
 		SubnetRange:           "10.255.0.0/16",
 		SubnetPrefixLength:    24,
-		HealthCheckPort:       4000,
-		VTEPName:              "silk-vxlan",
+		HealthCheckPort:       uint16(daemonHealthCheckPort),
+		VTEPName:              vtepName,
 		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),
 		ServerCACertFile:      paths.ServerCACertFile,
 		ClientCertFile:        paths.ClientCertFile,
 		ClientKeyFile:         paths.ClientKeyFile,
-		VNI:                   42,
+		VNI:                   vni,
 	}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
@@ -77,7 +84,7 @@ var _ = Describe("Daemon Integration", func() {
 
 		By("waiting until the daemon is healthy before tests")
 		callHealthcheck := func() (int, error) {
-			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
+			resp, err := http.Get(daemonHealthCheckURL)
 			if resp == nil {
 				return -1, err
 			}
@@ -88,7 +95,7 @@ var _ = Describe("Daemon Integration", func() {
 	}
 
 	AfterEach(func() {
-		mustSucceed("ip", "link", "del", "silk-vxlan")
+		mustSucceed("ip", "link", "del", vtepName)
 		stopDaemon()
 	})
 
@@ -99,7 +106,7 @@ var _ = Describe("Daemon Integration", func() {
 
 		It("creates a vtep device ", func() {
 			By("getting the device")
-			link, err := netlink.LinkByName("silk-vxlan")
+			link, err := netlink.LinkByName(vtepName)
 			Expect(err).NotTo(HaveOccurred())
 			vtep := link.(*netlink.Vxlan)
 
@@ -110,7 +117,7 @@ var _ = Describe("Daemon Integration", func() {
 			defaultDevice, err := locateInterface(net.ParseIP(localIP))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vtep.VtepDevIndex).To(Equal(defaultDevice.Index))
-			Expect(vtep.VxlanId).To(Equal(42))
+			Expect(vtep.VxlanId).To(Equal(vni))
 			Expect(vtep.Port).To(Equal(4789))
 			Expect(vtep.Learning).To(Equal(false))
 			Expect(vtep.GBP).To(BeTrue())
@@ -122,7 +129,7 @@ var _ = Describe("Daemon Integration", func() {
 			Expect(addresses[0].IP.String()).To(Equal("10.255.30.0"))
 
 			By("responding with a status code ok")
-			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
+			resp, err := http.Get(daemonHealthCheckURL)
 			Expect(err).NotTo(HaveOccurred())
 			responseBytes, err := ioutil.ReadAll(resp.Body)
 

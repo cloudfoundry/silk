@@ -26,16 +26,14 @@ var _ = Describe("error cases", func() {
 	})
 
 	AfterEach(func() {
-		os.Remove(configFilePath)
+		stopDaemon()
 	})
 
 	Context("when the path to the config is bad", func() {
 		It("exits with status 1", func() {
-			session := startDaemon("/some/bad/path")
+			session = startDaemon("/some/bad/path")
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
 			Expect(session.Err.Contents()).To(ContainSubstring("load config file: reading file /some/bad/path"))
-
-			session.Interrupt()
 		})
 	})
 
@@ -45,7 +43,7 @@ var _ = Describe("error cases", func() {
 		})
 
 		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
+			session = startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
 			Expect(session.Err.Contents()).To(ContainSubstring("load config file: unmarshaling contents"))
 		})
@@ -53,12 +51,11 @@ var _ = Describe("error cases", func() {
 
 	Context("when the port is invalid", func() {
 		BeforeEach(func() {
-			os.Remove(configFilePath)
 			daemonConf.HealthCheckPort = 0
 			configFilePath = writeConfigFile(daemonConf)
 		})
 		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
+			session = startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
 			Expect(session.Err.Contents()).To(ContainSubstring("invalid health check port: 0"))
 		})
@@ -89,7 +86,7 @@ var _ = Describe("error cases", func() {
 
 		})
 		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
+			session = startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
 			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: 500"))
 		})
@@ -100,26 +97,9 @@ var _ = Describe("error cases", func() {
 			stopServer(fakeServer)
 		})
 		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
+			session = startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
 			Expect(string(session.Err.Contents())).To(MatchRegexp(`.*acquire subnet lease:.*dial tcp.*`))
-		})
-	})
-
-	Context("when a vtep device already exists", func() {
-		BeforeEach(func() {
-			os.Remove(configFilePath)
-			daemonConf.VTEPName = "vtep-name"
-			configFilePath = writeConfigFile(daemonConf)
-			mustSucceed("ip", "link", "add", "vtep-name", "type", "dummy")
-		})
-		AfterEach(func() {
-			mustSucceed("ip", "link", "del", "vtep-name")
-		})
-		It("exits with status 1", func() {
-			session := startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("create vtep: create link vtep-name: file exists"))
 		})
 	})
 })
