@@ -93,6 +93,7 @@ func mainWithError() error {
 		if err != nil {
 			return fmt.Errorf("renew subnet lease: %s", err)
 		}
+		logger.Info("renewed-lease", lager.Data{"lease": lease})
 	}
 
 	healthCheckServer, err := buildHealthCheckServer(cfg.HealthCheckPort, lease)

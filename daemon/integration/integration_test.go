@@ -19,6 +19,7 @@ import (
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit"
 	"github.com/vishvananda/netlink"
@@ -122,6 +123,9 @@ var _ = Describe("Daemon Integration", func() {
 		By("checking the daemon's healthcheck")
 		doHealthCheck()
 
+		By("inspecting the daemon's log to see that it acquired a new lease")
+		Expect(session.Out).To(gbytes.Say(`acquired-lease.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
+
 		By("stopping the daemon")
 		stopDaemon()
 
@@ -142,6 +146,9 @@ var _ = Describe("Daemon Integration", func() {
 
 		By("checking the daemon's healthcheck")
 		doHealthCheck()
+
+		By("inspecting the daemon's log to see that it renewed a new lease")
+		Expect(session.Out).To(gbytes.Say(`renewed-lease.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
 	})
 })
 
