@@ -5,25 +5,17 @@ import (
 	"net"
 
 	clientConfig "code.cloudfoundry.org/silk/client/config"
-	"code.cloudfoundry.org/silk/client/state"
+	"code.cloudfoundry.org/silk/controller"
 )
 
 //go:generate counterfeiter -o fakes/netAdapter.go --fake-name NetAdapter . netAdapter
 type netAdapter interface {
 	Interfaces() ([]net.Interface, error)
-	// ParseCIDR(s string) (net.IP, *net.IPNet, error)
-	// ParseIP(s string) net.IP
 	InterfaceAddrs(net.Interface) ([]net.Addr, error)
 }
 
-//go:generate counterfeiter -o fakes/hardwareAddressGenerator.go --fake-name HardwareAddressGenerator . hardwareAddressGenerator
-type hardwareAddressGenerator interface {
-	GenerateForVTEP(containerIP net.IP) (net.HardwareAddr, error)
-}
-
 type ConfigCreator struct {
-	NetAdapter               netAdapter
-	HardwareAddressGenerator hardwareAddressGenerator
+	NetAdapter netAdapter
 }
 
 type Config struct {
@@ -35,7 +27,7 @@ type Config struct {
 	VNI                 int
 }
 
-func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease state.SubnetLease) (*Config, error) {
+func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.Lease) (*Config, error) {
 	if clientConf.VTEPName == "" {
 		return nil, fmt.Errorf("empty vtep name")
 	}
@@ -45,7 +37,7 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease state.Subne
 		return nil, fmt.Errorf("parse underlay ip: %s", clientConf.UnderlayIP)
 	}
 
-	overlayIP, _, err := net.ParseCIDR(lease.Subnet)
+	overlayIP, _, err := net.ParseCIDR(lease.OverlaySubnet)
 	if err != nil {
 		return nil, fmt.Errorf("determine vtep overlay ip: %s", err)
 	}
@@ -55,9 +47,9 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease state.Subne
 		return nil, fmt.Errorf("find device from ip %s: %s", underlayIP, err)
 	}
 
-	overlayHardwareAddr, err := c.HardwareAddressGenerator.GenerateForVTEP(overlayIP)
+	overlayHardwareAddr, err := net.ParseMAC(lease.OverlayHardwareAddr)
 	if err != nil {
-		return nil, fmt.Errorf("generate hardware address for ip %s: %s", overlayIP, err)
+		return nil, fmt.Errorf("parsing hardware address: %s", err)
 	}
 
 	return &Config{

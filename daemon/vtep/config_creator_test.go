@@ -5,7 +5,7 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/silk/client/config"
-	"code.cloudfoundry.org/silk/client/state"
+	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/daemon/vtep/fakes"
 	. "github.com/onsi/ginkgo"
@@ -15,18 +15,15 @@ import (
 var _ = Describe("ConfigCreator", func() {
 	Describe("Create", func() {
 		var (
-			creator                      *vtep.ConfigCreator
-			fakeNetAdapter               *fakes.NetAdapter
-			fakeHardwareAddressGenerator *fakes.HardwareAddressGenerator
-			clientConf                   config.Config
-			lease                        state.SubnetLease
+			creator        *vtep.ConfigCreator
+			fakeNetAdapter *fakes.NetAdapter
+			clientConf     config.Config
+			lease          controller.Lease
 		)
 		BeforeEach(func() {
 			fakeNetAdapter = &fakes.NetAdapter{}
-			fakeHardwareAddressGenerator = &fakes.HardwareAddressGenerator{}
 			creator = &vtep.ConfigCreator{
-				NetAdapter:               fakeNetAdapter,
-				HardwareAddressGenerator: fakeHardwareAddressGenerator,
+				NetAdapter: fakeNetAdapter,
 			}
 			clientConf = config.Config{
 				UnderlayIP:         "172.255.30.2",
@@ -35,9 +32,10 @@ var _ = Describe("ConfigCreator", func() {
 				VTEPName:           "some-vtep-name",
 				VNI:                99,
 			}
-			lease = state.SubnetLease{
-				UnderlayIP: "172.255.30.20",
-				Subnet:     "10.255.30.0/24",
+			lease = controller.Lease{
+				UnderlayIP:          "172.255.30.02",
+				OverlaySubnet:       "10.255.30.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
 			}
 
 			fakeNetAdapter.InterfacesReturns([]net.Interface{net.Interface{
@@ -49,8 +47,6 @@ var _ = Describe("ConfigCreator", func() {
 					Mask: net.IPMask{255, 255, 255, 255},
 				},
 			}, nil)
-
-			fakeHardwareAddressGenerator.GenerateForVTEPReturns(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00}, nil)
 		})
 
 		It("returns a Config", func() {
@@ -60,16 +56,12 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.UnderlayInterface).To(Equal(net.Interface{Index: 42}))
 			Expect(conf.UnderlayIP.String()).To(Equal("172.255.30.2"))
 			Expect(conf.OverlayIP.String()).To(Equal("10.255.30.0"))
-			Expect(conf.OverlayHardwareAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00}))
+			Expect(conf.OverlayHardwareAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x1e, 0x00}))
 			Expect(conf.VNI).To(Equal(99))
 
 			Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(1))
-
 			Expect(fakeNetAdapter.InterfaceAddrsCallCount()).To(Equal(1))
 			Expect(fakeNetAdapter.InterfaceAddrsArgsForCall(0)).To(Equal(net.Interface{Index: 42}))
-
-			Expect(fakeHardwareAddressGenerator.GenerateForVTEPCallCount()).To(Equal(1))
-			Expect(fakeHardwareAddressGenerator.GenerateForVTEPArgsForCall(0).String()).To(Equal("10.255.30.0"))
 		})
 
 		Context("when the vtep name is empty", func() {
@@ -94,7 +86,7 @@ var _ = Describe("ConfigCreator", func() {
 
 		Context("when parsing the lease subnet returns nil", func() {
 			BeforeEach(func() {
-				lease.Subnet = "foo"
+				lease.OverlaySubnet = "foo"
 			})
 			It("returns a sensible error", func() {
 				_, err := creator.Create(clientConf, lease)
@@ -151,13 +143,13 @@ var _ = Describe("ConfigCreator", func() {
 			})
 		})
 
-		Context("when generating the hardware addr fails", func() {
+		Context("when parsing the hardware addr fails", func() {
 			BeforeEach(func() {
-				fakeHardwareAddressGenerator.GenerateForVTEPReturns(nil, errors.New("pomegranate"))
+				lease.OverlayHardwareAddr = "foo"
 			})
 			It("returns a sensible error", func() {
 				_, err := creator.Create(clientConf, lease)
-				Expect(err).To(MatchError("generate hardware address for ip 10.255.30.0: pomegranate"))
+				Expect(err).To(MatchError(ContainSubstring("parsing hardware address:")))
 			})
 		})
 	})

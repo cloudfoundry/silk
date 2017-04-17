@@ -14,7 +14,7 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/silk/client/config"
-	"code.cloudfoundry.org/silk/client/state"
+	"code.cloudfoundry.org/silk/controller"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
@@ -32,19 +32,21 @@ var (
 
 	localIP          string
 	daemonConf       config.Config
-	daemonLease      state.SubnetLease
+	daemonLease      controller.Lease
 	fakeServer       ifrit.Process
 	serverListenAddr string
 	serverTLSConfig  *tls.Config
+	session          *gexec.Session
 )
 
 var _ = BeforeEach(func() {
 	var err error
 	localIP, err = localip.LocalIP()
 	Expect(err).NotTo(HaveOccurred())
-	daemonLease = state.SubnetLease{
-		UnderlayIP: localIP,
-		Subnet:     "10.255.30.0/24",
+	daemonLease = controller.Lease{
+		UnderlayIP:          localIP,
+		OverlaySubnet:       "10.255.30.0/24",
+		OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
 	}
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
 	daemonConf = config.Config{
@@ -70,19 +72,12 @@ var _ = AfterEach(func() {
 })
 
 var _ = Describe("Daemon Integration", func() {
-	var (
-		session *gexec.Session
-		client  *http.Client
-	)
-
-	startTest := func(numSessions int) {
+	startAndWaitForDaemon := func(numSessions int) {
 		session = startDaemon(writeConfigFile(daemonConf))
-
-		client = http.DefaultClient
 
 		By("waiting until the daemon is healthy before tests")
 		callHealthcheck := func() (int, error) {
-			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
 			if resp == nil {
 				return -1, err
 			}
@@ -94,14 +89,14 @@ var _ = Describe("Daemon Integration", func() {
 
 	AfterEach(func() {
 		mustSucceed("ip", "link", "del", "silk-vxlan")
-		session.Interrupt()
-		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+		stopDaemon()
 	})
 
 	Context("when one session is running", func() {
 		BeforeEach(func() {
-			startTest(1)
+			startAndWaitForDaemon(1)
 		})
+
 		It("creates a vtep device ", func() {
 			By("getting the device")
 			link, err := netlink.LinkByName("silk-vxlan")
@@ -127,15 +122,19 @@ var _ = Describe("Daemon Integration", func() {
 			Expect(addresses[0].IP.String()).To(Equal("10.255.30.0"))
 
 			By("responding with a status code ok")
-			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", 4000))
 			Expect(err).NotTo(HaveOccurred())
 			responseBytes, err := ioutil.ReadAll(resp.Body)
 
-			By("responding with its current state")
-			var responseLease state.SubnetLease
+			By("responding with its current lease")
+			var responseLease controller.Lease
 			err = json.Unmarshal(responseBytes, &responseLease)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(responseLease).To(Equal(daemonLease))
+
+			By("surviving a restart")
+			stopDaemon()
+			startAndWaitForDaemon(1)
 		})
 	})
 })
@@ -146,19 +145,6 @@ func mustSucceed(binary string, args ...string) string {
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, "10s").Should(gexec.Exit(0))
 	return string(sess.Out.Contents())
-}
-
-func writeStateFile(lease state.SubnetLease) string {
-	leaseFile, err := ioutil.TempFile("", "test-subnet-lease")
-	Expect(err).NotTo(HaveOccurred())
-
-	leaseBytes, err := json.Marshal(lease)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = ioutil.WriteFile(leaseFile.Name(), leaseBytes, os.ModePerm)
-	Expect(err).NotTo(HaveOccurred())
-
-	return leaseFile.Name()
 }
 
 func writeConfigFile(config config.Config) string {
@@ -179,6 +165,11 @@ func startDaemon(configFilePath string) *gexec.Session {
 	session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
 	return session
+}
+
+func stopDaemon() {
+	session.Interrupt()
+	Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
 }
 
 func locateInterface(toFind net.IP) (net.Interface, error) {

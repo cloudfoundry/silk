@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
@@ -12,9 +13,7 @@ import (
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
-	"code.cloudfoundry.org/silk/client/state"
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/controller/leaser"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
 
@@ -56,40 +55,39 @@ func mainWithError() error {
 	}
 
 	client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
-	leaseResponse, err := client.AcquireSubnetLease(cfg.UnderlayIP)
-	if err != nil {
-		httpError, isHttpError := err.(*json_client.HttpResponseCodeError)
-		if isHttpError && httpError.StatusCode == http.StatusInternalServerError {
-			return fmt.Errorf("acquire subnet lease: %d", httpError.StatusCode)
-		}
-		return fmt.Errorf("acquire subnet lease: %s", err)
-	}
-	lease := state.SubnetLease{
-		UnderlayIP: leaseResponse.UnderlayIP,
-		Subnet:     leaseResponse.OverlaySubnet,
-	}
-	logger.Info("acquired-lease", lager.Data{"lease": lease})
-
-	if cfg.HealthCheckPort == 0 {
-		return fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
-	}
-
-	vtepConfigCreator := &vtep.ConfigCreator{
-		NetAdapter:               &adapter.NetAdapter{},
-		HardwareAddressGenerator: &leaser.HardwareAddressGenerator{},
-	}
-	vtepConf, err := vtepConfigCreator.Create(cfg, lease)
-	if err != nil {
-		return fmt.Errorf("create vtep config: %s", err)
-	}
 
 	vtepFactory := &vtep.Factory{
 		NetlinkAdapter: &adapter.NetlinkAdapter{},
 	}
 
-	err = vtepFactory.CreateVTEP(vtepConf)
+	lease, err := discoverLocalLease(cfg)
 	if err != nil {
-		return fmt.Errorf("create vtep: %s", err)
+		lease, err = client.AcquireSubnetLease(cfg.UnderlayIP)
+		if err != nil {
+			httpError, isHttpError := err.(*json_client.HttpResponseCodeError)
+			if isHttpError && httpError.StatusCode == http.StatusInternalServerError {
+				return fmt.Errorf("acquire subnet lease: %d", httpError.StatusCode)
+			}
+			return fmt.Errorf("acquire subnet lease: %s", err)
+		}
+		logger.Info("acquired-lease", lager.Data{"lease": lease})
+
+		if cfg.HealthCheckPort == 0 {
+			return fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
+		}
+
+		vtepConfigCreator := &vtep.ConfigCreator{
+			NetAdapter: &adapter.NetAdapter{},
+		}
+		vtepConf, err := vtepConfigCreator.Create(cfg, lease)
+		if err != nil {
+			return fmt.Errorf("create vtep config: %s", err)
+		}
+
+		err = vtepFactory.CreateVTEP(vtepConf)
+		if err != nil {
+			return fmt.Errorf("create vtep: %s", err)
+		}
 	}
 
 	healthCheckServer, err := buildHealthCheckServer(cfg.HealthCheckPort, lease)
@@ -107,7 +105,7 @@ func mainWithError() error {
 	return err
 }
 
-func buildHealthCheckServer(healthCheckPort uint16, lease state.SubnetLease) (ifrit.Runner, error) {
+func buildHealthCheckServer(healthCheckPort uint16, lease controller.Lease) (ifrit.Runner, error) {
 	leaseBytes, err := json.Marshal(lease)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshaling lease: %s", err) // not possible
@@ -120,4 +118,23 @@ func buildHealthCheckServer(healthCheckPort uint16, lease state.SubnetLease) (if
 			w.Write(leaseBytes)
 		}),
 	), nil
+}
+
+func discoverLocalLease(clientConfig config.Config) (controller.Lease, error) {
+	vtepFactory := &vtep.Factory{
+		NetlinkAdapter: &adapter.NetlinkAdapter{},
+	}
+	overlayHwAddr, overlayIP, err := vtepFactory.GetVTEPState(clientConfig.VTEPName)
+	if err != nil {
+		return controller.Lease{}, fmt.Errorf("get vtep overlay ip: %s", err)
+	}
+	overlaySubnet := &net.IPNet{
+		IP:   overlayIP,
+		Mask: net.CIDRMask(clientConfig.SubnetPrefixLength, 32),
+	}
+	return controller.Lease{
+		UnderlayIP:          clientConfig.UnderlayIP,
+		OverlaySubnet:       overlaySubnet.String(),
+		OverlayHardwareAddr: overlayHwAddr.String(),
+	}, nil
 }
