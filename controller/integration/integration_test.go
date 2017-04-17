@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 
-	"code.cloudfoundry.org/go-db-helpers/json_client"
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
@@ -19,7 +18,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -135,7 +133,7 @@ var _ = Describe("Silk Controller", func() {
 			Expect(leases[0]).To(Equal(lease))
 
 			By("attempting to release it")
-			err = testClient.ReleaseSubnetLease(lease)
+			err = testClient.ReleaseSubnetLease("10.244.4.5")
 			Expect(err).NotTo(HaveOccurred())
 
 			By("checking that the lease is not present in the list of routable leases")
@@ -145,26 +143,9 @@ var _ = Describe("Silk Controller", func() {
 		})
 
 		Context("when lease is not present in database", func() {
-			It("logs but does not error", func() {
-				err := testClient.ReleaseSubnetLease(controller.Lease{
-					UnderlayIP:    "9.9.9.9",
-					OverlaySubnet: "10.10.10.0/24",
-				})
+			It("does not error", func() {
+				err := testClient.ReleaseSubnetLease("9.9.9.9")
 				Expect(err).NotTo(HaveOccurred())
-
-				Expect(session.Out).To(gbytes.Say("lease-not-found"))
-			})
-		})
-
-		Context("when the request is missing a required field", func() {
-			It("returns a meaningful error", func() {
-				err := testClient.ReleaseSubnetLease(controller.Lease{
-					UnderlayIP: "9.9.9.9",
-				})
-				httpErr, ok := err.(*json_client.HttpResponseCodeError)
-				Expect(ok).To(BeTrue())
-				Expect(httpErr.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(err).To(MatchError("http status 400: validate-request: missing required field overlay_subnet"))
 			})
 		})
 	})

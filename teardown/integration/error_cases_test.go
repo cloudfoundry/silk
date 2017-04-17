@@ -81,7 +81,7 @@ var _ = Describe("error cases", func() {
 
 	Context("when the controller is reachable but returns a 500", func() {
 		BeforeEach(func() {
-			fakeServer.InstallRequestHandler(func(_ controller.Lease) (int, interface{}) {
+			fakeServer.InstallRequestHandler(func(_ controller.ReleaseLeaseRequest) (int, interface{}) {
 				return 500, map[string]string{"error": "potato"}
 			})
 		})

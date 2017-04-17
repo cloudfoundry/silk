@@ -158,25 +158,6 @@ func (d *DatabaseHandler) SubnetForUnderlayIP(underlayIP string) (string, error)
 	return subnet, nil
 }
 
-func (d *DatabaseHandler) Release(lease controller.Lease) error {
-	result, err := d.db.Exec(fmt.Sprintf("DELETE FROM subnets WHERE underlay_ip = '%s' AND overlay_subnet = '%s'", lease.UnderlayIP, lease.OverlaySubnet))
-
-	if err != nil {
-		return fmt.Errorf("release lease: %s", err)
-	}
-	nRows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("parse result: %s", err)
-	}
-	if nRows == 0 {
-		return RecordNotAffectedError
-	}
-	if nRows > 1 {
-		return MultipleRecordsAffectedError
-	}
-	return nil
-}
-
 func createSubnetTable(dbType string) string {
 	baseCreateTable := "CREATE TABLE IF NOT EXISTS subnets (" +
 		"%s" +

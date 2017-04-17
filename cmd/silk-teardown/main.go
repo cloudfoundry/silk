@@ -49,7 +49,7 @@ func mainWithError() error {
 	if err != nil {
 		return fmt.Errorf("discover local lease: %s", err) // UNTESTED
 	}
-	err = client.ReleaseSubnetLease(localLease)
+	err = client.ReleaseSubnetLease(localLease.UnderlayIP)
 	if err != nil {
 		return fmt.Errorf("release subnet lease: %s", err)
 	}

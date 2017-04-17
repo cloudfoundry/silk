@@ -24,6 +24,10 @@ type Lease struct {
 	OverlayHardwareAddr string `json:"overlay_hardware_addr"`
 }
 
+type ReleaseLeaseRequest struct {
+	UnderlayIP string `json:"underlay_ip"`
+}
+
 type AcquireLeaseRequest struct {
 	UnderlayIP string `json:"underlay_ip"`
 }
@@ -68,7 +72,13 @@ func (c *Client) RenewSubnetLease(lease Lease) error {
 	return err
 }
 
-func (c *Client) ReleaseSubnetLease(lease Lease) error {
-	err := c.JsonClient.Do("PUT", "/leases/release", lease, nil, "")
-	return err
+func (c *Client) ReleaseSubnetLease(underlayIP string) error {
+	request := ReleaseLeaseRequest{
+		UnderlayIP: underlayIP,
+	}
+	err := c.JsonClient.Do("PUT", "/leases/release", request, nil, "")
+	if err != nil {
+		return err
+	}
+	return nil
 }

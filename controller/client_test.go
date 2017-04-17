@@ -174,23 +174,28 @@ var _ = Describe("Client", func() {
 	})
 
 	Describe("ReleaseSubnetLease", func() {
-		var lease controller.Lease
 		BeforeEach(func() {
-			lease = controller.Lease{
-				UnderlayIP:          "10.0.3.1",
-				OverlaySubnet:       "10.255.90.0/24",
-				OverlayHardwareAddr: "ee:ee:0a:ff:5a:00",
+			jsonClient.DoStub = func(method, route string, reqData, respData interface{}, token string) error {
+				respBytes := []byte(`
+				{
+					"underlay_ip": "10.0.3.1",
+					"overlay_subnet": "10.255.90.0/24",
+					"overlay_hardware_addr": "ee:ee:0a:ff:5a:00"
+				}`)
+				json.Unmarshal(respBytes, respData)
+				return nil
 			}
 		})
 		It("calls the controller to release the subnet lease", func() {
-			err := client.ReleaseSubnetLease(lease)
+			err := client.ReleaseSubnetLease("10.0.3.1")
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(jsonClient.DoCallCount()).To(Equal(1))
-			method, route, reqData, _, token := jsonClient.DoArgsForCall(0)
+			method, route, reqData, response, token := jsonClient.DoArgsForCall(0)
 			Expect(method).To(Equal("PUT"))
 			Expect(route).To(Equal("/leases/release"))
-			Expect(reqData).To(Equal(lease))
+			Expect(reqData).To(Equal(controller.ReleaseLeaseRequest{UnderlayIP: "10.0.3.1"}))
+			Expect(response).To(BeNil())
 			Expect(token).To(BeEmpty())
 		})
 
@@ -200,7 +205,7 @@ var _ = Describe("Client", func() {
 			})
 
 			It("returns the error", func() {
-				err := client.ReleaseSubnetLease(lease)
+				err := client.ReleaseSubnetLease("10.0.3.1")
 				Expect(err).To(MatchError("no you're a teapot"))
 			})
 		})

@@ -1,18 +1,16 @@
 package handlers
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"code.cloudfoundry.org/go-db-helpers/marshal"
 	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/silk/controller"
 )
 
 //go:generate counterfeiter -o fakes/lease_releaser.go --fake-name LeaseReleaser . leaseReleaser
 type leaseReleaser interface {
-	ReleaseSubnetLease(lease controller.Lease) error
+	ReleaseSubnetLease(underlayIP string) error
 }
 
 type ReleaseLease struct {
@@ -34,30 +32,20 @@ func (l *ReleaseLease) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var lease controller.Lease
-	err = l.Unmarshaler.Unmarshal(bodyBytes, &lease)
+	var payload struct {
+		UnderlayIP string `json:"underlay_ip"`
+	}
+	err = l.Unmarshaler.Unmarshal(bodyBytes, &payload)
 	if err != nil {
 		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
 		return
 	}
 
-	if lease.UnderlayIP == "" {
-		err := fmt.Errorf("missing required field underlay_ip")
-		l.ErrorResponse.BadRequest(w, err, "validate-request", err.Error())
-		return
-	}
-
-	if lease.OverlaySubnet == "" {
-		err := fmt.Errorf("missing required field overlay_subnet")
-		l.ErrorResponse.BadRequest(w, err, "validate-request", err.Error())
-		return
-	}
-
-	err = l.LeaseReleaser.ReleaseSubnetLease(lease)
+	err = l.LeaseReleaser.ReleaseSubnetLease(payload.UnderlayIP)
 	if err != nil {
 		l.ErrorResponse.InternalServerError(w, err, "release-subnet-lease", err.Error())
 		return
 	}
 
-	w.Write([]byte("{}"))
+	w.Write([]byte(`{}`))
 }

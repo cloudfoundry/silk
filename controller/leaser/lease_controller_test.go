@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/lager/lagertest"
 
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/leaser"
 	"code.cloudfoundry.org/silk/controller/leaser/fakes"
 
@@ -317,69 +316,29 @@ var _ = Describe("LeaseController", func() {
 
 	Describe("ReleaseSubnetLease", func() {
 		var (
-			lease controller.Lease
+			underlayIP string
 		)
 		BeforeEach(func() {
-			lease = controller.Lease{
-				UnderlayIP:          "10.244.5.0",
-				OverlaySubnet:       "10.255.7.0/24",
-				OverlayHardwareAddr: "ee:ee:0a:ff:07:00",
-			}
-
-			databaseHandler.ReleaseReturns(nil)
+			underlayIP = "10.244.5.0"
 		})
 		It("releases the lease", func() {
-			err := leaseController.ReleaseSubnetLease(lease)
+			err := leaseController.ReleaseSubnetLease(underlayIP)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(databaseHandler.ReleaseCallCount()).To(Equal(1))
-			Expect(databaseHandler.ReleaseArgsForCall(0)).To(Equal(lease))
+			Expect(databaseHandler.DeleteEntryCallCount()).To(Equal(1))
+			Expect(databaseHandler.DeleteEntryArgsForCall(0)).To(Equal(underlayIP))
 
 			Expect(logger.Logs()).To(HaveLen(1))
-			Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("underlay_ip", "10.244.5.0"))
-			Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("overlay_subnet", "10.255.7.0/24"))
-			Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:ff:07:00"))
+			Expect(logger.Logs()[0].Data["underlay_ip"]).To(Equal("10.244.5.0"))
 			Expect(logger.Logs()[0].Message).To(Equal("test.lease-released"))
-		})
-
-		Context("when the database returns RecordNotAffectedError", func() {
-			BeforeEach(func() {
-				databaseHandler.ReleaseReturns(database.RecordNotAffectedError)
-			})
-			It("logs but does not error", func() {
-				err := leaseController.ReleaseSubnetLease(lease)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(logger.Logs()).To(HaveLen(1))
-				Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("underlay_ip", "10.244.5.0"))
-				Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("overlay_subnet", "10.255.7.0/24"))
-				Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:ff:07:00"))
-				Expect(logger.Logs()[0].Message).To(Equal("test.lease-not-found"))
-			})
-		})
-
-		Context("when the database returns MultipleRecordsAffectedError", func() {
-			BeforeEach(func() {
-				databaseHandler.ReleaseReturns(database.MultipleRecordsAffectedError)
-			})
-			It("logs but does not error", func() {
-				err := leaseController.ReleaseSubnetLease(lease)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(logger.Logs()).To(HaveLen(1))
-				Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("underlay_ip", "10.244.5.0"))
-				Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("overlay_subnet", "10.255.7.0/24"))
-				Expect(logger.Logs()[0].Data["lease"]).To(HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:ff:07:00"))
-				Expect(logger.Logs()[0].Message).To(Equal("test.multiple-leases-deleted"))
-			})
 		})
 
 		Context("when the database returns some other error", func() {
 			BeforeEach(func() {
-				databaseHandler.ReleaseReturns(errors.New("banana"))
+				databaseHandler.DeleteEntryReturns(errors.New("banana"))
 			})
 			It("wraps the error from the database handler", func() {
-				err := leaseController.ReleaseSubnetLease(lease)
+				err := leaseController.ReleaseSubnetLease(underlayIP)
 				Expect(err).To(MatchError("release lease: banana"))
 			})
 		})

@@ -6,7 +6,6 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller"
-	"code.cloudfoundry.org/silk/controller/database"
 )
 
 //go:generate counterfeiter -o fakes/database_handler.go --fake-name DatabaseHandler . databaseHandler
@@ -14,7 +13,6 @@ type databaseHandler interface {
 	AddEntry(controller.Lease) error
 	DeleteEntry(string) error
 	LeaseForUnderlayIP(string) (*controller.Lease, error)
-	Release(controller.Lease) error
 	LastRenewedAtForUnderlayIP(string) (int64, error)
 	RenewLeaseForUnderlayIP(string) error
 	All() ([]controller.Lease, error)
@@ -44,21 +42,13 @@ type LeaseController struct {
 	Logger                     lager.Logger
 }
 
-func (c *LeaseController) ReleaseSubnetLease(lease controller.Lease) error {
-	err := c.DatabaseHandler.Release(lease)
-	if err == database.RecordNotAffectedError {
-		c.Logger.Error("lease-not-found", err, lager.Data{"lease": lease})
-		return nil
-	}
-	if err == database.MultipleRecordsAffectedError {
-		c.Logger.Error("multiple-leases-deleted", err, lager.Data{"lease": lease})
-		return nil
-	}
+func (c *LeaseController) ReleaseSubnetLease(underlayIP string) error {
+	err := c.DatabaseHandler.DeleteEntry(underlayIP)
 	if err != nil {
 		return fmt.Errorf("release lease: %s", err)
 	}
 
-	c.Logger.Info("lease-released", lager.Data{"lease": lease})
+	c.Logger.Info("lease-released", lager.Data{"underlay_ip": underlayIP})
 	return err
 }
 

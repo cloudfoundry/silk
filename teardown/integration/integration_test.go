@@ -80,22 +80,17 @@ var _ = AfterEach(func() {
 
 var _ = Describe("Teardown Integration", func() {
 	It("discovers the local lease and tells the controller to release it", func() {
-		var controllerReceivedLease controller.Lease
-		fakeServer.InstallRequestHandler(func(lease controller.Lease) (int, interface{}) {
-			controllerReceivedLease = lease
+		var controllerReleaseRequest controller.ReleaseLeaseRequest
+		fakeServer.InstallRequestHandler(func(request controller.ReleaseLeaseRequest) (int, interface{}) {
+			controllerReleaseRequest = request
 			return 200, map[string]string{}
 		})
 
 		session := runTeardown(writeConfigFile(clientConf))
 		Expect(session).To(gexec.Exit(0))
 
-		Expect(controllerReceivedLease).To(Equal(controller.Lease{
+		Expect(controllerReleaseRequest).To(Equal(controller.ReleaseLeaseRequest{
 			UnderlayIP: vtepConfig.UnderlayIP.String(),
-			OverlaySubnet: (&net.IPNet{
-				IP:   vtepConfig.OverlayIP,
-				Mask: net.CIDRMask(clientConf.SubnetMask, 32),
-			}).String(),
-			OverlayHardwareAddr: vtepConfig.OverlayHardwareAddr.String(),
 		}))
 
 	})
@@ -124,11 +119,11 @@ func runTeardown(configFilePath string) *gexec.Session {
 
 type FakeServer struct {
 	ifrit.Process
-	handleRequest func(controller.Lease) (int, interface{})
+	handleRequest func(controller.ReleaseLeaseRequest) (int, interface{})
 	handlerLock   sync.Mutex
 }
 
-func (f *FakeServer) InstallRequestHandler(handler func(controller.Lease) (int, interface{})) {
+func (f *FakeServer) InstallRequestHandler(handler func(controller.ReleaseLeaseRequest) (int, interface{})) {
 	f.handlerLock.Lock()
 	defer f.handlerLock.Unlock()
 	f.handleRequest = handler
@@ -147,7 +142,7 @@ func startServer(serverListenAddr string, tlsConfig *tls.Config) *FakeServer {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		var lease controller.Lease
+		var lease controller.ReleaseLeaseRequest
 		err = json.Unmarshal(bodyBytes, &lease)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
