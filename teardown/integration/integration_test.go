@@ -54,7 +54,7 @@ var _ = BeforeEach(func() {
 	clientConf = config.Config{
 		UnderlayIP:            localIP,
 		SubnetRange:           "10.255.0.0/16",
-		SubnetMask:            24,
+		SubnetPrefixLength:    24,
 		HealthCheckPort:       4000,
 		VTEPName:              vtepConfig.VTEPName,
 		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),

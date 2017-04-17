@@ -29,11 +29,11 @@ var _ = Describe("ConfigCreator", func() {
 				HardwareAddressGenerator: fakeHardwareAddressGenerator,
 			}
 			clientConf = config.Config{
-				UnderlayIP:  "172.255.30.2",
-				SubnetRange: "10.255.0.0/16",
-				SubnetMask:  24,
-				VTEPName:    "some-vtep-name",
-				VNI:         99,
+				UnderlayIP:         "172.255.30.2",
+				SubnetRange:        "10.255.0.0/16",
+				SubnetPrefixLength: 24,
+				VTEPName:           "some-vtep-name",
+				VNI:                99,
 			}
 			lease = state.SubnetLease{
 				UnderlayIP: "172.255.30.20",

@@ -11,7 +11,7 @@ import (
 type Config struct {
 	UnderlayIP            string    `json:"underlay_ip"`
 	SubnetRange           string    `json:"subnet_range"`
-	SubnetMask            int       `json:"subnet_mask"`
+	SubnetPrefixLength    int       `json:"subnet_prefix_length"`
 	Database              db.Config `json:"database"`
 	HealthCheckPort       uint16    `json:"health_check_port"`
 	VTEPName              string    `json:"vtep_name"`

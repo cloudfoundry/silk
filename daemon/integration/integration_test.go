@@ -50,7 +50,7 @@ var _ = BeforeEach(func() {
 	daemonConf = config.Config{
 		UnderlayIP:            localIP,
 		SubnetRange:           "10.255.0.0/16",
-		SubnetMask:            24,
+		SubnetPrefixLength:    24,
 		HealthCheckPort:       4000,
 		VTEPName:              "silk-vxlan",
 		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),
