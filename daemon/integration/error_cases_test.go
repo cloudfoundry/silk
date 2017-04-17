@@ -56,30 +56,70 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
-	Context("when the controller is reachable and returns a 500", func() {
-		BeforeEach(func() {
-			handler := &testsupport.FakeHandler{
-				ResponseCode: 500,
-				ResponseBody: struct{}{},
-			}
-			fakeServer.SetHandler("/leases/acquire", handler)
+	Describe("failures to acquire a new lease", func() {
+		Context("when acquire returns a 500", func() {
+			BeforeEach(func() {
+				fakeServer.SetHandler("/leases/acquire", &testsupport.FakeHandler{
+					ResponseCode: 500,
+					ResponseBody: struct{}{},
+				})
+			})
+
+			It("exits with status 1", func() {
+				session = startDaemon(configFilePath)
+				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: 500"))
+			})
 		})
 
-		It("exits with status 1", func() {
-			session = startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: 500"))
+		Context("when the controller address is not reachable", func() {
+			BeforeEach(func() {
+				fakeServer.Stop()
+			})
+			It("exits with status 1", func() {
+				session = startDaemon(configFilePath)
+				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(MatchRegexp(`.*acquire subnet lease:.*dial tcp.*`))
+			})
 		})
 	})
 
-	Context("when the controller address is not reachable", func() {
+	Describe("failures to renew an existing lease", func() {
 		BeforeEach(func() {
-			fakeServer.Stop()
+			startAndWaitForDaemon()
+			stopDaemon()
 		})
-		It("exits with status 1", func() {
-			session = startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(MatchRegexp(`.*acquire subnet lease:.*dial tcp.*`))
+		AfterEach(func() {
+			mustSucceed("ip", "link", "del", vtepName)
+		})
+		Context("when renew returns a 500", func() {
+			BeforeEach(func() {
+				fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
+					ResponseCode: 500,
+					ResponseBody: struct{}{},
+				})
+			})
+
+			It("exits with status 1", func() {
+				session = startDaemon(configFilePath)
+				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("renew subnet lease: http status 500"))
+			})
+		})
+
+		Context("when renew returns a 409 Conflict", func() {
+			BeforeEach(func() {
+				fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
+					ResponseCode: 409,
+					ResponseBody: map[string]string{"error": "lease mismatch"},
+				})
+			})
+
+			It("exits with status 1", func() {
+				session = startDaemon(configFilePath)
+				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("renew subnet lease: non-retriable: lease mismatch"))
+			})
 		})
 	})
 })

@@ -86,81 +86,78 @@ var _ = AfterEach(func() {
 })
 
 var _ = Describe("Daemon Integration", func() {
-	startAndWaitForDaemon := func(numSessions int) {
-		session = startDaemon(writeConfigFile(daemonConf))
-
-		By("waiting until the daemon is healthy before tests")
-		callHealthcheck := func() (int, error) {
-			resp, err := http.Get(daemonHealthCheckURL)
-			if resp == nil {
-				return -1, err
-			}
-			return resp.StatusCode, err
-		}
-		Eventually(callHealthcheck, "5s").Should(Equal(http.StatusOK))
-
-	}
+	BeforeEach(func() {
+		startAndWaitForDaemon()
+	})
 
 	AfterEach(func() {
 		mustSucceed("ip", "link", "del", vtepName)
 		stopDaemon()
 	})
 
-	Context("when one session is running", func() {
-		BeforeEach(func() {
-			startAndWaitForDaemon(1)
-		})
+	It("syncs with the controller and updates the local networking stack", func() {
+		By("getting the device")
+		link, err := netlink.LinkByName(vtepName)
+		Expect(err).NotTo(HaveOccurred())
+		vtep := link.(*netlink.Vxlan)
 
-		It("creates a vtep device ", func() {
-			By("getting the device")
-			link, err := netlink.LinkByName(vtepName)
-			Expect(err).NotTo(HaveOccurred())
-			vtep := link.(*netlink.Vxlan)
+		By("asserting on the device properties")
+		Expect(vtep.Attrs().Flags & net.FlagUp).To(Equal(net.FlagUp))
+		Expect(vtep.HardwareAddr.String()).To(Equal("ee:ee:0a:ff:1e:00"))
+		Expect(vtep.SrcAddr.String()).To(Equal(localIP))
+		defaultDevice, err := locateInterface(net.ParseIP(localIP))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vtep.VtepDevIndex).To(Equal(defaultDevice.Index))
+		Expect(vtep.VxlanId).To(Equal(vni))
+		Expect(vtep.Port).To(Equal(4789))
+		Expect(vtep.Learning).To(Equal(false))
+		Expect(vtep.GBP).To(BeTrue())
 
-			By("asserting on the device properties")
-			Expect(vtep.Attrs().Flags & net.FlagUp).To(Equal(net.FlagUp))
-			Expect(vtep.HardwareAddr.String()).To(Equal("ee:ee:0a:ff:1e:00"))
-			Expect(vtep.SrcAddr.String()).To(Equal(localIP))
-			defaultDevice, err := locateInterface(net.ParseIP(localIP))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vtep.VtepDevIndex).To(Equal(defaultDevice.Index))
-			Expect(vtep.VxlanId).To(Equal(vni))
-			Expect(vtep.Port).To(Equal(4789))
-			Expect(vtep.Learning).To(Equal(false))
-			Expect(vtep.GBP).To(BeTrue())
+		By("getting the addresses on the device")
+		addresses, err := netlink.AddrList(vtep, netlink.FAMILY_V4)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(addresses).To(HaveLen(1))
+		Expect(addresses[0].IP.String()).To(Equal("10.255.30.0"))
 
-			By("getting the addresses on the device")
-			addresses, err := netlink.AddrList(vtep, netlink.FAMILY_V4)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(addresses).To(HaveLen(1))
-			Expect(addresses[0].IP.String()).To(Equal("10.255.30.0"))
+		By("checking the daemon's healthcheck")
+		doHealthCheck()
 
-			By("checking the daemon's healthcheck")
-			doHealthCheck()
+		By("stopping the daemon")
+		stopDaemon()
 
-			By("stopping the daemon")
-			stopDaemon()
+		By("set up renew handler")
+		handler := &testsupport.FakeHandler{
+			ResponseCode: 200,
+			ResponseBody: struct{}{},
+		}
+		fakeServer.SetHandler("/leases/renew", handler)
 
-			By("set up renew handler")
-			handler := &testsupport.FakeHandler{
-				ResponseCode: 200,
-				ResponseBody: struct{}{},
-			}
-			fakeServer.SetHandler("/leases/renew", handler)
+		By("restarting the daemon")
+		startAndWaitForDaemon()
 
-			By("restarting the daemon")
-			startAndWaitForDaemon(1)
+		By("renewing it's lease")
+		var renewRequest controller.Lease
+		Expect(json.Unmarshal(handler.LastRequestBody, &renewRequest)).To(Succeed())
+		Expect(renewRequest).To(Equal(daemonLease))
 
-			By("renewing it's lease")
-			var renewRequest controller.Lease
-			Expect(json.Unmarshal(handler.LastRequestBody, &renewRequest)).To(Succeed())
-			Expect(renewRequest).To(Equal(daemonLease))
-
-			By("checking the daemon's healthcheck")
-			doHealthCheck()
-		})
+		By("checking the daemon's healthcheck")
+		doHealthCheck()
 	})
 })
+
+func startAndWaitForDaemon() {
+	session = startDaemon(writeConfigFile(daemonConf))
+
+	By("waiting until the daemon is healthy before tests")
+	callHealthcheck := func() (int, error) {
+		resp, err := http.Get(daemonHealthCheckURL)
+		if resp == nil {
+			return -1, err
+		}
+		return resp.StatusCode, err
+	}
+	Eventually(callHealthcheck, "5s").Should(Equal(http.StatusOK))
+}
 
 func doHealthCheck() {
 	resp, err := http.Get(daemonHealthCheckURL)
@@ -196,9 +193,10 @@ func writeConfigFile(config config.Config) string {
 
 func startDaemon(configFilePath string) *gexec.Session {
 	startCmd := exec.Command(paths.DaemonBin, "--config", configFilePath)
-	session, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
+	s, err := gexec.Start(startCmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
-	return session
+	session = s
+	return s
 }
 
 func stopDaemon() {
