@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
-	"sync"
 
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/localip"
@@ -17,13 +15,10 @@ import (
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
+	"code.cloudfoundry.org/silk/testsupport"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
-	"github.com/tedsuo/ifrit/http_server"
-	"github.com/tedsuo/ifrit/sigmon"
 )
 
 var (
@@ -31,7 +26,7 @@ var (
 
 	localIP          string
 	clientConf       config.Config
-	fakeServer       *FakeServer
+	fakeServer       *testsupport.FakeController
 	serverListenAddr string
 	serverTLSConfig  *tls.Config
 
@@ -66,7 +61,7 @@ var _ = BeforeEach(func() {
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
 	Expect(err).NotTo(HaveOccurred())
-	fakeServer = startServer(serverListenAddr, serverTLSConfig)
+	fakeServer = testsupport.StartServer(serverListenAddr, serverTLSConfig)
 
 	By("setting up the vtep to reflect a local lease")
 	vtepFactory := &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
@@ -75,24 +70,24 @@ var _ = BeforeEach(func() {
 
 var _ = AfterEach(func() {
 	exec.Command("ip", "link", "del", vtepConfig.VTEPName).Run()
-	stopServer(fakeServer)
+	fakeServer.Stop()
 })
 
 var _ = Describe("Teardown Integration", func() {
 	It("discovers the local lease and tells the controller to release it", func() {
-		var controllerReleaseRequest controller.ReleaseLeaseRequest
-		fakeServer.InstallRequestHandler(func(request controller.ReleaseLeaseRequest) (int, interface{}) {
-			controllerReleaseRequest = request
-			return 200, map[string]string{}
-		})
-
+		handler := &testsupport.FakeHandler{
+			ResponseCode: 200,
+			ResponseBody: struct{}{},
+		}
+		fakeServer.SetHandler("/leases/release", handler)
 		session := runTeardown(writeConfigFile(clientConf))
 		Expect(session).To(gexec.Exit(0))
 
-		Expect(controllerReleaseRequest).To(Equal(controller.ReleaseLeaseRequest{
+		var lastRequest controller.ReleaseLeaseRequest
+		Expect(json.Unmarshal(handler.LastRequestBody, &lastRequest)).To(Succeed())
+		Expect(lastRequest).To(Equal(controller.ReleaseLeaseRequest{
 			UnderlayIP: vtepConfig.UnderlayIP.String(),
 		}))
-
 	})
 })
 
@@ -115,72 +110,6 @@ func runTeardown(configFilePath string) *gexec.Session {
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
 	return session
-}
-
-type FakeServer struct {
-	ifrit.Process
-	handleRequest func(controller.ReleaseLeaseRequest) (int, interface{})
-	handlerLock   sync.Mutex
-}
-
-func (f *FakeServer) InstallRequestHandler(handler func(controller.ReleaseLeaseRequest) (int, interface{})) {
-	f.handlerLock.Lock()
-	defer f.handlerLock.Unlock()
-	f.handleRequest = handler
-}
-
-func startServer(serverListenAddr string, tlsConfig *tls.Config) *FakeServer {
-	fakeServer := &FakeServer{}
-	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/leases/release" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		bodyBytes, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		var lease controller.ReleaseLeaseRequest
-		err = json.Unmarshal(bodyBytes, &lease)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		fakeServer.handlerLock.Lock()
-		defer fakeServer.handlerLock.Unlock()
-		if fakeServer.handleRequest != nil {
-			statusCode, responseData := fakeServer.handleRequest(lease)
-			responseBytes, _ := json.Marshal(responseData)
-			w.WriteHeader(statusCode)
-			w.Write(responseBytes)
-		} else {
-			w.WriteHeader(http.StatusTeapot)
-			w.Write([]byte(fmt.Sprintf(`{}`)))
-		}
-	})
-
-	someServer := http_server.NewTLSServer(serverListenAddr, testHandler, tlsConfig)
-
-	members := grouper.Members{{
-		Name:   "http_server",
-		Runner: someServer,
-	}}
-	group := grouper.NewOrdered(os.Interrupt, members)
-	monitor := ifrit.Invoke(sigmon.New(group))
-
-	Eventually(monitor.Ready()).Should(BeClosed())
-	fakeServer.Process = monitor
-	return fakeServer
-}
-
-func stopServer(server ifrit.Process) {
-	if server == nil {
-		return
-	}
-	server.Signal(os.Interrupt)
-	Eventually(server.Wait()).Should(Receive())
 }
 
 func mustSucceed(binary string, args ...string) string {

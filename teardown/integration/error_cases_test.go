@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/testsupport"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -59,7 +59,7 @@ var _ = Describe("error cases", func() {
 
 	Context("when the controller address is not reachable", func() {
 		BeforeEach(func() {
-			stopServer(fakeServer)
+			fakeServer.Stop()
 		})
 		It("exits with status 1", func() {
 			session := runTeardown(configFilePath)
@@ -70,8 +70,9 @@ var _ = Describe("error cases", func() {
 
 	Context("when the controller is reachable but returns a 500", func() {
 		BeforeEach(func() {
-			fakeServer.InstallRequestHandler(func(_ controller.ReleaseLeaseRequest) (int, interface{}) {
-				return 500, map[string]string{"error": "potato"}
+			fakeServer.SetHandler("/leases/release", &testsupport.FakeHandler{
+				ResponseCode: 500,
+				ResponseBody: map[string]string{"error": "potato"},
 			})
 		})
 
