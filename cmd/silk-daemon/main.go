@@ -8,11 +8,15 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
+	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon/planner"
+	"code.cloudfoundry.org/silk/daemon/poller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
 
@@ -32,8 +36,11 @@ func main() {
 
 func mainWithError() error {
 	logger := lager.NewLogger("silk-daemon")
-	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
-	logger.RegisterSink(sink)
+	reconfigurableSink := lager.NewReconfigurableSink(
+		lager.NewWriterSink(os.Stdout, lager.DEBUG),
+		lager.INFO)
+	logger.RegisterSink(reconfigurableSink)
+	logger.Info("starting")
 
 	configFilePath := flag.String("config", "", "path to config file")
 	flag.Parse()
@@ -91,13 +98,25 @@ func mainWithError() error {
 		logger.Info("renewed-lease", lager.Data{"lease": lease})
 	}
 
+	debugServerAddress := fmt.Sprintf("127.0.0.1:%d", cfg.DebugServerPort)
 	healthCheckServer, err := buildHealthCheckServer(cfg.HealthCheckPort, lease)
 	if err != nil {
 		return fmt.Errorf("create health check server: %s", err) // not tested
 	}
 
+	vxlanPoller := &poller.Poller{
+		Logger:       logger,
+		PollInterval: time.Duration(cfg.PollInterval) * time.Second,
+		SingleCycleFunc: (&planner.VXLANPlanner{
+			Logger:           logger,
+			ControllerClient: client,
+		}).DoCycle,
+	}
+
 	members := grouper.Members{
 		{"server", healthCheckServer},
+		{"vxlan_poller", vxlanPoller},
+		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},
 	}
 	group := grouper.NewOrdered(os.Interrupt, members)
 	monitor := ifrit.Invoke(sigmon.New(group))
