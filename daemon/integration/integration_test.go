@@ -162,7 +162,7 @@ var _ = Describe("Daemon Integration", func() {
 		By("restarting the daemon")
 		startAndWaitForDaemon()
 
-		By("renewing it's lease")
+		By("renewing its lease")
 		var renewRequest controller.Lease
 		Expect(json.Unmarshal(handler.LastRequestBody, &renewRequest)).To(Succeed())
 		Expect(renewRequest).To(Equal(daemonLease))
@@ -179,8 +179,18 @@ var _ = Describe("Daemon Integration", func() {
 		setLogLevel("DEBUG", daemonDebugServerPort)
 
 		By("checking that the correct leases are logged")
+		Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
 		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 		Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
+
+		By("removing the leases from the controller")
+		fakeServer.SetHandler("/leases", &testsupport.FakeHandler{
+			ResponseCode: 200,
+			ResponseBody: map[string][]controller.Lease{"leases": []controller.Lease{}}},
+		)
+
+		By("checking that no leases are logged")
+		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
 	})
 })
 
