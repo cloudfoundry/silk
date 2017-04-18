@@ -19,12 +19,13 @@ type ConfigCreator struct {
 }
 
 type Config struct {
-	VTEPName            string
-	UnderlayInterface   net.Interface
-	UnderlayIP          net.IP
-	OverlayIP           net.IP
-	OverlayHardwareAddr net.HardwareAddr
-	VNI                 int
+	VTEPName                   string
+	UnderlayInterface          net.Interface
+	UnderlayIP                 net.IP
+	OverlayIP                  net.IP
+	OverlayHardwareAddr        net.HardwareAddr
+	VNI                        int
+	OverlayNetworkPrefixLength int
 }
 
 func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.Lease) (*Config, error) {
@@ -52,6 +53,15 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 		return nil, fmt.Errorf("parsing hardware address: %s", err)
 	}
 
+	if clientConf.OverlayNetworkPrefixLength < 1 {
+		return nil, fmt.Errorf("missing required config overlay network prefix length")
+	}
+
+	if clientConf.OverlayNetworkPrefixLength >= clientConf.SubnetPrefixLength {
+		return nil, fmt.Errorf("overlay prefix %d must be smaller than subnet prefix %d",
+			clientConf.OverlayNetworkPrefixLength, clientConf.SubnetPrefixLength)
+	}
+
 	return &Config{
 		VTEPName:            clientConf.VTEPName,
 		UnderlayInterface:   underlayInterface,
@@ -59,6 +69,7 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 		OverlayIP:           overlayIP,
 		OverlayHardwareAddr: overlayHardwareAddr,
 		VNI:                 clientConf.VNI,
+		OverlayNetworkPrefixLength: clientConf.OverlayNetworkPrefixLength,
 	}, nil
 }
 

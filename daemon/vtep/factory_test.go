@@ -39,6 +39,7 @@ var _ = Describe("Factory", func() {
 			OverlayIP:           net.IP{10, 255, 32, 0},
 			OverlayHardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00},
 			VNI:                 99,
+			OverlayNetworkPrefixLength: 10,
 		}
 	})
 
@@ -75,7 +76,7 @@ var _ = Describe("Factory", func() {
 			Expect(addr).To(Equal(&netlink.Addr{
 				IPNet: &net.IPNet{
 					IP:   net.IP{10, 255, 32, 0},
-					Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
+					Mask: net.IPMask{0xff, 0xc0, 0x00, 0x00},
 				},
 			}))
 		})

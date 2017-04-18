@@ -61,7 +61,6 @@ elif [ ${DB:-"none"} = "postgres" ]; then
   bootPostgres
 else
   echo "skipping database"
-  extraArgs="-skipPackage=daemon ${extraArgs}"
 fi
 
 ginkgo -r -p --race -randomizeAllSpecs -randomizeSuites -ldflags="-extldflags=-Wl,--allow-multiple-definition" ${extraArgs}

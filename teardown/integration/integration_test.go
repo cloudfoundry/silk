@@ -48,7 +48,6 @@ var _ = BeforeEach(func() {
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
 	clientConf = config.Config{
 		UnderlayIP:            localIP,
-		SubnetRange:           "10.255.0.0/16",
 		SubnetPrefixLength:    24,
 		HealthCheckPort:       4000,
 		VTEPName:              vtepConfig.VTEPName,

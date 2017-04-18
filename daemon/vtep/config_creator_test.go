@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net"
 
-	"code.cloudfoundry.org/silk/client/config"
+	clientConfig "code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/daemon/vtep/fakes"
@@ -17,7 +17,7 @@ var _ = Describe("ConfigCreator", func() {
 		var (
 			creator        *vtep.ConfigCreator
 			fakeNetAdapter *fakes.NetAdapter
-			clientConf     config.Config
+			clientConf     clientConfig.Config
 			lease          controller.Lease
 		)
 		BeforeEach(func() {
@@ -25,12 +25,12 @@ var _ = Describe("ConfigCreator", func() {
 			creator = &vtep.ConfigCreator{
 				NetAdapter: fakeNetAdapter,
 			}
-			clientConf = config.Config{
+			clientConf = clientConfig.Config{
 				UnderlayIP:         "172.255.30.2",
-				SubnetRange:        "10.255.0.0/16",
 				SubnetPrefixLength: 24,
 				VTEPName:           "some-vtep-name",
 				VNI:                99,
+				OverlayNetworkPrefixLength: 16,
 			}
 			lease = controller.Lease{
 				UnderlayIP:          "172.255.30.02",
@@ -58,10 +58,31 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.OverlayIP.String()).To(Equal("10.255.30.0"))
 			Expect(conf.OverlayHardwareAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x1e, 0x00}))
 			Expect(conf.VNI).To(Equal(99))
+			Expect(conf.OverlayNetworkPrefixLength).To(Equal(16))
 
 			Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(1))
 			Expect(fakeNetAdapter.InterfaceAddrsCallCount()).To(Equal(1))
 			Expect(fakeNetAdapter.InterfaceAddrsArgsForCall(0)).To(Equal(net.Interface{Index: 42}))
+		})
+
+		Context("when the overlay network prefix length is greater than or equal to the subnet prefix length", func() {
+			BeforeEach(func() {
+				clientConf.OverlayNetworkPrefixLength = 30
+			})
+			It("returns an error", func() {
+				_, err := creator.Create(clientConf, lease)
+				Expect(err).To(MatchError("overlay prefix 30 must be smaller than subnet prefix 24"))
+			})
+		})
+
+		Context("when the overlay network prefix length not set", func() {
+			BeforeEach(func() {
+				clientConf.OverlayNetworkPrefixLength = 0
+			})
+			It("returns an error", func() {
+				_, err := creator.Create(clientConf, lease)
+				Expect(err).To(MatchError("missing required config overlay network prefix length"))
+			})
 		})
 
 		Context("when the vtep name is empty", func() {

@@ -57,18 +57,18 @@ var _ = BeforeEach(func() {
 	daemonDebugServerPort = 20000 + GinkgoParallelNode()
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
 	daemonConf = config.Config{
-		UnderlayIP:            localIP,
-		SubnetRange:           "10.255.0.0/16",
-		SubnetPrefixLength:    24,
-		HealthCheckPort:       uint16(daemonHealthCheckPort),
-		VTEPName:              vtepName,
-		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),
-		ServerCACertFile:      paths.ServerCACertFile,
-		ClientCertFile:        paths.ClientCertFile,
-		ClientKeyFile:         paths.ClientKeyFile,
-		VNI:                   vni,
-		PollInterval:          1,
-		DebugServerPort:       daemonDebugServerPort,
+		UnderlayIP:                 localIP,
+		SubnetPrefixLength:         24,
+		OverlayNetworkPrefixLength: 16,
+		HealthCheckPort:            uint16(daemonHealthCheckPort),
+		VTEPName:                   vtepName,
+		ConnectivityServerURL:      fmt.Sprintf("https://%s", serverListenAddr),
+		ServerCACertFile:           paths.ServerCACertFile,
+		ClientCertFile:             paths.ClientCertFile,
+		ClientKeyFile:              paths.ClientKeyFile,
+		VNI:                        vni,
+		PollInterval:               1,
+		DebugServerPort:            daemonDebugServerPort,
 	}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
@@ -142,7 +142,6 @@ var _ = Describe("Daemon Integration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(addresses).To(HaveLen(1))
 		Expect(addresses[0].IP.String()).To(Equal("10.255.30.0"))
-
 		By("checking the daemon's healthcheck")
 		doHealthCheck()
 
@@ -182,6 +181,10 @@ var _ = Describe("Daemon Integration", func() {
 		Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
 		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 		Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
+
+		By("checking the arp fdb and routing are correct")
+		routes := mustSucceed("ip", "route", "list", "dev", vtepName)
+		Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
 
 		By("removing the leases from the controller")
 		fakeServer.SetHandler("/leases", &testsupport.FakeHandler{

@@ -47,10 +47,12 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 		return fmt.Errorf("set hardware addr: %s", err)
 	}
 
+	overlayNetworkMask := net.CIDRMask(cfg.OverlayNetworkPrefixLength, 32)
+
 	err = f.NetlinkAdapter.AddrAddScopeLink(vxlan, &netlink.Addr{
 		IPNet: &net.IPNet{
 			IP:   cfg.OverlayIP,
-			Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
+			Mask: overlayNetworkMask,
 		},
 	})
 	if err != nil {
