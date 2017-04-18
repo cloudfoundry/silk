@@ -28,16 +28,17 @@ import (
 var (
 	DEFAULT_TIMEOUT = "5s"
 
-	localIP              string
-	daemonConf           config.Config
-	daemonLease          controller.Lease
-	fakeServer           *testsupport.FakeController
-	serverListenAddr     string
-	serverTLSConfig      *tls.Config
-	session              *gexec.Session
-	daemonHealthCheckURL string
-	vtepName             string
-	vni                  int
+	localIP               string
+	daemonConf            config.Config
+	daemonLease           controller.Lease
+	fakeServer            *testsupport.FakeController
+	serverListenAddr      string
+	serverTLSConfig       *tls.Config
+	session               *gexec.Session
+	daemonHealthCheckURL  string
+	daemonDebugServerPort int
+	vtepName              string
+	vni                   int
 )
 
 var _ = BeforeEach(func() {
@@ -53,6 +54,7 @@ var _ = BeforeEach(func() {
 	vtepName = fmt.Sprintf("silk-vtep-%d", GinkgoParallelNode())
 	daemonHealthCheckPort := 4000 + GinkgoParallelNode()
 	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
+	daemonDebugServerPort = 20000 + GinkgoParallelNode()
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
 	daemonConf = config.Config{
 		UnderlayIP:            localIP,
@@ -65,13 +67,15 @@ var _ = BeforeEach(func() {
 		ClientCertFile:        paths.ClientCertFile,
 		ClientKeyFile:         paths.ClientKeyFile,
 		VNI:                   vni,
+		PollInterval:          1,
+		DebugServerPort:       daemonDebugServerPort,
 	}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
 	Expect(err).NotTo(HaveOccurred())
 	fakeServer = testsupport.StartServer(serverListenAddr, serverTLSConfig)
 
-	handler := &testsupport.FakeHandler{
+	acquireHandler := &testsupport.FakeHandler{
 		ResponseCode: 200,
 		ResponseBody: &controller.Lease{
 			UnderlayIP:          localIP,
@@ -79,7 +83,26 @@ var _ = BeforeEach(func() {
 			OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
 		},
 	}
-	fakeServer.SetHandler("/leases/acquire", handler)
+
+	leases := map[string][]controller.Lease{
+		"leases": []controller.Lease{
+			{
+				UnderlayIP:          localIP,
+				OverlaySubnet:       "10.255.30.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
+			}, {
+				UnderlayIP:          "172.17.0.5",
+				OverlaySubnet:       "10.255.40.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:ff:28:00",
+			},
+		},
+	}
+	indexHandler := &testsupport.FakeHandler{
+		ResponseCode: 200,
+		ResponseBody: leases,
+	}
+	fakeServer.SetHandler("/leases/acquire", acquireHandler)
+	fakeServer.SetHandler("/leases", indexHandler)
 })
 
 var _ = AfterEach(func() {
@@ -149,6 +172,15 @@ var _ = Describe("Daemon Integration", func() {
 
 		By("inspecting the daemon's log to see that it renewed a new lease")
 		Expect(session.Out).To(gbytes.Say(`renewed-lease.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
+	})
+
+	It("polls for other leases and logs it at debug level", func() {
+		By("turning on debug logging")
+		setLogLevel("DEBUG", daemonDebugServerPort)
+
+		By("checking that the correct leases are logged")
+		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
+		Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 	})
 })
 
@@ -242,4 +274,12 @@ func stopServer(server ifrit.Process) {
 	}
 	server.Signal(os.Interrupt)
 	Eventually(server.Wait()).Should(Receive())
+}
+
+func setLogLevel(level string, port int) {
+	serverAddress := fmt.Sprintf("localhost:%d/log-level", port)
+	curlCmd := exec.Command("curl", serverAddress, "-X", "POST", "-d", level)
+	Expect(curlCmd.Start()).To(Succeed())
+	Expect(curlCmd.Wait()).To(Succeed())
+	return
 }
