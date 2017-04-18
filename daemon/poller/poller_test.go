@@ -2,12 +2,12 @@ package poller_test
 
 import (
 	"errors"
-	"lib/poller"
 	"os"
 	"sync/atomic"
 	"time"
 
 	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/silk/daemon/poller"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
