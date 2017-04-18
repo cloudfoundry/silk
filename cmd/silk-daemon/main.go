@@ -47,17 +47,20 @@ func mainWithError() error {
 	if err != nil {
 		return fmt.Errorf("create tls config: %s", err) // TODO not tested - see teardown
 	}
+
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfig,
 		},
 	}
-
-	client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
-
 	vtepFactory := &vtep.Factory{
 		NetlinkAdapter: &adapter.NetlinkAdapter{},
 	}
+	vtepConfigCreator := &vtep.ConfigCreator{
+		NetAdapter: &adapter.NetAdapter{},
+	}
+
+	client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
 
 	lease, err := discoverLocalLease(cfg)
 	if err != nil {
@@ -71,9 +74,6 @@ func mainWithError() error {
 			return fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
 		}
 
-		vtepConfigCreator := &vtep.ConfigCreator{
-			NetAdapter: &adapter.NetAdapter{},
-		}
 		vtepConf, err := vtepConfigCreator.Create(cfg, lease)
 		if err != nil {
 			return fmt.Errorf("create vtep config: %s", err)
