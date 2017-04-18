@@ -32,6 +32,7 @@ var (
 	flannelSubnet   *net.IPNet
 	fullNetwork     *net.IPNet
 	subnetEnvFile   string
+	datastorePath   string
 	fakeHostNSName  string
 	containerNSName string
 	containerID     string
@@ -70,7 +71,11 @@ var _ = BeforeEach(func() {
 		Mask: flannelSubnetCIDR.Mask,
 	}
 	subnetEnvFile = writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
-	cniStdin = cniConfig(dataDir, subnetEnvFile)
+	cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+
+	datastoreDir, err := ioutil.TempDir("", "metadata-dir-")
+	Expect(err).NotTo(HaveOccurred())
+	datastorePath = filepath.Join(datastoreDir, "container-metadata.json")
 })
 
 var _ = AfterEach(func() {
@@ -80,12 +85,13 @@ var _ = AfterEach(func() {
 	mustSucceed("ip", "netns", "del", containerNSName)
 	Expect(os.RemoveAll(subnetEnvFile)).To(Succeed())
 	Expect(os.RemoveAll(dataDir)).To(Succeed())
+	Expect(os.RemoveAll(datastorePath)).To(Succeed())
 })
 
 var _ = Describe("Silk CNI Acceptance", func() {
 	Describe("veth devices", func() {
 		BeforeEach(func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 		})
 
 		It("returns the expected CNI result", func() {
@@ -221,7 +227,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("enables connectivity between the host and container", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -237,7 +243,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("turns off ARP for veth devices", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -284,7 +290,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("adds routes to the container", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -315,7 +321,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("allows the container to reach IP addresses on the host namespace", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -337,7 +343,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			// concurrently with any other test that also touches the REAL host namespace
 			// Avoid writing such tests if you can.
 			By("calling CNI with ADD")
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 			sess := startCommandInRealHostNamespace("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -403,8 +409,9 @@ var _ = Describe("Silk CNI Acceptance", func() {
 					"type": "silk",
 					"mtu": 1350,
 					"dataDir": "%s",
-					"subnetFile": "%s"
-				}`, dataDir, subnetEnvFile)
+					"subnetFile": "%s",
+					"datastore": "%s"
+				}`, dataDir, subnetEnvFile, datastorePath)
 				sess := startCommandInHost("ADD", cniStdin)
 				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -448,7 +455,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 
 	Describe("Lifecycle", func() {
 		BeforeEach(func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 		})
 		It("allocates and frees ips", func() {
 			By("calling ADD")
@@ -477,6 +484,35 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			By("checking that the ip reserved is freed")
 			Expect(filepath.Join(dataDir, "ipam/my-silk-network/10.255.30.1")).NotTo(BeAnExistingFile())
 		})
+
+		It("writes and deletes container metadata", func() {
+			By("calling ADD")
+			sess := startCommandInHost("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			By("checking that the container metadata is written")
+			containerMetadata, err := ioutil.ReadFile(datastorePath)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(string(containerMetadata)).To(MatchJSON(`{
+				"my-silk-network": {
+					"handle":"my-silk-network",
+					"ip":"10.255.30.1",
+					"metadata":null
+				}
+			}`))
+
+			By("calling DEL")
+			sess = startCommandInHost("DEL", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			Expect(sess.Out.Contents()).To(BeEmpty())
+
+			By("checking that the container metadata is deleted")
+			containerMetadata, err = ioutil.ReadFile(datastorePath)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(string(containerMetadata)).NotTo(ContainSubstring("10.255.30.1"))
+		})
 	})
 
 	Describe("Reserve all IPs", func() {
@@ -485,7 +521,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		)
 		BeforeEach(func() {
 			subnetEnvFile = writeSubnetEnvFile("10.255.30.0/30", fullNetwork.String())
-			cniStdin = cniConfig(dataDir, subnetEnvFile)
+			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
 			for i := 0; i < 3; i++ {
 				containerNS, err := ns.NewNS()
 				Expect(err).NotTo(HaveOccurred())
@@ -529,7 +565,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(1))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
-				"msg": "ipam plugin failed",
+				"msg": "run ipam plugin",
 				"details": "no IP addresses available in network: my-silk-network"
 				}`))
 		})
@@ -550,14 +586,15 @@ FLANNEL_IPMASQ=false  # we'll ignore this field
 	return tempFile.Name()
 }
 
-func cniConfig(dataDir, subnetFile string) string {
+func cniConfig(dataDir, subnetFile, datastore string) string {
 	return fmt.Sprintf(`{
 	"cniVersion": "0.3.0",
 	"name": "my-silk-network",
 	"type": "silk",
 	"dataDir": "%s",
-	"subnetFile": "%s"
-}`, dataDir, subnetFile)
+	"subnetFile": "%s",
+	"datastore": "%s"
+}`, dataDir, subnetFile, datastore)
 }
 
 func startCommandInHost(cniCommand, cniStdin string) *gexec.Session {

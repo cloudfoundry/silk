@@ -13,6 +13,9 @@ import (
 	"code.cloudfoundry.org/silk/cni/legacy_flannel"
 	"code.cloudfoundry.org/silk/cni/lib"
 	libAdapter "code.cloudfoundry.org/silk/lib/adapter"
+	"code.cloudfoundry.org/silk/lib/datastore"
+	"code.cloudfoundry.org/silk/lib/filelock"
+	"code.cloudfoundry.org/silk/lib/serial"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -28,6 +31,7 @@ type CNIPlugin struct {
 	VethPairCreator *lib.VethPairCreator
 	Host            *lib.Host
 	Container       *lib.Container
+	Store           *datastore.Store
 	Logger          lager.Logger
 }
 
@@ -51,6 +55,10 @@ func main() {
 		NetlinkAdapter: netlinkAdapter,
 		LinkOperations: linkOperations,
 	}
+	store := &datastore.Store{
+		Serializer: &serial.Serial{},
+		Locker:     &filelock.Locker{},
+	}
 
 	plugin := &CNIPlugin{
 		HostNSPath: hostNS.Path(),
@@ -72,6 +80,7 @@ func main() {
 			LinkOperations: linkOperations,
 		},
 		Logger: logger,
+		Store:  store,
 	}
 
 	skel.PluginMain(plugin.cmdAdd, plugin.cmdDel, version.PluginSupports("0.3.0"))
@@ -82,6 +91,7 @@ type NetConf struct {
 	DataDir    string `json:"dataDir"`
 	SubnetFile string `json:"subnetFile"`
 	MTU        int    `json:"mtu"`
+	Datastore  string `json:"datastore"`
 }
 
 type HostLocalIPAM struct {
@@ -115,7 +125,7 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 
 	networkInfo, err := legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
 	if err != nil {
-		return typedError("discovering network info", err)
+		return typedError("discover network info", err)
 	}
 
 	generator := config.IPAMConfigGenerator{}
@@ -124,32 +134,37 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 
 	result, err := ipam.ExecAdd("host-local", ipamConfigBytes)
 	if err != nil {
-		return typedError("ipam plugin failed", err)
+		return typedError("run ipam plugin", err)
 	}
 
 	cniResult, err := current.NewResultFromResult(result)
 	if err != nil {
-		return fmt.Errorf("unable to convert result to current CNI version: %s", err) // not tested
+		return fmt.Errorf("convert result to current CNI version: %s", err) // not tested
 	}
 
 	cfg, err := p.ConfigCreator.Create(p.HostNS, args, cniResult, networkInfo.MTU)
 	if err != nil {
-		return typedError("creating config", err)
+		return typedError("create config", err)
 	}
 
 	err = p.VethPairCreator.Create(cfg)
 	if err != nil {
-		return typedError("creating veth pair", err)
+		return typedError("create veth pair", err)
 	}
 
 	err = p.Host.Setup(cfg)
 	if err != nil {
-		return typedError("setting up host", err)
+		return typedError("set up host", err)
 	}
 
 	err = p.Container.Setup(cfg)
 	if err != nil {
-		return typedError("setting up container", err)
+		return typedError("set up container", err)
+	}
+
+	err = p.Store.Add(netConf.Datastore, netConf.Name, cfg.Container.Address.IP.String(), nil)
+	if err != nil {
+		return typedError("write container metadata", err)
 	}
 
 	return types.PrintResult(cfg.AsCNIResult(), netConf.CNIVersion)
@@ -164,7 +179,7 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 
 	networkInfo, err := legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
 	if err != nil {
-		return typedError("discovering network info", err)
+		return typedError("discover network info", err)
 	}
 
 	generator := config.IPAMConfigGenerator{}
@@ -179,13 +194,18 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 
 	containerNS, err := ns.GetNS(args.Netns)
 	if err != nil {
-		p.Logger.Error("opening-netns", err)
+		p.Logger.Error("open-netns", err)
 		return nil // can't do teardown if no netns
 	}
 
 	err = p.Container.Teardown(containerNS, args.IfName)
 	if err != nil {
 		return typedError("teardown failed", err)
+	}
+
+	_, err = p.Store.Delete(netConf.Datastore, netConf.Name)
+	if err != nil {
+		p.Logger.Error("write-container-metadata", err)
 	}
 
 	return nil
