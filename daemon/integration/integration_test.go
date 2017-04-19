@@ -199,13 +199,11 @@ var _ = Describe("Daemon Integration", func() {
 		Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
 		Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
 
-		/* TODO: get these passing
 		arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
 		Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
 
 		fdbEntries := mustSucceed("bridge", "fdb", "list", "dev", vtepName)
 		Expect(fdbEntries).To(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
-		*/
 
 		By("removing the leases from the controller")
 		fakeServer.SetHandler("/leases", &testsupport.FakeHandler{

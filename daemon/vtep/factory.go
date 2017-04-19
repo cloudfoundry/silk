@@ -17,7 +17,9 @@ type netlinkAdapter interface {
 	AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) error
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 	RouteAdd(*netlink.Route) error
+	RouteReplace(*netlink.Route) error
 	LinkDel(netlink.Link) error
+	NeighSet(*netlink.Neigh) error
 }
 
 type Factory struct {

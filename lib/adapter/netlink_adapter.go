@@ -39,6 +39,10 @@ func (*NetlinkAdapter) NeighAddPermanentIPv4(index int, destIP net.IP, hwAddr ne
 	})
 }
 
+func (*NetlinkAdapter) NeighSet(neigh *netlink.Neigh) error {
+	return netlink.NeighSet(neigh)
+}
+
 func (*NetlinkAdapter) LinkSetARPOff(link netlink.Link) error {
 	return netlink.LinkSetARPOff(link)
 }
@@ -65,4 +69,8 @@ func (*NetlinkAdapter) LinkSetNsFd(link netlink.Link, fd int) error {
 
 func (*NetlinkAdapter) RouteAdd(route *netlink.Route) error {
 	return netlink.RouteAdd(route)
+}
+
+func (*NetlinkAdapter) RouteReplace(route *netlink.Route) error {
+	return netlink.RouteReplace(route)
 }
