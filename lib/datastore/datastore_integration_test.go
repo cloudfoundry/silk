@@ -115,6 +115,10 @@ var _ = Describe("Datastore Lifecycle", func() {
 			data, err = store.ReadAll(filepath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data).Should(BeEmpty())
+
+			By("checking delete is idempotent")
+			_, err = store.Delete(filepath, handle)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("can remove multiple entries to datastore", func() {
@@ -178,7 +182,9 @@ var _ = Describe("Datastore Lifecycle", func() {
 				parallelRunner.RunOnChannel(toRead, func(containerHandle interface{}) {
 					p := containerHandle.(string)
 					func(id string) {
-						//TODO. add the read case
+						contents, err := store.ReadAll(filepath)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(contents).To(HaveKey(p))
 					}(p)
 					toDelete <- p
 				})

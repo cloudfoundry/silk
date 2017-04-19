@@ -138,6 +138,14 @@ var _ = Describe("Datastore", func() {
 			Expect(actual).ToNot(HaveKey(handle))
 		})
 
+		It("is idempotent", func() {
+			_, err := store.Delete(filePath, handle)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = store.Delete(filePath, handle)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		Context("when handle is not valid", func() {
 			It("wraps and returns the error", func() {
 				_, err := store.Delete(filePath, "")

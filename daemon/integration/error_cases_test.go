@@ -33,6 +33,21 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
+	Context("when the tls config is invalid", func() {
+		var configFilePath string
+		BeforeEach(func() {
+			clientConf := daemonConf
+			clientConf.ServerCACertFile = ""
+			configFilePath = writeConfigFile(clientConf)
+		})
+
+		It("exits with status 1", func() {
+			session := startDaemon(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Expect(session.Err.Contents()).To(ContainSubstring("create tls config:"))
+		})
+	})
+
 	Context("when the contents of the config file cannot be unmarshaled", func() {
 		BeforeEach(func() {
 			Expect(ioutil.WriteFile(configFilePath, []byte("some-bad-contents"), os.ModePerm)).To(Succeed())
@@ -103,6 +118,11 @@ var _ = Describe("error cases", func() {
 				startDaemon(configFilePath)
 			})
 
+			AfterEach(func() {
+				err := vtepFactory.DeleteVTEP(vtepName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
 			It("exits with status 1", func() {
 				configFilePath := writeConfigFile(daemonConf)
 				startDaemon(configFilePath)
@@ -140,53 +160,19 @@ var _ = Describe("error cases", func() {
 	      }`), os.FileMode(0600))
 				Expect(err).NotTo(HaveOccurred())
 			})
-			It("fails", func() {
+
+			AfterEach(func() {
+				err := vtepFactory.DeleteVTEP(vtepName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("exists with status 1", func() {
 				configFilePath = writeConfigFile(daemonConf)
 				startDaemon(configFilePath)
 				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-				Expect(session.Out).To(gbytes.Say(`renewed-lease.*"error":"http status 404: "`))
+				Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"http status 404: "`))
 				Expect(string(session.Err.Contents())).To(ContainSubstring(`renew subnet lease with containers: 1`))
 			})
 		})
 	})
-
-	// TODO
-	// Describe("failures to renew an existing lease", func() {
-	// 	BeforeEach(func() {
-	// 		startAndWaitForDaemon()
-	// 		stopDaemon()
-	// 	})
-	// 	AfterEach(func() {
-	// 		mustSucceed("ip", "link", "del", vtepName)
-	// 	})
-	// 	Context("when renew returns a 500", func() {
-	// 		BeforeEach(func() {
-	// 			fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
-	// 				ResponseCode: 500,
-	// 				ResponseBody: struct{}{},
-	// 			})
-	// 		})
-	//
-	// 		It("exits with status 1", func() {
-	// 			session = startDaemon(configFilePath)
-	// 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-	// 			Expect(string(session.Err.Contents())).To(ContainSubstring("renew subnet lease: http status 500"))
-	// 		})
-	// 	})
-	//
-	// 	Context("when renew returns a 409 Conflict", func() {
-	// 		BeforeEach(func() {
-	// 			fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
-	// 				ResponseCode: 409,
-	// 				ResponseBody: map[string]string{"error": "lease mismatch"},
-	// 			})
-	// 		})
-	//
-	// 		It("exits with status 1", func() {
-	// 			session = startDaemon(configFilePath)
-	// 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-	// 			Expect(string(session.Err.Contents())).To(ContainSubstring("renew subnet lease: non-retriable: lease mismatch"))
-	// 		})
-	// 	})
-	// })
 })

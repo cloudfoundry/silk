@@ -55,7 +55,7 @@ func mainWithError() error {
 
 	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
 	if err != nil {
-		return fmt.Errorf("create tls config: %s", err) // TODO not tested - see teardown
+		return fmt.Errorf("create tls config: %s", err)
 	}
 
 	httpClient := &http.Client{
@@ -85,9 +85,8 @@ func mainWithError() error {
 		}
 	} else {
 		err = client.RenewSubnetLease(lease)
-		// TODO retriable vs non-retriable?
 		if err != nil {
-			logger.Error("renewed-lease", err, lager.Data{"lease": lease})
+			logger.Error("renew-lease", err, lager.Data{"lease": lease})
 
 			metadata, err := store.ReadAll(cfg.Datastore)
 			if err != nil {
@@ -99,7 +98,7 @@ func mainWithError() error {
 			} else {
 				err := vtepFactory.DeleteVTEP(cfg.VTEPName)
 				if err != nil {
-					return fmt.Errorf("delete vtep: %s", err) // TODO test me? I don't know how. Should failing to find the vtep be ok?
+					return fmt.Errorf("delete vtep: %s", err) // not tested, should be impossible
 				}
 				lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
 				if err != nil {

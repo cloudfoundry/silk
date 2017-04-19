@@ -15,6 +15,8 @@ import (
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon/vtep"
+	"code.cloudfoundry.org/silk/lib/adapter"
 	"code.cloudfoundry.org/silk/testsupport"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -39,6 +41,7 @@ var (
 	daemonHealthCheckURL  string
 	daemonDebugServerPort int
 	datastorePath         string
+	vtepFactory           *vtep.Factory
 	vtepName              string
 	vni                   int
 )
@@ -76,6 +79,8 @@ var _ = BeforeEach(func() {
 		DebugServerPort:            daemonDebugServerPort,
 		Datastore:                  datastorePath,
 	}
+
+	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
 	Expect(err).NotTo(HaveOccurred())
@@ -121,7 +126,8 @@ var _ = Describe("Daemon Integration", func() {
 	})
 
 	AfterEach(func() {
-		mustSucceed("ip", "link", "del", vtepName)
+		err := vtepFactory.DeleteVTEP(vtepName)
+		Expect(err).NotTo(HaveOccurred())
 		stopDaemon()
 	})
 
@@ -216,8 +222,36 @@ var _ = Describe("Daemon Integration", func() {
 		Context("when no containers are running", func() {
 			It("logs an error message and acquires a new lease", func() {
 				startAndWaitForDaemon()
-				Expect(session.Out).To(gbytes.Say(`renewed-lease.*"error":"http status 404: "`))
+				Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"http status 404: "`))
 				Expect(session.Out).To(gbytes.Say(`acquired-lease.*`))
+			})
+
+			Context("when renew returns a 500", func() {
+				BeforeEach(func() {
+					fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
+						ResponseCode: 500,
+						ResponseBody: struct{}{},
+					})
+				})
+
+				It("logs the correct error message", func() {
+					startAndWaitForDaemon()
+					Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"http status 500: "`))
+				})
+			})
+
+			Context("when renew returns a 409 Conflict", func() {
+				BeforeEach(func() {
+					fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
+						ResponseCode: 409,
+						ResponseBody: map[string]string{"error": "lease mismatch"},
+					})
+				})
+
+				It("logs the correct error message", func() {
+					startAndWaitForDaemon()
+					Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"non-retriable: lease mismatch"`))
+				})
 			})
 		})
 	})
@@ -246,14 +280,6 @@ func doHealthCheck() {
 	err = json.Unmarshal(responseBytes, &response)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(response).To(Equal(daemonLease))
-}
-
-func mustSucceed(binary string, args ...string) string {
-	cmd := exec.Command(binary, args...)
-	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, "10s").Should(gexec.Exit(0))
-	return string(sess.Out.Contents())
 }
 
 func writeConfigFile(config config.Config) string {

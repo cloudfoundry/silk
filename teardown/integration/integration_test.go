@@ -30,7 +30,8 @@ var (
 	serverListenAddr string
 	serverTLSConfig  *tls.Config
 
-	vtepConfig *vtep.Config
+	vtepConfig  *vtep.Config
+	vtepFactory *vtep.Factory
 )
 
 var _ = BeforeEach(func() {
@@ -63,12 +64,13 @@ var _ = BeforeEach(func() {
 	fakeServer = testsupport.StartServer(serverListenAddr, serverTLSConfig)
 
 	By("setting up the vtep to reflect a local lease")
-	vtepFactory := &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
+	vtepFactory = &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
 	Expect(vtepFactory.CreateVTEP(vtepConfig)).To(Succeed())
 })
 
 var _ = AfterEach(func() {
-	exec.Command("ip", "link", "del", vtepConfig.VTEPName).Run()
+	err := vtepFactory.DeleteVTEP(vtepConfig.VTEPName)
+	Expect(err).NotTo(HaveOccurred())
 	fakeServer.Stop()
 })
 

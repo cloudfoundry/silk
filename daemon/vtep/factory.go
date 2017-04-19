@@ -67,11 +67,11 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 func (f *Factory) DeleteVTEP(deviceName string) error {
 	link, err := f.NetlinkAdapter.LinkByName(deviceName)
 	if err != nil {
-		return fmt.Errorf("find link %s: %s", deviceName, err) // TODO test me
+		return fmt.Errorf("find link %s: %s", deviceName, err)
 	}
 	err = f.NetlinkAdapter.LinkDel(link)
 	if err != nil {
-		return fmt.Errorf("delete link %s: %s", deviceName, err) // TODO test me
+		return fmt.Errorf("delete link %s: %s", deviceName, err)
 	}
 	return nil
 }
