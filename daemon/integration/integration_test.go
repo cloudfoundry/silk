@@ -333,6 +333,14 @@ func locateInterface(toFind net.IP) (net.Interface, error) {
 	return net.Interface{}, fmt.Errorf("no interface with address %s", toFind.String())
 }
 
+func mustSucceed(binary string, args ...string) string {
+	cmd := exec.Command(binary, args...)
+	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	Eventually(sess, "10s").Should(gexec.Exit(0))
+	return string(sess.Out.Contents())
+}
+
 func stopServer(server ifrit.Process) {
 	if server == nil {
 		return
