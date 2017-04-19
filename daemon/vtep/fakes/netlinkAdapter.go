@@ -82,6 +82,17 @@ type NetlinkAdapter struct {
 		result1 []netlink.Addr
 		result2 error
 	}
+	RouteAddStub        func(*netlink.Route) error
+	routeAddMutex       sync.RWMutex
+	routeAddArgsForCall []struct {
+		arg1 *netlink.Route
+	}
+	routeAddReturns struct {
+		result1 error
+	}
+	routeAddReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -383,6 +394,54 @@ func (fake *NetlinkAdapter) AddrListReturnsOnCall(i int, result1 []netlink.Addr,
 	}{result1, result2}
 }
 
+func (fake *NetlinkAdapter) RouteAdd(arg1 *netlink.Route) error {
+	fake.routeAddMutex.Lock()
+	ret, specificReturn := fake.routeAddReturnsOnCall[len(fake.routeAddArgsForCall)]
+	fake.routeAddArgsForCall = append(fake.routeAddArgsForCall, struct {
+		arg1 *netlink.Route
+	}{arg1})
+	fake.recordInvocation("RouteAdd", []interface{}{arg1})
+	fake.routeAddMutex.Unlock()
+	if fake.RouteAddStub != nil {
+		return fake.RouteAddStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.routeAddReturns.result1
+}
+
+func (fake *NetlinkAdapter) RouteAddCallCount() int {
+	fake.routeAddMutex.RLock()
+	defer fake.routeAddMutex.RUnlock()
+	return len(fake.routeAddArgsForCall)
+}
+
+func (fake *NetlinkAdapter) RouteAddArgsForCall(i int) *netlink.Route {
+	fake.routeAddMutex.RLock()
+	defer fake.routeAddMutex.RUnlock()
+	return fake.routeAddArgsForCall[i].arg1
+}
+
+func (fake *NetlinkAdapter) RouteAddReturns(result1 error) {
+	fake.RouteAddStub = nil
+	fake.routeAddReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) RouteAddReturnsOnCall(i int, result1 error) {
+	fake.RouteAddStub = nil
+	if fake.routeAddReturnsOnCall == nil {
+		fake.routeAddReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.routeAddReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -398,6 +457,8 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.addrAddScopeLinkMutex.RUnlock()
 	fake.addrListMutex.RLock()
 	defer fake.addrListMutex.RUnlock()
+	fake.routeAddMutex.RLock()
+	defer fake.routeAddMutex.RUnlock()
 	return fake.invocations
 }
 

@@ -185,6 +185,7 @@ var _ = Describe("Daemon Integration", func() {
 		By("checking the arp fdb and routing are correct")
 		routes := mustSucceed("ip", "route", "list", "dev", vtepName)
 		Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+		Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
 
 		By("removing the leases from the controller")
 		fakeServer.SetHandler("/leases", &testsupport.FakeHandler{

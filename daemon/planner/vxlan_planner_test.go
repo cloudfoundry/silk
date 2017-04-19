@@ -18,14 +18,17 @@ var _ = Describe("VxlanPlanner", func() {
 		logger           *lagertest.TestLogger
 		vxlanPlanner     *planner.VXLANPlanner
 		controllerClient *fakes.ControllerClient
+		converger        *fakes.Converger
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		controllerClient = &fakes.ControllerClient{}
+		converger = &fakes.Converger{}
 		vxlanPlanner = &planner.VXLANPlanner{
 			Logger:           logger,
 			ControllerClient: controllerClient,
+			Converger:        converger,
 		}
 	})
 
@@ -44,6 +47,15 @@ var _ = Describe("VxlanPlanner", func() {
 			}}
 			controllerClient.GetRoutableLeasesReturns(leases, nil)
 		})
+
+		It("calls the converger with the leases", func() {
+			err := vxlanPlanner.DoCycle()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(converger.ConvergeCallCount()).To(Equal(1))
+			Expect(converger.ConvergeArgsForCall(0)).To(Equal(leases))
+		})
+
 		It("calls the controller and logs the leases", func() {
 			err := vxlanPlanner.DoCycle()
 			Expect(err).NotTo(HaveOccurred())
@@ -72,6 +84,16 @@ var _ = Describe("VxlanPlanner", func() {
 			It("returns the error", func() {
 				err := vxlanPlanner.DoCycle()
 				Expect(err).To(MatchError("get routable leases: guava"))
+			})
+		})
+
+		Context("when the converger fails", func() {
+			BeforeEach(func() {
+				converger.ConvergeReturns(errors.New("banana"))
+			})
+			It("returns an error", func() {
+				err := vxlanPlanner.DoCycle()
+				Expect(err).To(MatchError("converge leases: banana"))
 			})
 		})
 	})

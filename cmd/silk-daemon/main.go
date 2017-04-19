@@ -104,12 +104,27 @@ func mainWithError() error {
 		return fmt.Errorf("create health check server: %s", err) // not tested
 	}
 
+	_, localSubnet, err := net.ParseCIDR(lease.OverlaySubnet)
+	if err != nil {
+		log.Fatalf("parse local subnet CIDR") //TODO add test coverage
+	}
+
+	vxlanIface, err := net.InterfaceByName(cfg.VTEPName)
+	if err != nil || vxlanIface == nil {
+		log.Fatalf("find local VTEP") //TODO add test coverage
+	}
+
 	vxlanPoller := &poller.Poller{
 		Logger:       logger,
 		PollInterval: time.Duration(cfg.PollInterval) * time.Second,
 		SingleCycleFunc: (&planner.VXLANPlanner{
 			Logger:           logger,
 			ControllerClient: client,
+			Converger: &vtep.Converger{
+				LocalSubnet:    localSubnet,
+				LocalVTEP:      *vxlanIface,
+				NetlinkAdapter: &adapter.NetlinkAdapter{},
+			},
 		}).DoCycle,
 	}
 

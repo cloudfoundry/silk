@@ -63,6 +63,6 @@ func (*NetlinkAdapter) LinkSetNsFd(link netlink.Link, fd int) error {
 	return netlink.LinkSetNsFd(link, fd)
 }
 
-func (*NetlinkAdapter) RouteAdd(route netlink.Route) error {
-	return netlink.RouteAdd(&route)
+func (*NetlinkAdapter) RouteAdd(route *netlink.Route) error {
+	return netlink.RouteAdd(route)
 }

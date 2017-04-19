@@ -16,6 +16,7 @@ type netlinkAdapter interface {
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
 	AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) error
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
+	RouteAdd(*netlink.Route) error
 }
 
 type Factory struct {
