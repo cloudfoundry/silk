@@ -4,25 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-
-	"code.cloudfoundry.org/go-db-helpers/db"
 )
 
 type Config struct {
-	UnderlayIP                 string    `json:"underlay_ip"`
-	SubnetPrefixLength         int       `json:"subnet_prefix_length"`
-	OverlayNetworkPrefixLength int       `json:"overlay_network_prefix_length"`
-	Database                   db.Config `json:"database"`
-	HealthCheckPort            uint16    `json:"health_check_port"`
-	VTEPName                   string    `json:"vtep_name"`
-	ConnectivityServerURL      string    `json:"connectivity_server_url"`
-	ServerCACertFile           string    `json:"ca_cert_file" validate:"nonzero"`
-	ClientCertFile             string    `json:"client_cert_file" validate:"nonzero"`
-	ClientKeyFile              string    `json:"client_key_file" validate:"nonzero"`
-	VNI                        int       `json:"vni"`
-	PollInterval               int       `json:"poll_interval"`
-	DebugServerPort            int       `json:"debug_server_port"`
-	Datastore                  string    `json:"datastore"`
+	UnderlayIP                 string `json:"underlay_ip"`
+	SubnetPrefixLength         int    `json:"subnet_prefix_length"`
+	OverlayNetworkPrefixLength int    `json:"overlay_network_prefix_length"`
+	HealthCheckPort            uint16 `json:"health_check_port"`
+	VTEPName                   string `json:"vtep_name"`
+	ConnectivityServerURL      string `json:"connectivity_server_url"`
+	ServerCACertFile           string `json:"ca_cert_file" validate:"nonzero"`
+	ClientCertFile             string `json:"client_cert_file" validate:"nonzero"`
+	ClientKeyFile              string `json:"client_key_file" validate:"nonzero"`
+	VNI                        int    `json:"vni"`
+	PollInterval               int    `json:"poll_interval"`
+	DebugServerPort            int    `json:"debug_server_port"`
+	Datastore                  string `json:"datastore"`
 }
 
 func LoadConfig(filePath string) (Config, error) {
