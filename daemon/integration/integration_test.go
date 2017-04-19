@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/localip"
@@ -37,6 +38,7 @@ var (
 	session               *gexec.Session
 	daemonHealthCheckURL  string
 	daemonDebugServerPort int
+	datastorePath         string
 	vtepName              string
 	vni                   int
 )
@@ -56,6 +58,9 @@ var _ = BeforeEach(func() {
 	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
 	daemonDebugServerPort = 20000 + GinkgoParallelNode()
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
+	datastoreDir, err := ioutil.TempDir("", "")
+	Expect(err).NotTo(HaveOccurred())
+	datastorePath = filepath.Join(datastoreDir, "container-metadata.json")
 	daemonConf = config.Config{
 		UnderlayIP:                 localIP,
 		SubnetPrefixLength:         24,
@@ -69,6 +74,7 @@ var _ = BeforeEach(func() {
 		VNI:                        vni,
 		PollInterval:               1,
 		DebugServerPort:            daemonDebugServerPort,
+		Datastore:                  datastorePath,
 	}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
@@ -195,6 +201,26 @@ var _ = Describe("Daemon Integration", func() {
 
 		By("checking that no leases are logged")
 		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
+	})
+
+	Context("when no containers are running on the cell and a lease cannot be renewed", func() {
+		// manually create vtep, ( or run silk-daemon once, let that create vtep, stop it, ctrl-c)
+		// force controller to return error on renew. use fakeServer
+		// start daemon, discover the lease, but then get error on renew
+		BeforeEach(func() {
+			stopDaemon()
+
+			fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
+				ResponseCode: 404,
+				ResponseBody: map[string]interface{}{},
+			})
+		})
+
+		It("logs an error message and acquires a new lease", func() {
+			startAndWaitForDaemon()
+			Expect(session.Out).To(gbytes.Say(`renewed-lease.*"error":"http status 404: "`))
+			Expect(session.Out).To(gbytes.Say(`acquired-lease.*`))
+		})
 	})
 })
 

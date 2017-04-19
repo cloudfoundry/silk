@@ -19,6 +19,9 @@ import (
 	"code.cloudfoundry.org/silk/daemon/poller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
+	"code.cloudfoundry.org/silk/lib/datastore"
+	"code.cloudfoundry.org/silk/lib/filelock"
+	"code.cloudfoundry.org/silk/lib/serial"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -69,31 +72,35 @@ func mainWithError() error {
 
 	client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
 
+	store := &datastore.Store{
+		Serializer: &serial.Serial{},
+		Locker:     &filelock.Locker{},
+	}
+
 	lease, err := discoverLocalLease(cfg)
 	if err != nil {
-		lease, err = client.AcquireSubnetLease(cfg.UnderlayIP)
+		lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
 		if err != nil {
-			return fmt.Errorf("acquire subnet lease: %s", err)
-		}
-		logger.Info("acquired-lease", lager.Data{"lease": lease})
-
-		if cfg.HealthCheckPort == 0 {
-			return fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
-		}
-
-		vtepConf, err := vtepConfigCreator.Create(cfg, lease)
-		if err != nil {
-			return fmt.Errorf("create vtep config: %s", err)
-		}
-
-		err = vtepFactory.CreateVTEP(vtepConf)
-		if err != nil {
-			return fmt.Errorf("create vtep: %s", err)
+			return err
 		}
 	} else {
 		err = client.RenewSubnetLease(lease)
 		if err != nil {
-			return fmt.Errorf("renew subnet lease: %s", err)
+			metadata, err := store.ReadAll(cfg.Datastore)
+			if len(metadata) != 0 {
+				return fmt.Errorf("renew subnet lease: %s", err)
+			} else {
+				logger.Error("renewed-lease", err, lager.Data{"lease": lease})
+
+				vtepFactory.DeleteVTEP(cfg.VTEPName)
+				lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
+				if err != nil {
+					return err
+				}
+				// else
+				// log warning
+				// release lease, destroy vtep, acquire new lease
+			}
 		}
 		logger.Info("renewed-lease", lager.Data{"lease": lease})
 	}
@@ -138,6 +145,30 @@ func mainWithError() error {
 
 	err = <-monitor.Wait()
 	return err
+}
+
+func acquireLease(logger lager.Logger, client *controller.Client, vtepConfigCreator *vtep.ConfigCreator, vtepFactory *vtep.Factory, cfg config.Config) (controller.Lease, error) {
+	lease, err := client.AcquireSubnetLease(cfg.UnderlayIP)
+	if err != nil {
+		return controller.Lease{}, fmt.Errorf("acquire subnet lease: %s", err)
+	}
+	logger.Info("acquired-lease", lager.Data{"lease": lease})
+
+	if cfg.HealthCheckPort == 0 {
+		return controller.Lease{}, fmt.Errorf("invalid health check port: %d", cfg.HealthCheckPort)
+	}
+
+	vtepConf, err := vtepConfigCreator.Create(cfg, lease)
+	if err != nil {
+		return controller.Lease{}, fmt.Errorf("create vtep config: %s", err)
+	}
+
+	err = vtepFactory.CreateVTEP(vtepConf)
+	if err != nil {
+		return controller.Lease{}, fmt.Errorf("create vtep: %s", err)
+	}
+
+	return lease, nil
 }
 
 func buildHealthCheckServer(healthCheckPort uint16, lease controller.Lease) (ifrit.Runner, error) {

@@ -17,6 +17,7 @@ type netlinkAdapter interface {
 	AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) error
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 	RouteAdd(*netlink.Route) error
+	LinkDel(netlink.Link) error
 }
 
 type Factory struct {
@@ -61,6 +62,15 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 	}
 
 	return nil
+}
+
+func (f *Factory) DeleteVTEP(deviceName string) error {
+	link, err := f.NetlinkAdapter.LinkByName(deviceName)
+	if err != nil {
+		return fmt.Errorf("find link %s: %s", deviceName, err)
+	}
+
+	return f.NetlinkAdapter.LinkDel(link)
 }
 
 func (f *Factory) GetVTEPState(vtepName string) (net.HardwareAddr, net.IP, error) {
