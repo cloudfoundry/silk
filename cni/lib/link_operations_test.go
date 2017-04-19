@@ -323,7 +323,7 @@ var _ = Describe("Link Operations", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(fakeNetlinkAdapter.RouteAddCallCount()).To(Equal(3))
-			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(0)).To(Equal(netlink.Route{
+			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(0)).To(Equal(&netlink.Route{
 				Src: ipAddr,
 				Dst: &net.IPNet{
 					IP:   []byte{200, 201, 202, 203},
@@ -331,7 +331,7 @@ var _ = Describe("Link Operations", func() {
 				},
 				Gw: net.IP{10, 255, 30, 2},
 			}))
-			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(1)).To(Equal(netlink.Route{
+			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(1)).To(Equal(&netlink.Route{
 				Src: ipAddr,
 				Dst: &net.IPNet{
 					IP:   []byte{100, 101, 102, 103},
@@ -339,7 +339,7 @@ var _ = Describe("Link Operations", func() {
 				},
 				Gw: net.IP{10, 255, 30, 1},
 			}))
-			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(2)).To(Equal(netlink.Route{
+			Expect(fakeNetlinkAdapter.RouteAddArgsForCall(2)).To(Equal(&netlink.Route{
 				Src: ipAddr,
 				Dst: &net.IPNet{
 					IP:   []byte{0, 1, 2, 3},
@@ -351,7 +351,7 @@ var _ = Describe("Link Operations", func() {
 
 		Context("when adding one of the routes fails", func() {
 			BeforeEach(func() {
-				fakeNetlinkAdapter.RouteAddStub = func(route netlink.Route) error {
+				fakeNetlinkAdapter.RouteAddStub = func(route *netlink.Route) error {
 					if route.Gw.String() == "10.255.30.1" {
 						return errors.New("pickle")
 					}

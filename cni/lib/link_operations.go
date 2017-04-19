@@ -113,7 +113,7 @@ func (s *LinkOperations) DeleteLinkByName(deviceName string) error {
 func (s *LinkOperations) RouteAddAll(routes []*types.Route, sourceIP net.IP) error {
 	for _, r := range routes {
 		dst := r.Dst
-		err := s.NetlinkAdapter.RouteAdd(netlink.Route{
+		err := s.NetlinkAdapter.RouteAdd(&netlink.Route{
 			Src: sourceIP,
 			Dst: &dst,
 			Gw:  r.GW,

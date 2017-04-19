@@ -38,7 +38,6 @@ type netlinkAdapter interface {
 	ParseAddr(string) (*netlink.Addr, error)
 	AddrAddScopeLink(netlink.Link, *netlink.Addr) error
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
-	// NeighAdd(*netlink.Neigh) error
 	NeighAddPermanentIPv4(index int, destIP net.IP, hwAddr net.HardwareAddr) error
 	LinkSetARPOff(netlink.Link) error
 	LinkSetName(netlink.Link, string) error
@@ -46,7 +45,7 @@ type netlinkAdapter interface {
 	LinkDel(netlink.Link) error
 	LinkAdd(netlink.Link) error
 	LinkSetNsFd(netlink.Link, int) error
-	RouteAdd(route netlink.Route) error
+	RouteAdd(route *netlink.Route) error
 }
 
 //go:generate counterfeiter -o fakes/netNS.go --fake-name NetNS . netNS

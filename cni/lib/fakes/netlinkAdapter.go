@@ -140,10 +140,10 @@ type NetlinkAdapter struct {
 	linkSetNsFdReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RouteAddStub        func(route netlink.Route) error
+	RouteAddStub        func(route *netlink.Route) error
 	routeAddMutex       sync.RWMutex
 	routeAddArgsForCall []struct {
-		route netlink.Route
+		route *netlink.Route
 	}
 	routeAddReturns struct {
 		result1 error
@@ -695,11 +695,11 @@ func (fake *NetlinkAdapter) LinkSetNsFdReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *NetlinkAdapter) RouteAdd(route netlink.Route) error {
+func (fake *NetlinkAdapter) RouteAdd(route *netlink.Route) error {
 	fake.routeAddMutex.Lock()
 	ret, specificReturn := fake.routeAddReturnsOnCall[len(fake.routeAddArgsForCall)]
 	fake.routeAddArgsForCall = append(fake.routeAddArgsForCall, struct {
-		route netlink.Route
+		route *netlink.Route
 	}{route})
 	fake.recordInvocation("RouteAdd", []interface{}{route})
 	fake.routeAddMutex.Unlock()
@@ -718,7 +718,7 @@ func (fake *NetlinkAdapter) RouteAddCallCount() int {
 	return len(fake.routeAddArgsForCall)
 }
 
-func (fake *NetlinkAdapter) RouteAddArgsForCall(i int) netlink.Route {
+func (fake *NetlinkAdapter) RouteAddArgsForCall(i int) *netlink.Route {
 	fake.routeAddMutex.RLock()
 	defer fake.routeAddMutex.RUnlock()
 	return fake.routeAddArgsForCall[i].route
