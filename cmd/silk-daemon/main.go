@@ -85,21 +85,26 @@ func mainWithError() error {
 		}
 	} else {
 		err = client.RenewSubnetLease(lease)
+		// TODO retriable vs non-retriable?
 		if err != nil {
-			metadata, err := store.ReadAll(cfg.Datastore)
-			if len(metadata) != 0 {
-				return fmt.Errorf("renew subnet lease: %s", err)
-			} else {
-				logger.Error("renewed-lease", err, lager.Data{"lease": lease})
+			logger.Error("renewed-lease", err, lager.Data{"lease": lease})
 
-				vtepFactory.DeleteVTEP(cfg.VTEPName)
+			metadata, err := store.ReadAll(cfg.Datastore)
+			if err != nil {
+				return fmt.Errorf("read datastore: %s", err)
+			}
+
+			if len(metadata) != 0 {
+				return fmt.Errorf("renew subnet lease with containers: %d", len(metadata))
+			} else {
+				err := vtepFactory.DeleteVTEP(cfg.VTEPName)
+				if err != nil {
+					return fmt.Errorf("delete vtep: %s", err) // TODO test me? I don't know how. Should failing to find the vtep be ok?
+				}
 				lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
 				if err != nil {
 					return err
 				}
-				// else
-				// log warning
-				// release lease, destroy vtep, acquire new lease
 			}
 		}
 		logger.Info("renewed-lease", lager.Data{"lease": lease})
@@ -160,12 +165,12 @@ func acquireLease(logger lager.Logger, client *controller.Client, vtepConfigCrea
 
 	vtepConf, err := vtepConfigCreator.Create(cfg, lease)
 	if err != nil {
-		return controller.Lease{}, fmt.Errorf("create vtep config: %s", err)
+		return controller.Lease{}, fmt.Errorf("create vtep config: %s", err) // not tested
 	}
 
 	err = vtepFactory.CreateVTEP(vtepConf)
 	if err != nil {
-		return controller.Lease{}, fmt.Errorf("create vtep: %s", err)
+		return controller.Lease{}, fmt.Errorf("create vtep: %s", err) // not tested
 	}
 
 	return lease, nil

@@ -203,10 +203,7 @@ var _ = Describe("Daemon Integration", func() {
 		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
 	})
 
-	Context("when no containers are running on the cell and a lease cannot be renewed", func() {
-		// manually create vtep, ( or run silk-daemon once, let that create vtep, stop it, ctrl-c)
-		// force controller to return error on renew. use fakeServer
-		// start daemon, discover the lease, but then get error on renew
+	Context("when a local lease is discovered but it cannot be renewed", func() {
 		BeforeEach(func() {
 			stopDaemon()
 
@@ -216,10 +213,12 @@ var _ = Describe("Daemon Integration", func() {
 			})
 		})
 
-		It("logs an error message and acquires a new lease", func() {
-			startAndWaitForDaemon()
-			Expect(session.Out).To(gbytes.Say(`renewed-lease.*"error":"http status 404: "`))
-			Expect(session.Out).To(gbytes.Say(`acquired-lease.*`))
+		Context("when no containers are running", func() {
+			It("logs an error message and acquires a new lease", func() {
+				startAndWaitForDaemon()
+				Expect(session.Out).To(gbytes.Say(`renewed-lease.*"error":"http status 404: "`))
+				Expect(session.Out).To(gbytes.Say(`acquired-lease.*`))
+			})
 		})
 	})
 })

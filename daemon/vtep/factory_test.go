@@ -189,4 +189,51 @@ var _ = Describe("Factory", func() {
 			})
 		})
 	})
+
+	Describe("DeleteVTEP", func() {
+		BeforeEach(func() {
+			fakeNetlinkAdapter.LinkByNameReturns(&netlink.Vxlan{
+				LinkAttrs: netlink.LinkAttrs{
+					Name:         "some-device",
+					HardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x42, 0x00},
+				},
+			}, nil)
+		})
+
+		It("deletes the vtep", func() {
+			err := factory.DeleteVTEP(vtepConfig.VTEPName)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(1))
+			Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal(vtepConfig.VTEPName))
+
+			Expect(fakeNetlinkAdapter.LinkDelCallCount()).To(Equal(1))
+			Expect(fakeNetlinkAdapter.LinkDelArgsForCall(0)).To(Equal(&netlink.Vxlan{
+				LinkAttrs: netlink.LinkAttrs{
+					Name:         "some-device",
+					HardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x42, 0x00},
+				},
+			}))
+		})
+
+		Context("when the link cannot be found", func() {
+			BeforeEach(func() {
+				fakeNetlinkAdapter.LinkByNameReturns(nil, errors.New("banana"))
+			})
+			It("returns an error", func() {
+				err := factory.DeleteVTEP(vtepConfig.VTEPName)
+				Expect(err).To(MatchError("find link some-device: banana"))
+			})
+		})
+
+		Context("when the link cannot be deleted", func() {
+			BeforeEach(func() {
+				fakeNetlinkAdapter.LinkDelReturns(errors.New("banana"))
+			})
+			It("returns an error", func() {
+				err := factory.DeleteVTEP(vtepConfig.VTEPName)
+				Expect(err).To(MatchError("delete link some-device: banana"))
+			})
+		})
+	})
 })

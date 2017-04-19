@@ -93,6 +93,17 @@ type NetlinkAdapter struct {
 	routeAddReturnsOnCall map[int]struct {
 		result1 error
 	}
+	LinkDelStub        func(netlink.Link) error
+	linkDelMutex       sync.RWMutex
+	linkDelArgsForCall []struct {
+		arg1 netlink.Link
+	}
+	linkDelReturns struct {
+		result1 error
+	}
+	linkDelReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -442,6 +453,54 @@ func (fake *NetlinkAdapter) RouteAddReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) LinkDel(arg1 netlink.Link) error {
+	fake.linkDelMutex.Lock()
+	ret, specificReturn := fake.linkDelReturnsOnCall[len(fake.linkDelArgsForCall)]
+	fake.linkDelArgsForCall = append(fake.linkDelArgsForCall, struct {
+		arg1 netlink.Link
+	}{arg1})
+	fake.recordInvocation("LinkDel", []interface{}{arg1})
+	fake.linkDelMutex.Unlock()
+	if fake.LinkDelStub != nil {
+		return fake.LinkDelStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.linkDelReturns.result1
+}
+
+func (fake *NetlinkAdapter) LinkDelCallCount() int {
+	fake.linkDelMutex.RLock()
+	defer fake.linkDelMutex.RUnlock()
+	return len(fake.linkDelArgsForCall)
+}
+
+func (fake *NetlinkAdapter) LinkDelArgsForCall(i int) netlink.Link {
+	fake.linkDelMutex.RLock()
+	defer fake.linkDelMutex.RUnlock()
+	return fake.linkDelArgsForCall[i].arg1
+}
+
+func (fake *NetlinkAdapter) LinkDelReturns(result1 error) {
+	fake.LinkDelStub = nil
+	fake.linkDelReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) LinkDelReturnsOnCall(i int, result1 error) {
+	fake.LinkDelStub = nil
+	if fake.linkDelReturnsOnCall == nil {
+		fake.linkDelReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.linkDelReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -459,6 +518,8 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.addrListMutex.RUnlock()
 	fake.routeAddMutex.RLock()
 	defer fake.routeAddMutex.RUnlock()
+	fake.linkDelMutex.RLock()
+	defer fake.linkDelMutex.RUnlock()
 	return fake.invocations
 }
 
