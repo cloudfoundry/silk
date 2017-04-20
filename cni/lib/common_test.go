@@ -110,9 +110,9 @@ var _ = Describe("Common", func() {
 			BeforeEach(func() {
 				fakeLinkOperations.DisableIPv6Returns(errors.New("kiwi"))
 			})
-			It("wraps and returns the error", func() {
+			It("ignores the error", func() {
 				err := common.BasicSetup(deviceName, local, peer)
-				Expect(err).To(Equal(errors.New("disable IPv6: kiwi")))
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
