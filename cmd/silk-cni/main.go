@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"code.cloudfoundry.org/lager"
 
@@ -162,7 +163,8 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 		return typedError("set up container", err)
 	}
 
-	err = p.Store.Add(netConf.Datastore, netConf.Name, cfg.Container.Address.IP.String(), nil)
+	// use args.Netns as the 'handle' for now
+	err = p.Store.Add(netConf.Datastore, filepath.Base(args.Netns), cfg.Container.Address.IP.String(), nil)
 	if err != nil {
 		return typedError("write container metadata", err)
 	}
@@ -203,7 +205,7 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 		return typedError("teardown failed", err)
 	}
 
-	_, err = p.Store.Delete(netConf.Datastore, netConf.Name)
+	_, err = p.Store.Delete(netConf.Datastore, filepath.Base(args.Netns))
 	if err != nil {
 		p.Logger.Error("write-container-metadata", err)
 	}

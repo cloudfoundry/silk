@@ -494,13 +494,13 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			containerMetadata, err := ioutil.ReadFile(datastorePath)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(string(containerMetadata)).To(MatchJSON(`{
-				"my-silk-network": {
-					"handle":"my-silk-network",
+			Expect(string(containerMetadata)).To(MatchJSON(fmt.Sprintf(`{
+				"%s": {
+					"handle":"%s",
 					"ip":"10.255.30.1",
 					"metadata":null
 				}
-			}`))
+			}`, containerNSName, containerNSName)))
 
 			By("calling DEL")
 			sess = startCommandInHost("DEL", cniStdin)
