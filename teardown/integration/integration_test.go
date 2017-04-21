@@ -96,7 +96,7 @@ var _ = Describe("Teardown Integration", func() {
 		}))
 
 		By("destroying the VTEP")
-		_, _, err := vtepFactory.GetVTEPState(clientConf.VTEPName)
+		_, _, _, err := vtepFactory.GetVTEPState(clientConf.VTEPName)
 		Expect(err).To(MatchError("find link: Link not found"))
 	})
 })

@@ -166,7 +166,7 @@ var _ = Describe("error cases", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("exists with status 1", func() {
+			It("exits with status 1", func() {
 				configFilePath = writeConfigFile(daemonConf)
 				startDaemon(configFilePath)
 				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))

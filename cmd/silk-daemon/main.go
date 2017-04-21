@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon"
 	"code.cloudfoundry.org/silk/daemon/planner"
 	"code.cloudfoundry.org/silk/daemon/poller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
@@ -110,7 +111,12 @@ func mainWithError() error {
 	}
 
 	debugServerAddress := fmt.Sprintf("127.0.0.1:%d", cfg.DebugServerPort)
-	healthCheckServer, err := buildHealthCheckServer(cfg.HealthCheckPort, lease)
+	networkInfo, err := getNetworkInfo(vtepFactory, cfg, lease)
+	if err != nil {
+		return fmt.Errorf("get network info: %s", err) // not tested
+	}
+
+	healthCheckServer, err := buildHealthCheckServer(cfg.HealthCheckPort, networkInfo)
 	if err != nil {
 		return fmt.Errorf("create health check server: %s", err) // not tested
 	}
@@ -176,17 +182,17 @@ func acquireLease(logger lager.Logger, client *controller.Client, vtepConfigCrea
 	return lease, nil
 }
 
-func buildHealthCheckServer(healthCheckPort uint16, lease controller.Lease) (ifrit.Runner, error) {
-	leaseBytes, err := json.Marshal(lease)
+func buildHealthCheckServer(healthCheckPort uint16, networkInfo daemon.NetworkInfo) (ifrit.Runner, error) {
+	networkBytes, err := json.Marshal(networkInfo)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshaling lease: %s", err) // not possible
+		return nil, fmt.Errorf("unmarshaling network info: %s", err) // not possible
 	}
 
 	return http_server.New(
 		fmt.Sprintf("127.0.0.1:%d", healthCheckPort),
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write(leaseBytes)
+			w.Write(networkBytes)
 		}),
 	), nil
 }
@@ -195,9 +201,9 @@ func discoverLocalLease(clientConfig config.Config) (controller.Lease, error) {
 	vtepFactory := &vtep.Factory{
 		NetlinkAdapter: &adapter.NetlinkAdapter{},
 	}
-	overlayHwAddr, overlayIP, err := vtepFactory.GetVTEPState(clientConfig.VTEPName)
+	overlayHwAddr, overlayIP, _, err := vtepFactory.GetVTEPState(clientConfig.VTEPName)
 	if err != nil {
-		return controller.Lease{}, fmt.Errorf("get vtep overlay ip: %s", err)
+		return controller.Lease{}, fmt.Errorf("get vtep overlay ip: %s", err) // not tested
 	}
 	overlaySubnet := &net.IPNet{
 		IP:   overlayIP,
@@ -207,5 +213,17 @@ func discoverLocalLease(clientConfig config.Config) (controller.Lease, error) {
 		UnderlayIP:          clientConfig.UnderlayIP,
 		OverlaySubnet:       overlaySubnet.String(),
 		OverlayHardwareAddr: overlayHwAddr.String(),
+	}, nil
+}
+
+func getNetworkInfo(vtepFactory *vtep.Factory, clientConfig config.Config, lease controller.Lease) (daemon.NetworkInfo, error) {
+	_, _, mtu, err := vtepFactory.GetVTEPState(clientConfig.VTEPName)
+	if err != nil {
+		return daemon.NetworkInfo{}, fmt.Errorf("get vtep mtu: %s", err) // not tested
+	}
+
+	return daemon.NetworkInfo{
+		OverlaySubnet: lease.OverlaySubnet,
+		MTU:           mtu,
 	}, nil
 }

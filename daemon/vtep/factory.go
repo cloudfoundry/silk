@@ -78,17 +78,17 @@ func (f *Factory) DeleteVTEP(deviceName string) error {
 	return nil
 }
 
-func (f *Factory) GetVTEPState(vtepName string) (net.HardwareAddr, net.IP, error) {
+func (f *Factory) GetVTEPState(vtepName string) (net.HardwareAddr, net.IP, int, error) {
 	link, err := f.NetlinkAdapter.LinkByName(vtepName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("find link: %s", err)
+		return nil, nil, 0, fmt.Errorf("find link: %s", err)
 	}
 	addresses, err := f.NetlinkAdapter.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list addresses: %s", err)
+		return nil, nil, 0, fmt.Errorf("list addresses: %s", err)
 	}
 	if len(addresses) == 0 {
-		return nil, nil, errors.New("no addresses")
+		return nil, nil, 0, errors.New("no addresses")
 	}
-	return link.Attrs().HardwareAddr, addresses[0].IP, nil
+	return link.Attrs().HardwareAddr, addresses[0].IP, link.Attrs().MTU, nil
 }

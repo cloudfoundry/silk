@@ -127,6 +127,7 @@ var _ = Describe("Factory", func() {
 			fakeNetlinkAdapter.LinkByNameReturns(&netlink.Vxlan{
 				LinkAttrs: netlink.LinkAttrs{
 					Name:         "some-device",
+					MTU:          1400,
 					HardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x42, 0x00},
 				},
 			}, nil)
@@ -139,11 +140,12 @@ var _ = Describe("Factory", func() {
 				},
 			}, nil)
 		})
-		It("returns the overlay address", func() {
-			hwAddr, ip, err := factory.GetVTEPState(vtepConfig.VTEPName)
+		It("returns the overlay address, hardware addr, and MTU", func() {
+			hwAddr, ip, mtu, err := factory.GetVTEPState(vtepConfig.VTEPName)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ip).To(Equal(net.IP{10, 255, 32, 0}))
 			Expect(hwAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x42, 0x00}))
+			Expect(mtu).To(Equal(1400))
 
 			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(1))
 			Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal(vtepConfig.VTEPName))
@@ -154,6 +156,7 @@ var _ = Describe("Factory", func() {
 				LinkAttrs: netlink.LinkAttrs{
 					Name:         "some-device",
 					HardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x42, 0x00},
+					MTU:          1400,
 				},
 			}))
 			Expect(family).To(Equal(netlink.FAMILY_V4))
@@ -164,7 +167,7 @@ var _ = Describe("Factory", func() {
 				fakeNetlinkAdapter.LinkByNameReturns(nil, errors.New("potato"))
 			})
 			It("returns an error", func() {
-				_, _, err := factory.GetVTEPState(vtepConfig.VTEPName)
+				_, _, _, err := factory.GetVTEPState(vtepConfig.VTEPName)
 				Expect(err).To(MatchError("find link: potato"))
 			})
 		})
@@ -174,7 +177,7 @@ var _ = Describe("Factory", func() {
 				fakeNetlinkAdapter.AddrListReturns(nil, errors.New("potato"))
 			})
 			It("returns an error", func() {
-				_, _, err := factory.GetVTEPState(vtepConfig.VTEPName)
+				_, _, _, err := factory.GetVTEPState(vtepConfig.VTEPName)
 				Expect(err).To(MatchError("list addresses: potato"))
 			})
 		})
@@ -184,7 +187,7 @@ var _ = Describe("Factory", func() {
 				fakeNetlinkAdapter.AddrListReturns(nil, nil)
 			})
 			It("returns an error", func() {
-				_, _, err := factory.GetVTEPState(vtepConfig.VTEPName)
+				_, _, _, err := factory.GetVTEPState(vtepConfig.VTEPName)
 				Expect(err).To(MatchError("no addresses"))
 			})
 		})

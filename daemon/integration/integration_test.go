@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
 	"code.cloudfoundry.org/silk/testsupport"
@@ -309,10 +310,11 @@ func doHealthCheck() {
 	Expect(err).NotTo(HaveOccurred())
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 
-	var response controller.Lease
+	var response daemon.NetworkInfo
 	err = json.Unmarshal(responseBytes, &response)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(response).To(Equal(daemonLease))
+	Expect(response.OverlaySubnet).To(Equal(daemonLease.OverlaySubnet))
+	Expect(response.MTU).To(Equal(1450))
 }
 
 func writeConfigFile(config config.Config) string {
