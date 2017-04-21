@@ -11,6 +11,8 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon/vtep"
+	"code.cloudfoundry.org/silk/lib/adapter"
 )
 
 func main() {
@@ -45,6 +47,12 @@ func mainWithError() error {
 	err = client.ReleaseSubnetLease(cfg.UnderlayIP)
 	if err != nil {
 		return fmt.Errorf("release subnet lease: %s", err)
+	}
+
+	vtepFactory := &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
+	err = vtepFactory.DeleteVTEP(cfg.VTEPName)
+	if err != nil {
+		return fmt.Errorf("delete vtep: %s", err)
 	}
 
 	return err

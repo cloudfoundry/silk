@@ -83,4 +83,20 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
+	Context("when the vtep does not exist", func() {
+		BeforeEach(func() {
+			By("setting up the fake controller")
+			handler := &testsupport.FakeHandler{
+				ResponseCode: 200,
+				ResponseBody: struct{}{},
+			}
+			fakeServer.SetHandler("/leases/release", handler)
+		})
+		It("exits with status 1", func() {
+			session := runTeardown(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(MatchRegexp("delete vtep: find link.*Link not found"))
+		})
+	})
+
 })

@@ -63,32 +63,41 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	fakeServer = testsupport.StartServer(serverListenAddr, serverTLSConfig)
 
-	By("setting up the vtep to reflect a local lease")
 	vtepFactory = &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
-	Expect(vtepFactory.CreateVTEP(vtepConfig)).To(Succeed())
 })
 
 var _ = AfterEach(func() {
-	err := vtepFactory.DeleteVTEP(vtepConfig.VTEPName)
-	Expect(err).NotTo(HaveOccurred())
 	fakeServer.Stop()
 })
 
 var _ = Describe("Teardown Integration", func() {
-	It("discovers the local lease and tells the controller to release it", func() {
-		handler := &testsupport.FakeHandler{
+	var handler *testsupport.FakeHandler
+	BeforeEach(func() {
+		By("setting up the controller")
+		handler = &testsupport.FakeHandler{
 			ResponseCode: 200,
 			ResponseBody: struct{}{},
 		}
 		fakeServer.SetHandler("/leases/release", handler)
+
+		By("creating the vtep to destroy")
+		Expect(vtepFactory.CreateVTEP(vtepConfig)).To(Succeed())
+	})
+	It("releases the lease and destroys the VTEP", func() {
+		By("running teardown")
 		session := runTeardown(writeConfigFile(clientConf))
 		Expect(session).To(gexec.Exit(0))
 
+		By("calling the controller to release the lease")
 		var lastRequest controller.ReleaseLeaseRequest
 		Expect(json.Unmarshal(handler.LastRequestBody, &lastRequest)).To(Succeed())
 		Expect(lastRequest).To(Equal(controller.ReleaseLeaseRequest{
 			UnderlayIP: vtepConfig.UnderlayIP.String(),
 		}))
+
+		By("destroying the VTEP")
+		_, _, err := vtepFactory.GetVTEPState(clientConf.VTEPName)
+		Expect(err).To(MatchError("find link: Link not found"))
 	})
 })
 
