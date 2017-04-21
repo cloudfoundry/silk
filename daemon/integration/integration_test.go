@@ -185,34 +185,61 @@ var _ = Describe("Daemon Integration", func() {
 		Expect(session.Out).To(gbytes.Say(`renewed-lease.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
 	})
 
-	It("polls for other leases and logs it at debug level", func() {
-		By("turning on debug logging")
-		setLogLevel("DEBUG", daemonDebugServerPort)
+	Describe("polling", func() {
+		BeforeEach(func() {
+			By("set up renew handler")
+			handler := &testsupport.FakeHandler{
+				ResponseCode: 200,
+				ResponseBody: struct{}{},
+			}
+			fakeServer.SetHandler("/leases/renew", handler)
 
-		By("checking that the correct leases are logged")
-		Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
-		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
-		Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
+			By("turning on debug logging")
+			setLogLevel("DEBUG", daemonDebugServerPort)
+		})
 
-		By("checking the arp fdb and routing are correct")
-		routes := mustSucceed("ip", "route", "list", "dev", vtepName)
-		Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
-		Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
+		It("polls to renew the lease and logs at debug level", func() {
+			By("checking that the lease renewal is logged")
+			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.renew-lease.*"lease".*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`)))
 
-		arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
-		Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
+			By("stopping the controller")
+			handler := &testsupport.FakeHandler{
+				ResponseCode: 500,
+				ResponseBody: struct{}{},
+			}
+			fakeServer.SetHandler("/leases/renew", handler)
 
-		fdbEntries := mustSucceed("bridge", "fdb", "list", "dev", vtepName)
-		Expect(fdbEntries).To(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
+			By("checking that the lease renewal failure is logged")
+			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.poll-cycle.*renew lease: http status 500`)))
 
-		By("removing the leases from the controller")
-		fakeServer.SetHandler("/leases", &testsupport.FakeHandler{
-			ResponseCode: 200,
-			ResponseBody: map[string][]controller.Lease{"leases": []controller.Lease{}}},
-		)
+		})
 
-		By("checking that no leases are logged")
-		Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
+		It("polls for other leases and logs at debug level", func() {
+			By("checking that the correct leases are logged")
+			Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
+			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
+			Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
+
+			By("checking the arp fdb and routing are correct")
+			routes := mustSucceed("ip", "route", "list", "dev", vtepName)
+			Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+			Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
+
+			arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
+			Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
+
+			fdbEntries := mustSucceed("bridge", "fdb", "list", "dev", vtepName)
+			Expect(fdbEntries).To(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
+
+			By("removing the leases from the controller")
+			fakeServer.SetHandler("/leases", &testsupport.FakeHandler{
+				ResponseCode: 200,
+				ResponseBody: map[string][]controller.Lease{"leases": []controller.Lease{}}},
+			)
+
+			By("checking that no leases are logged")
+			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
+		})
 	})
 
 	Context("when a local lease is discovered but it cannot be renewed", func() {

@@ -11,7 +11,25 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 )
+
+var LogsWith = func(level lager.LogLevel, msg string) types.GomegaMatcher {
+	return And(
+		WithTransform(func(log lager.LogFormat) string {
+			return log.Message
+		}, Equal(msg)),
+		WithTransform(func(log lager.LogFormat) lager.LogLevel {
+			return log.LogLevel
+		}, Equal(level)),
+	)
+}
+
+var HaveLogData = func(nextMatcher types.GomegaMatcher) types.GomegaMatcher {
+	return WithTransform(func(log lager.LogFormat) lager.Data {
+		return log.Data
+	}, nextMatcher)
+}
 
 var _ = Describe("VxlanPlanner", func() {
 	var (
@@ -29,6 +47,11 @@ var _ = Describe("VxlanPlanner", func() {
 			Logger:           logger,
 			ControllerClient: controllerClient,
 			Converger:        converger,
+			Lease: controller.Lease{
+				UnderlayIP:          "172.244.17.0",
+				OverlaySubnet:       "10.244.17.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:f4:11:00",
+			},
 		}
 	})
 
@@ -48,36 +71,66 @@ var _ = Describe("VxlanPlanner", func() {
 			controllerClient.GetRoutableLeasesReturns(leases, nil)
 		})
 
-		It("calls the converger with the leases", func() {
+		It("calls the controller to renew its lease", func() {
+			err := vxlanPlanner.DoCycle()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(controllerClient.RenewSubnetLeaseCallCount()).To(Equal(1))
+			Expect(controllerClient.RenewSubnetLeaseArgsForCall(0)).To(Equal(controller.Lease{
+				UnderlayIP:          "172.244.17.0",
+				OverlaySubnet:       "10.244.17.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:f4:11:00",
+			}))
+
+			By("checking that the lease was logged at debug level")
+			Expect(logger.Logs()).To(ContainElement(SatisfyAll(
+				LogsWith(lager.DEBUG, "test.renew-lease"),
+				HaveLogData(HaveKeyWithValue("lease",
+					SatisfyAll(
+						HaveKeyWithValue("underlay_ip", "172.244.17.0"),
+						HaveKeyWithValue("overlay_subnet", "10.244.17.0/24"),
+						HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:f4:11:00"),
+					),
+				)),
+			)))
+		})
+
+		It("calls the converger to get all routable leases", func() {
 			err := vxlanPlanner.DoCycle()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(converger.ConvergeCallCount()).To(Equal(1))
 			Expect(converger.ConvergeArgsForCall(0)).To(Equal(leases))
-		})
-
-		It("calls the controller and logs the leases", func() {
-			err := vxlanPlanner.DoCycle()
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(logger.Logs()).To(HaveLen(1))
 
 			By("checking that the leases were logged at debug level")
-			Expect(logger.Logs()[0].Message).To(Equal("test.get-routable-leases"))
-			Expect(logger.Logs()[0].LogLevel).To(Equal(lager.DEBUG))
-			Expect(logger.Logs()[0].Data).To(HaveKey("leases"))
-			returnedLeases, ok := logger.Logs()[0].Data["leases"].([]interface{})
-			Expect(ok).To(BeTrue())
-			Expect(returnedLeases).To(HaveLen(2))
-			Expect(returnedLeases[0]).To(HaveKeyWithValue("underlay_ip", "172.244.15.0"))
-			Expect(returnedLeases[0]).To(HaveKeyWithValue("overlay_subnet", "10.244.15.0/24"))
-			Expect(returnedLeases[0]).To(HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:f4:0f:00"))
-			Expect(returnedLeases[1]).To(HaveKeyWithValue("underlay_ip", "172.244.16.0"))
-			Expect(returnedLeases[1]).To(HaveKeyWithValue("overlay_subnet", "10.244.16.0/24"))
-			Expect(returnedLeases[1]).To(HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:f4:10:00"))
+			Expect(logger.Logs()).To(ContainElement(SatisfyAll(
+				LogsWith(lager.DEBUG, "test.get-routable-leases"),
+				HaveLogData(HaveKeyWithValue("leases", ConsistOf(
+					SatisfyAll(
+						HaveKeyWithValue("underlay_ip", "172.244.15.0"),
+						HaveKeyWithValue("overlay_subnet", "10.244.15.0/24"),
+						HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:f4:0f:00"),
+					),
+					SatisfyAll(
+						HaveKeyWithValue("underlay_ip", "172.244.16.0"),
+						HaveKeyWithValue("overlay_subnet", "10.244.16.0/24"),
+						HaveKeyWithValue("overlay_hardware_addr", "ee:ee:0a:f4:10:00"),
+					),
+				))),
+			)))
 		})
 
-		Context("when the controller is unreachable", func() {
+		Context("when the renewing the subnet lease fails", func() {
+			BeforeEach(func() {
+				controllerClient.RenewSubnetLeaseReturns(errors.New("guava"))
+			})
+			It("returns the error", func() {
+				err := vxlanPlanner.DoCycle()
+				Expect(err).To(MatchError("renew lease: guava"))
+			})
+		})
+
+		Context("when getting the routable releases fails", func() {
 			BeforeEach(func() {
 				controllerClient.GetRoutableLeasesReturns(nil, errors.New("guava"))
 			})

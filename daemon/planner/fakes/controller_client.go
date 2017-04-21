@@ -19,6 +19,17 @@ type ControllerClient struct {
 		result1 []controller.Lease
 		result2 error
 	}
+	RenewSubnetLeaseStub        func(controller.Lease) error
+	renewSubnetLeaseMutex       sync.RWMutex
+	renewSubnetLeaseArgsForCall []struct {
+		arg1 controller.Lease
+	}
+	renewSubnetLeaseReturns struct {
+		result1 error
+	}
+	renewSubnetLeaseReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -66,11 +77,61 @@ func (fake *ControllerClient) GetRoutableLeasesReturnsOnCall(i int, result1 []co
 	}{result1, result2}
 }
 
+func (fake *ControllerClient) RenewSubnetLease(arg1 controller.Lease) error {
+	fake.renewSubnetLeaseMutex.Lock()
+	ret, specificReturn := fake.renewSubnetLeaseReturnsOnCall[len(fake.renewSubnetLeaseArgsForCall)]
+	fake.renewSubnetLeaseArgsForCall = append(fake.renewSubnetLeaseArgsForCall, struct {
+		arg1 controller.Lease
+	}{arg1})
+	fake.recordInvocation("RenewSubnetLease", []interface{}{arg1})
+	fake.renewSubnetLeaseMutex.Unlock()
+	if fake.RenewSubnetLeaseStub != nil {
+		return fake.RenewSubnetLeaseStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.renewSubnetLeaseReturns.result1
+}
+
+func (fake *ControllerClient) RenewSubnetLeaseCallCount() int {
+	fake.renewSubnetLeaseMutex.RLock()
+	defer fake.renewSubnetLeaseMutex.RUnlock()
+	return len(fake.renewSubnetLeaseArgsForCall)
+}
+
+func (fake *ControllerClient) RenewSubnetLeaseArgsForCall(i int) controller.Lease {
+	fake.renewSubnetLeaseMutex.RLock()
+	defer fake.renewSubnetLeaseMutex.RUnlock()
+	return fake.renewSubnetLeaseArgsForCall[i].arg1
+}
+
+func (fake *ControllerClient) RenewSubnetLeaseReturns(result1 error) {
+	fake.RenewSubnetLeaseStub = nil
+	fake.renewSubnetLeaseReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ControllerClient) RenewSubnetLeaseReturnsOnCall(i int, result1 error) {
+	fake.RenewSubnetLeaseStub = nil
+	if fake.renewSubnetLeaseReturnsOnCall == nil {
+		fake.renewSubnetLeaseReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.renewSubnetLeaseReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *ControllerClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.getRoutableLeasesMutex.RLock()
 	defer fake.getRoutableLeasesMutex.RUnlock()
+	fake.renewSubnetLeaseMutex.RLock()
+	defer fake.renewSubnetLeaseMutex.RUnlock()
 	return fake.invocations
 }
 

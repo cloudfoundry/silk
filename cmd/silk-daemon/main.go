@@ -131,6 +131,7 @@ func mainWithError() error {
 		SingleCycleFunc: (&planner.VXLANPlanner{
 			Logger:           logger,
 			ControllerClient: client,
+			Lease:            lease,
 			Converger: &vtep.Converger{
 				LocalSubnet:    localSubnet,
 				LocalVTEP:      *vxlanIface,
