@@ -26,8 +26,9 @@ var (
 )
 
 type testPaths struct {
-	PathToPlugin string
-	CNIPath      string
+	PathToPlugin     string
+	CNIPath          string
+	PathToFakeDaemon string
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -42,9 +43,13 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	pathToIPAM, err := gexec.Build("code.cloudfoundry.org/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
+	pathToFakeDaemon, err := gexec.Build("code.cloudfoundry.org/silk/cni/acceptance/fake_daemon", "-race")
+	Expect(err).NotTo(HaveOccurred())
+
 	paths = testPaths{
-		PathToPlugin: pathToSilkCNI,
-		CNIPath:      fmt.Sprintf("%s:%s", path.Dir(pathToSilkCNI), path.Dir(pathToIPAM)),
+		PathToPlugin:     pathToSilkCNI,
+		CNIPath:          fmt.Sprintf("%s:%s", path.Dir(pathToSilkCNI), path.Dir(pathToIPAM)),
+		PathToFakeDaemon: pathToFakeDaemon,
 	}
 
 	bytes, err := json.Marshal(paths)

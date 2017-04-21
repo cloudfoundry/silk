@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,18 +25,22 @@ import (
 const cmdTimeout = 10 * time.Second
 
 var (
-	cniEnv          map[string]string
-	containerNS     ns.NetNS
-	fakeHostNS      ns.NetNS
-	cniStdin        string
-	dataDir         string
-	flannelSubnet   *net.IPNet
-	fullNetwork     *net.IPNet
-	subnetEnvFile   string
-	datastorePath   string
-	fakeHostNSName  string
-	containerNSName string
-	containerID     string
+	fakeServer *gexec.Session
+
+	cniEnv           map[string]string
+	containerNS      ns.NetNS
+	fakeHostNS       ns.NetNS
+	cniStdin         string
+	dataDir          string
+	flannelSubnet    *net.IPNet
+	fullNetwork      *net.IPNet
+	subnetEnvFile    string
+	serverListenAddr string
+	datastorePath    string
+	fakeHostNSName   string
+	containerNSName  string
+	containerID      string
+	daemonPort       int
 )
 
 var _ = BeforeEach(func() {
@@ -70,8 +75,11 @@ var _ = BeforeEach(func() {
 		IP:   flannelSubnetBaseIP,
 		Mask: flannelSubnetCIDR.Mask,
 	}
-	subnetEnvFile = writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
-	cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+
+	daemonPort = 40000 + GinkgoParallelNode()
+	fakeServer = startFakeDaemonInHost(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1472}`)
+
+	cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 
 	datastoreDir, err := ioutil.TempDir("", "metadata-dir-")
 	Expect(err).NotTo(HaveOccurred())
@@ -79,6 +87,11 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
+	if fakeServer != nil {
+		fakeServer.Interrupt()
+		Eventually(fakeServer, "5s").Should(gexec.Exit())
+	}
+
 	containerNS.Close()
 	fakeHostNS.Close()
 	mustSucceed("ip", "netns", "del", fakeHostNSName)
@@ -91,7 +104,7 @@ var _ = AfterEach(func() {
 var _ = Describe("Silk CNI Acceptance", func() {
 	Describe("veth devices", func() {
 		BeforeEach(func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 		})
 
 		It("returns the expected CNI result", func() {
@@ -227,7 +240,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("enables connectivity between the host and container", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -243,7 +256,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("turns off ARP for veth devices", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -290,7 +303,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("adds routes to the container", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -321,7 +334,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		It("allows the container to reach IP addresses on the host namespace", func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
@@ -342,8 +355,11 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			// Because it messes with the REAL host namespace, it cannot safely run
 			// concurrently with any other test that also touches the REAL host namespace
 			// Avoid writing such tests if you can.
+			By("starting the fake daemon")
+			fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
+
 			By("calling CNI with ADD")
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 			sess := startCommandInRealHostNamespace("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -409,9 +425,9 @@ var _ = Describe("Silk CNI Acceptance", func() {
 					"type": "silk",
 					"mtu": 1350,
 					"dataDir": "%s",
-					"subnetFile": "%s",
+					"daemonPort": %d,
 					"datastore": "%s"
-				}`, dataDir, subnetEnvFile, datastorePath)
+				}`, dataDir, daemonPort, datastorePath)
 				sess := startCommandInHost("ADD", cniStdin)
 				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
@@ -455,7 +471,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 
 	Describe("Lifecycle", func() {
 		BeforeEach(func() {
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 		})
 		It("allocates and frees ips", func() {
 			By("calling ADD")
@@ -520,8 +536,9 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			containerNSList []ns.NetNS
 		)
 		BeforeEach(func() {
-			subnetEnvFile = writeSubnetEnvFile("10.255.30.0/30", fullNetwork.String())
-			cniStdin = cniConfig(dataDir, subnetEnvFile, datastorePath)
+			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
+			fakeServer = startFakeDaemonInHost(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/30", "mtu": 1350}`)
+
 			for i := 0; i < 3; i++ {
 				containerNS, err := ns.NewNS()
 				Expect(err).NotTo(HaveOccurred())
@@ -570,6 +587,50 @@ var _ = Describe("Silk CNI Acceptance", func() {
 				}`))
 		})
 	})
+
+	Describe("when configured to use the subnet.env file", func() {
+		BeforeEach(func() {
+			subnetFile := writeSubnetEnvFile(flannelSubnet.String(), fullNetwork.String())
+			cniStdin = cniConfigWithSubnetEnv(dataDir, datastorePath, subnetFile)
+		})
+
+		It("returns the expected CNI result", func() {
+			By("calling ADD")
+			sess := startCommandInHost("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+			result := cniResultForCurrentVersion(sess.Out.Contents())
+
+			inHost := ifacesWithNS(result.Interfaces, "")
+
+			expectedCNIStdout := fmt.Sprintf(`
+			{
+				"interfaces": [
+						{
+								"name": "%s",
+								"mac": "aa:aa:0a:ff:1e:01"
+						},
+						{
+								"name": "eth0",
+								"mac": "ee:ee:0a:ff:1e:01",
+								"sandbox": "%s"
+						}
+				],
+				"ips": [
+						{
+								"version": "4",
+								"address": "10.255.30.1/32",
+								"gateway": "169.254.0.1",
+								"interface": 1
+						}
+				],
+				"routes": [{"dst": "0.0.0.0/0", "gw": "169.254.0.1"}],
+				"dns": {}
+			}
+			`, inHost[0].Name, containerNS.Path())
+
+			Expect(sess.Out.Contents()).To(MatchJSON(expectedCNIStdout))
+		})
+	})
 })
 
 func writeSubnetEnvFile(subnet, fullNetwork string) string {
@@ -586,7 +647,18 @@ FLANNEL_IPMASQ=false  # we'll ignore this field
 	return tempFile.Name()
 }
 
-func cniConfig(dataDir, subnetFile, datastore string) string {
+func cniConfig(dataDir, datastore string, daemonPort int) string {
+	return fmt.Sprintf(`{
+	"cniVersion": "0.3.0",
+	"name": "my-silk-network",
+	"type": "silk",
+	"dataDir": "%s",
+	"daemonPort": %d,
+	"datastore": "%s"
+}`, dataDir, daemonPort, datastore)
+}
+
+func cniConfigWithSubnetEnv(dataDir, datastore, subnetFile string) string {
 	return fmt.Sprintf(`{
 	"cniVersion": "0.3.0",
 	"name": "my-silk-network",
@@ -609,6 +681,51 @@ func startCommandInHost(cniCommand, cniStdin string) *gexec.Session {
 	// Run command
 	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
+	return sess
+}
+
+func startFakeDaemonInHost(port, statusCode int, response string) *gexec.Session {
+	if fakeServer != nil {
+		fakeServer.Interrupt()
+		Eventually(fakeServer, "5s").Should(gexec.Exit())
+	}
+
+	cmd := exec.Command("ip", "netns", "exec", fakeHostNSName, "ip", "link", "set", "lo", "up")
+	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	Eventually(sess).Should(gexec.Exit(0))
+
+	cmd = exec.Command("ip", "netns", "exec", fakeHostNSName, paths.PathToFakeDaemon, fmt.Sprintf("%d", port), fmt.Sprintf("%d", statusCode), response)
+	sess, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+
+	waitUntilUp := func() error {
+		cmd = exec.Command("ip", "netns", "exec", fakeHostNSName, "curl", fmt.Sprintf("http://127.0.0.1:%d", port))
+		return cmd.Run()
+	}
+
+	Eventually(waitUntilUp, "5s").Should(Succeed())
+
+	return sess
+}
+
+func startFakeDaemonInRealHostNamespace(port, statusCode int, response string) *gexec.Session {
+	if fakeServer != nil {
+		fakeServer.Interrupt()
+		Eventually(fakeServer, "5s").Should(gexec.Exit())
+	}
+
+	cmd := exec.Command(paths.PathToFakeDaemon, fmt.Sprintf("%d", port), fmt.Sprintf("%d", statusCode), response)
+	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+
+	waitUntilUp := func() error {
+		cmd = exec.Command("curl", fmt.Sprintf("http://127.0.0.1:%d", port))
+		return cmd.Run()
+	}
+
+	Eventually(waitUntilUp, "5s").Should(Succeed())
+
 	return sess
 }
 

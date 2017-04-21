@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -13,6 +15,7 @@ import (
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/legacy_flannel"
 	"code.cloudfoundry.org/silk/cni/lib"
+	"code.cloudfoundry.org/silk/daemon"
 	libAdapter "code.cloudfoundry.org/silk/lib/adapter"
 	"code.cloudfoundry.org/silk/lib/datastore"
 	"code.cloudfoundry.org/silk/lib/filelock"
@@ -93,6 +96,7 @@ type NetConf struct {
 	SubnetFile string `json:"subnetFile"`
 	MTU        int    `json:"mtu"`
 	Datastore  string `json:"datastore"`
+	DaemonPort int    `json:"daemonPort"`
 }
 
 type HostLocalIPAM struct {
@@ -117,6 +121,46 @@ func typedError(msg string, err error) *types.Error {
 	}
 }
 
+func getNetworkInfo(netConf NetConf) (legacy_flannel.NetworkInfo, error) {
+	var networkInfo legacy_flannel.NetworkInfo
+	var err error
+	if netConf.SubnetFile != "" {
+		networkInfo, err = legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
+		if err != nil {
+			return legacy_flannel.NetworkInfo{}, typedError("discover network info", err)
+		}
+	} else {
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", netConf.DaemonPort))
+		if err != nil {
+			return legacy_flannel.NetworkInfo{}, typedError("discover network info", err)
+		}
+
+		defer resp.Body.Close()
+
+		contents, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return legacy_flannel.NetworkInfo{}, typedError("discover network info", fmt.Errorf("read response body: %s", err)) //not tested
+		}
+
+		var daemonNetInfo daemon.NetworkInfo
+		err = json.Unmarshal(contents, &daemonNetInfo)
+		if err != nil {
+			return legacy_flannel.NetworkInfo{}, typedError("discover network info", fmt.Errorf("unmarshal network info: %s", err))
+		}
+
+		mtu := netConf.MTU
+		if mtu == 0 {
+			mtu = daemonNetInfo.MTU
+		}
+
+		networkInfo = legacy_flannel.NetworkInfo{
+			Subnet: daemonNetInfo.OverlaySubnet,
+			MTU:    mtu,
+		}
+	}
+	return networkInfo, nil
+}
+
 func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 	var netConf NetConf
 	err := json.Unmarshal(args.StdinData, &netConf)
@@ -124,9 +168,9 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 		return err // impossible, skel package asserts JSON is valid
 	}
 
-	networkInfo, err := legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
+	networkInfo, err := getNetworkInfo(netConf)
 	if err != nil {
-		return typedError("discover network info", err)
+		return err
 	}
 
 	generator := config.IPAMConfigGenerator{}
@@ -179,9 +223,9 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 		return err // impossible, skel package asserts JSON is valid
 	}
 
-	networkInfo, err := legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
+	networkInfo, err := getNetworkInfo(netConf)
 	if err != nil {
-		return typedError("discover network info", err)
+		return err
 	}
 
 	generator := config.IPAMConfigGenerator{}
