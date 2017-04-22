@@ -37,7 +37,7 @@ var _ = Describe("error cases", func() {
 		var configFilePath string
 		BeforeEach(func() {
 			clientConf := daemonConf
-			clientConf.ServerCACertFile = ""
+			clientConf.ServerCACertFile = "/dev/null"
 			configFilePath = writeConfigFile(clientConf)
 		})
 
@@ -57,18 +57,6 @@ var _ = Describe("error cases", func() {
 			session = startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
 			Expect(session.Err.Contents()).To(ContainSubstring("load config file: unmarshaling contents"))
-		})
-	})
-
-	Context("when the port is invalid", func() {
-		BeforeEach(func() {
-			daemonConf.HealthCheckPort = 0
-			configFilePath = writeConfigFile(daemonConf)
-		})
-		It("exits with status 1", func() {
-			session = startDaemon(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("invalid health check port: 0"))
 		})
 	})
 
@@ -113,7 +101,7 @@ var _ = Describe("error cases", func() {
 
 		Context("when reading the datastore fails", func() {
 			BeforeEach(func() {
-				daemonConf.Datastore = ""
+				daemonConf.Datastore = "/dev/urandom"
 				configFilePath := writeConfigFile(daemonConf)
 				startDaemon(configFilePath)
 			})

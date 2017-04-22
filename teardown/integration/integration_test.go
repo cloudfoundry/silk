@@ -47,16 +47,22 @@ var _ = BeforeEach(func() {
 	}
 
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
+	datastoreFile, _ := ioutil.TempFile("", "-datastore")
+	datastoreFile.Close()
 	clientConf = config.Config{
-		UnderlayIP:            localIP,
-		SubnetPrefixLength:    24,
-		HealthCheckPort:       4000,
-		VTEPName:              vtepConfig.VTEPName,
-		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),
-		ServerCACertFile:      paths.ServerCACertFile,
-		ClientCertFile:        paths.ClientCertFile,
-		ClientKeyFile:         paths.ClientKeyFile,
-		VNI:                   GinkgoParallelNode(),
+		UnderlayIP:                 localIP,
+		SubnetPrefixLength:         24,
+		OverlayNetworkPrefixLength: 16, // unused by teardown, but config requires it
+		HealthCheckPort:            4000,
+		VTEPName:                   vtepConfig.VTEPName,
+		ConnectivityServerURL:      fmt.Sprintf("https://%s", serverListenAddr),
+		ServerCACertFile:           paths.ServerCACertFile,
+		ClientCertFile:             paths.ClientCertFile,
+		ClientKeyFile:              paths.ClientKeyFile,
+		VNI:                        GinkgoParallelNode(),
+		PollInterval:               5,                    // unused by teardown
+		DebugServerPort:            GinkgoParallelNode(), // unused by teardown
+		Datastore:                  datastoreFile.Name(),
 	}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)

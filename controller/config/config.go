@@ -6,19 +6,21 @@ import (
 	"io/ioutil"
 	"os"
 
+	"gopkg.in/validator.v2"
+
 	"code.cloudfoundry.org/go-db-helpers/db"
 )
 
 type Config struct {
-	DebugServerPort    int       `json:"debug_server_port"`
-	ListenHost         string    `json:"listen_host"`
-	ListenPort         int       `json:"listen_port"`
-	CACertFile         string    `json:"ca_cert_file"`
-	ServerCertFile     string    `json:"server_cert_file"`
-	ServerKeyFile      string    `json:"server_key_file"`
-	Network            string    `json:"network"`
-	SubnetPrefixLength int       `json:"subnet_prefix_length"`
-	Database           db.Config `json:"database"`
+	DebugServerPort    int       `json:"debug_server_port" validate:"nonzero"`
+	ListenHost         string    `json:"listen_host" validate:"nonzero"`
+	ListenPort         int       `json:"listen_port" validate:"nonzero"`
+	CACertFile         string    `json:"ca_cert_file" validate:"nonzero"`
+	ServerCertFile     string    `json:"server_cert_file" validate:"nonzero"`
+	ServerKeyFile      string    `json:"server_key_file" validate:"nonzero"`
+	Network            string    `json:"network" validate:"nonzero"`
+	SubnetPrefixLength int       `json:"subnet_prefix_length" validate:"nonzero"`
+	Database           db.Config `json:"database" validate:"nonzero"`
 }
 
 func (c *Config) WriteToFile(configFilePath string) error {
@@ -42,6 +44,9 @@ func ReadFromFile(configFilePath string) (*Config, error) {
 	err = json.Unmarshal(bytes, &conf)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshaling config: %s", err)
+	}
+	if err := validator.Validate(conf); err != nil {
+		return nil, fmt.Errorf("invalid config: %s", err)
 	}
 	return &conf, nil
 }

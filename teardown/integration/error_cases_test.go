@@ -47,7 +47,7 @@ var _ = Describe("error cases", func() {
 	Context("when the tls config is invalid", func() {
 		BeforeEach(func() {
 			os.Remove(configFilePath)
-			clientConf.ServerCACertFile = ""
+			clientConf.ServerCACertFile = "/dev/null"
 			configFilePath = writeConfigFile(clientConf)
 		})
 		It("exits with status 1", func() {

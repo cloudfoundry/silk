@@ -58,3 +58,6 @@
 [submodule "vendor/github.com/square/certstrap"]
 	path = vendor/github.com/square/certstrap
 	url = https://github.com/square/certstrap
+[submodule "vendor/gopkg.in/validator.v2"]
+	path = vendor/gopkg.in/validator.v2
+	url = https://github.com/go-validator/validator

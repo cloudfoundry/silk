@@ -4,22 +4,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+
+	"gopkg.in/validator.v2"
 )
 
 type Config struct {
-	UnderlayIP                 string `json:"underlay_ip"`
-	SubnetPrefixLength         int    `json:"subnet_prefix_length"`
-	OverlayNetworkPrefixLength int    `json:"overlay_network_prefix_length"`
-	HealthCheckPort            uint16 `json:"health_check_port"`
-	VTEPName                   string `json:"vtep_name"`
-	ConnectivityServerURL      string `json:"connectivity_server_url"`
+	UnderlayIP                 string `json:"underlay_ip" validate:"nonzero"`
+	SubnetPrefixLength         int    `json:"subnet_prefix_length" validate:"nonzero"`
+	OverlayNetworkPrefixLength int    `json:"overlay_network_prefix_length" validate:"nonzero"`
+	HealthCheckPort            uint16 `json:"health_check_port" validate:"nonzero"`
+	VTEPName                   string `json:"vtep_name" validate:"nonzero"`
+	ConnectivityServerURL      string `json:"connectivity_server_url" validate:"nonzero"`
 	ServerCACertFile           string `json:"ca_cert_file" validate:"nonzero"`
 	ClientCertFile             string `json:"client_cert_file" validate:"nonzero"`
 	ClientKeyFile              string `json:"client_key_file" validate:"nonzero"`
-	VNI                        int    `json:"vni"`
-	PollInterval               int    `json:"poll_interval"`
-	DebugServerPort            int    `json:"debug_server_port"`
-	Datastore                  string `json:"datastore"`
+	VNI                        int    `json:"vni" validate:"nonzero"`
+	PollInterval               int    `json:"poll_interval" validate:"nonzero"`
+	DebugServerPort            int    `json:"debug_server_port" validate:"nonzero"`
+	Datastore                  string `json:"datastore" validate:"nonzero"`
 }
 
 func LoadConfig(filePath string) (Config, error) {
@@ -32,6 +34,10 @@ func LoadConfig(filePath string) (Config, error) {
 	err = json.Unmarshal(contents, &cfg)
 	if err != nil {
 		return cfg, fmt.Errorf("unmarshaling contents: %s", err)
+	}
+
+	if err := validator.Validate(cfg); err != nil {
+		return cfg, fmt.Errorf("invalid config: %s", err)
 	}
 	return cfg, nil
 }
