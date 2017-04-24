@@ -386,7 +386,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 		})
 
 		Context("when MTU is not specified on the input", func() {
-			It("sets the MTU based on the subnet file", func() {
+			It("sets the MTU based on the daemon network info", func() {
 				By("calling ADD")
 				sess := startCommandInHost("ADD", cniStdin)
 				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
