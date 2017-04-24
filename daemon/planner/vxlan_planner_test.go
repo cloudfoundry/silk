@@ -120,13 +120,27 @@ var _ = Describe("VxlanPlanner", func() {
 			)))
 		})
 
-		Context("when the renewing the subnet lease fails", func() {
+		Context("when renewing the subnet lease fails from a retriable error", func() {
 			BeforeEach(func() {
 				controllerClient.RenewSubnetLeaseReturns(errors.New("guava"))
 			})
 			It("returns the error", func() {
 				err := vxlanPlanner.DoCycle()
 				Expect(err).To(MatchError("renew lease: guava"))
+				_, ok := err.(controller.NonRetriableError)
+				Expect(ok).NotTo(BeTrue())
+			})
+		})
+
+		Context("when renewing the subnet lease fails from a non-retriable error", func() {
+			BeforeEach(func() {
+				controllerClient.RenewSubnetLeaseReturns(controller.NonRetriableError("guava"))
+			})
+			It("returns the error as a non-retriable error", func() {
+				err := vxlanPlanner.DoCycle()
+				Expect(err).To(MatchError("non-retriable renew lease: guava"))
+				_, ok := err.(controller.NonRetriableError)
+				Expect(ok).To(BeTrue())
 			})
 		})
 

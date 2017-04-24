@@ -28,6 +28,9 @@ type VXLANPlanner struct {
 func (v *VXLANPlanner) DoCycle() error {
 	err := v.ControllerClient.RenewSubnetLease(v.Lease)
 	if err != nil {
+		if _, ok := err.(controller.NonRetriableError); ok {
+			return controller.NonRetriableError(fmt.Sprintf("non-retriable renew lease: %s", err))
+		}
 		return fmt.Errorf("renew lease: %s", err)
 	}
 	v.Logger.Debug("renew-lease", lager.Data{"lease": v.Lease})
