@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	"code.cloudfoundry.org/localip"
 	. "github.com/onsi/ginkgo"
 	ginkgoConfig "github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,8 @@ import (
 )
 
 var (
-	paths testPaths
+	paths   testPaths
+	localIP string
 )
 
 type testPaths struct {
@@ -67,6 +69,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(json.Unmarshal(data, &paths)).To(Succeed())
 
 	rand.Seed(ginkgoConfig.GinkgoConfig.RandomSeed + int64(GinkgoParallelNode()))
+
+	var err error
+	localIP, err = localip.LocalIP()
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = SynchronizedAfterSuite(func() {}, func() {

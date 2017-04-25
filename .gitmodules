@@ -61,3 +61,6 @@
 [submodule "vendor/gopkg.in/validator.v2"]
 	path = vendor/gopkg.in/validator.v2
 	url = https://github.com/go-validator/validator
+[submodule "vendor/github.com/hashicorp/go-multierror"]
+	path = vendor/github.com/hashicorp/go-multierror
+	url = https://github.com/hashicorp/go-multierror

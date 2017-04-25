@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/hashicorp/go-multierror"
+
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
@@ -44,16 +46,17 @@ func mainWithError() error {
 	}
 	client := controller.NewClient(logger, httpClient, cfg.ConnectivityServerURL)
 
-	err = client.ReleaseSubnetLease(cfg.UnderlayIP)
-	if err != nil {
-		return fmt.Errorf("release subnet lease: %s", err)
+	var errList error
+	if err := client.ReleaseSubnetLease(cfg.UnderlayIP); err != nil {
+		errList = multierror.Append(errList, fmt.Errorf("release subnet lease: %s", err))
+		logger.Error("release-subnet-lease", err, lager.Data{"underlay_ip": cfg.UnderlayIP})
 	}
 
 	vtepFactory := &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
-	err = vtepFactory.DeleteVTEP(cfg.VTEPName)
-	if err != nil {
-		return fmt.Errorf("delete vtep: %s", err)
+	if err := vtepFactory.DeleteVTEP(cfg.VTEPName); err != nil {
+		errList = multierror.Append(errList, fmt.Errorf("delete vtep: %s", err))
+		logger.Error("delete-vtep", err, lager.Data{"vtep_name": cfg.VTEPName})
 	}
 
-	return err
+	return errList
 }

@@ -12,9 +12,7 @@ import (
 )
 
 var _ = Describe("error cases", func() {
-	var (
-		configFilePath string
-	)
+	var configFilePath string
 
 	BeforeEach(func() {
 		configFilePath = writeConfigFile(clientConf)
@@ -50,6 +48,7 @@ var _ = Describe("error cases", func() {
 			clientConf.ServerCACertFile = "/dev/null"
 			configFilePath = writeConfigFile(clientConf)
 		})
+
 		It("exits with status 1", func() {
 			session := runTeardown(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
@@ -61,10 +60,14 @@ var _ = Describe("error cases", func() {
 		BeforeEach(func() {
 			fakeServer.Stop()
 		})
-		It("exits with status 1", func() {
+
+		It("logs the error and exits with status 1, but still deletes the VTEP", func() {
 			session := runTeardown(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(MatchRegexp(`.*release subnet lease:.*dial tcp.*`))
+			Expect(string(session.Err.Contents())).To(MatchRegexp(`.*release.*dial tcp.*`))
+
+			_, _, _, err := vtepFactory.GetVTEPState(clientConf.VTEPName)
+			Expect(err).To(MatchError("find link: Link not found"))
 		})
 	})
 
@@ -76,22 +79,18 @@ var _ = Describe("error cases", func() {
 			})
 		})
 
-		It("exits with status 1", func() {
+		It("logs the error and exits with status 1", func() {
 			session := runTeardown(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("silk-teardown error: release subnet lease: http status 500: potato"))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("release subnet lease: http status 500: potato"))
 		})
 	})
 
 	Context("when the vtep does not exist", func() {
 		BeforeEach(func() {
-			By("setting up the fake controller")
-			handler := &testsupport.FakeHandler{
-				ResponseCode: 200,
-				ResponseBody: struct{}{},
-			}
-			fakeServer.SetHandler("/leases/release", handler)
+			removeVTEP()
 		})
+
 		It("exits with status 1", func() {
 			session := runTeardown(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
@@ -99,4 +98,17 @@ var _ = Describe("error cases", func() {
 		})
 	})
 
+	Context("when the controller is unavailable and the vtep is missing", func() {
+		BeforeEach(func() {
+			removeVTEP()
+			fakeServer.Stop()
+		})
+
+		It("logs both errors", func() {
+			session := runTeardown(configFilePath)
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(MatchRegexp("release subnet lease.*dial tcp"))
+			Expect(string(session.Err.Contents())).To(MatchRegexp("delete vtep: find link.*Link not found"))
+		})
+	})
 })

@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,7 +9,6 @@ import (
 	"os/exec"
 
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
-	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
@@ -24,20 +22,16 @@ import (
 var (
 	DEFAULT_TIMEOUT = "5s"
 
-	localIP          string
 	clientConf       config.Config
 	fakeServer       *testsupport.FakeController
 	serverListenAddr string
-	serverTLSConfig  *tls.Config
 
 	vtepConfig  *vtep.Config
 	vtepFactory *vtep.Factory
+	fakeHandler *testsupport.FakeHandler
 )
 
 var _ = BeforeEach(func() {
-	var err error
-	localIP, err = localip.LocalIP()
-	Expect(err).NotTo(HaveOccurred())
 	vtepConfig = &vtep.Config{
 		VTEPName:            fmt.Sprintf("t-v-%d", GinkgoParallelNode()),
 		UnderlayIP:          net.ParseIP(localIP),
@@ -65,47 +59,48 @@ var _ = BeforeEach(func() {
 		Datastore:                  datastoreFile.Name(),
 	}
 
-	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
+	serverTLSConfig, err := mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
 	Expect(err).NotTo(HaveOccurred())
 	fakeServer = testsupport.StartServer(serverListenAddr, serverTLSConfig)
 
 	vtepFactory = &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
+
+	Expect(vtepFactory.CreateVTEP(vtepConfig)).To(Succeed())
+
+	fakeHandler = &testsupport.FakeHandler{
+		ResponseCode: 200,
+		ResponseBody: struct{}{},
+	}
+	fakeServer.SetHandler("/leases/release", fakeHandler)
 })
 
 var _ = AfterEach(func() {
 	fakeServer.Stop()
+	removeVTEP()
 })
 
-var _ = Describe("Teardown Integration", func() {
-	var handler *testsupport.FakeHandler
-	BeforeEach(func() {
-		By("setting up the controller")
-		handler = &testsupport.FakeHandler{
-			ResponseCode: 200,
-			ResponseBody: struct{}{},
-		}
-		fakeServer.SetHandler("/leases/release", handler)
-
-		By("creating the vtep to destroy")
-		Expect(vtepFactory.CreateVTEP(vtepConfig)).To(Succeed())
-	})
+var _ = Describe("Teardown", func() {
 	It("releases the lease and destroys the VTEP", func() {
 		By("running teardown")
 		session := runTeardown(writeConfigFile(clientConf))
 		Expect(session).To(gexec.Exit(0))
 
-		By("calling the controller to release the lease")
+		By("verifying that the controller was called")
 		var lastRequest controller.ReleaseLeaseRequest
-		Expect(json.Unmarshal(handler.LastRequestBody, &lastRequest)).To(Succeed())
+		Expect(json.Unmarshal(fakeHandler.LastRequestBody, &lastRequest)).To(Succeed())
 		Expect(lastRequest).To(Equal(controller.ReleaseLeaseRequest{
 			UnderlayIP: vtepConfig.UnderlayIP.String(),
 		}))
 
-		By("destroying the VTEP")
+		By("verifying that the vtep is no longer present")
 		_, _, _, err := vtepFactory.GetVTEPState(clientConf.VTEPName)
 		Expect(err).To(MatchError("find link: Link not found"))
 	})
 })
+
+func removeVTEP() {
+	exec.Command("ip", "link", "del", vtepConfig.VTEPName).Run()
+}
 
 func writeConfigFile(config config.Config) string {
 	configFile, err := ioutil.TempFile("", "test-config")
@@ -126,12 +121,4 @@ func runTeardown(configFilePath string) *gexec.Session {
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
 	return session
-}
-
-func mustSucceed(binary string, args ...string) string {
-	cmd := exec.Command(binary, args...)
-	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, "10s").Should(gexec.Exit(0))
-	return string(sess.Out.Contents())
 }
