@@ -146,16 +146,18 @@ var _ = Describe("Silk Controller", func() {
 			startAndWaitForServer()
 		})
 		It("reclaims expired leases", func() {
-			_, err := testClient.AcquireSubnetLease("10.244.4.5")
+			oldLease, err := testClient.AcquireSubnetLease("10.244.4.5")
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = testClient.AcquireSubnetLease("10.244.4.15")
 			Expect(err).To(MatchError(ContainSubstring("No lease available")))
 
+			// wait for lease to expire
 			time.Sleep(2 * time.Second)
 
-			_, err = testClient.AcquireSubnetLease("10.244.4.15")
+			newLease, err := testClient.AcquireSubnetLease("10.244.4.15")
 			Expect(err).NotTo(HaveOccurred())
+			Expect(newLease.OverlaySubnet).To(Equal(oldLease.OverlaySubnet))
 		})
 	})
 
