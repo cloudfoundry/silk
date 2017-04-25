@@ -2,7 +2,6 @@ package leaser
 
 import (
 	cryptoRand "crypto/rand"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -55,25 +54,6 @@ func (c *CIDRPool) GetAvailable(taken []string) string {
 		n++
 	}
 	return ""
-}
-
-func (c *CIDRPool) GetAvailableOld(taken []string) (string, error) {
-	available := c.generateCIDRPool()
-	for _, subnet := range taken {
-		delete(available, subnet)
-	}
-	if len(available) == 0 {
-		return "", errors.New("no subnets available")
-	}
-	i := mathRand.Intn(len(available))
-	n := 0
-	for subnet, _ := range available {
-		if i == n {
-			return subnet, nil
-		}
-		n++
-	}
-	return "", errors.New("no subnets available")
 }
 
 func (c *CIDRPool) generateCIDRPool() map[string]struct{} {
