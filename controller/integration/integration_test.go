@@ -21,8 +21,14 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var testDatabase *testsupport.TestDatabase
-
+var (
+	testDatabase   *testsupport.TestDatabase
+	session        *gexec.Session
+	conf           config.Config
+	testClient     *controller.Client
+	configFilePath string
+	baseURL        string
+)
 var _ = BeforeEach(func() {
 	dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
 	dbConnectionInfo := testsupport.GetDBConnectionInfo()
@@ -36,14 +42,6 @@ var _ = AfterEach(func() {
 })
 
 var _ = Describe("Silk Controller", func() {
-
-	var (
-		session        *gexec.Session
-		conf           config.Config
-		testClient     *controller.Client
-		configFilePath string
-		baseURL        string
-	)
 
 	BeforeEach(func() {
 		conf = config.Config{
@@ -59,36 +57,11 @@ var _ = Describe("Silk Controller", func() {
 		}
 		baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 
-		configFile, err := ioutil.TempFile("", "config-")
-		Expect(err).NotTo(HaveOccurred())
-		configFilePath = configFile.Name()
-		Expect(configFile.Close()).To(Succeed())
-		Expect(conf.WriteToFile(configFilePath)).To(Succeed())
-
-		cmd := exec.Command(controllerBinaryPath, "-config", configFilePath)
-		session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-		Expect(err).NotTo(HaveOccurred())
-
-		httpClient := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: makeClientTLSConfig(),
-			},
-		}
-
-		testClient = controller.NewClient(lagertest.NewTestLogger("test"), httpClient, baseURL)
-
-		By("waiting for the http server to boot")
-		serverIsUp := func() error {
-			_, err := testClient.GetRoutableLeases()
-			return err
-		}
-		Eventually(serverIsUp, DEFAULT_TIMEOUT).Should(Succeed())
+		startAndWaitForServer()
 	})
 
 	AfterEach(func() {
-		session.Interrupt()
-		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
-		Expect(os.Remove(configFilePath)).To(Succeed())
+		stopServer()
 	})
 
 	It("gracefully terminates when sent an interrupt signal", func() {
@@ -263,6 +236,45 @@ var _ = Describe("Silk Controller", func() {
 	})
 
 })
+
+func startAndWaitForServer() {
+	configFile, err := ioutil.TempFile("", "config-")
+	Expect(err).NotTo(HaveOccurred())
+	configFilePath = configFile.Name()
+	Expect(configFile.Close()).To(Succeed())
+	Expect(conf.WriteToFile(configFilePath)).To(Succeed())
+
+	session = startServer(configFilePath)
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: makeClientTLSConfig(),
+		},
+	}
+
+	testClient = controller.NewClient(lagertest.NewTestLogger("test"), httpClient, baseURL)
+
+	By("waiting for the http server to boot")
+	serverIsUp := func() error {
+		_, err := testClient.GetRoutableLeases()
+		return err
+	}
+	Eventually(serverIsUp, DEFAULT_TIMEOUT).Should(Succeed())
+}
+
+func startServer(configFilePath string) *gexec.Session {
+	cmd := exec.Command(controllerBinaryPath, "-config", configFilePath)
+	s, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	session = s
+	return s
+}
+
+func stopServer() {
+	session.Interrupt()
+	Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+	Expect(os.Remove(configFilePath)).To(Succeed())
+}
 
 func verifyHTTPConnection(httpClient *http.Client, baseURL string) error {
 	resp, err := httpClient.Get(baseURL)
