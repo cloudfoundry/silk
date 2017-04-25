@@ -1,4 +1,4 @@
-package legacy_flannel_test
+package netinfo_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -9,5 +9,5 @@ import (
 
 func TestLegacyFlannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CNI LegacyFlannel Suite")
+	RunSpecs(t, "CNI Netinfo Suite")
 }

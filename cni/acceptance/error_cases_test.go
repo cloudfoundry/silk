@@ -24,7 +24,7 @@ var _ = Describe("errors", func() {
 				Expect(session.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
 				"msg": "discover network info",
-				"details": "open /path/does/not/exist: no such file or directory"
+				"details": "get netinfo: open /path/does/not/exist: no such file or directory"
 			}`))
 			})
 		})
@@ -42,7 +42,7 @@ var _ = Describe("errors", func() {
 				Expect(session.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
 				"msg": "discover network info",
-				"details": "unable to parse flannel subnet file"
+				"details": "get netinfo: unable to parse flannel subnet file"
 			}`))
 			})
 		})
@@ -63,7 +63,7 @@ var _ = Describe("errors", func() {
 				Expect(session.Out.Contents()).To(MatchJSON(fmt.Sprintf(`{
 				"code": 100,
 				"msg": "discover network info",
-				"details": "Get http://127.0.0.1:%[1]d: dial tcp 127.0.0.1:%[1]d: getsockopt: connection refused"
+				"details": "get netinfo: json client do: http client do: Get http://127.0.0.1:%[1]d/: dial tcp 127.0.0.1:%[1]d: getsockopt: connection refused"
 			}`, daemonPort)))
 			})
 		})
@@ -81,7 +81,7 @@ var _ = Describe("errors", func() {
 				Expect(session.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
 				"msg": "discover network info",
-				"details": "unmarshal network info: invalid character 'b' looking for beginning of value"
+				"details": "get netinfo: json client do: json unmarshal: invalid character 'b' looking for beginning of value"
 			}`))
 			})
 		})
@@ -188,7 +188,7 @@ var _ = Describe("errors", func() {
 				Expect(session.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
 				"msg": "discover network info",
-				"details": "open /path/does/not/exist: no such file or directory"
+				"details": "get netinfo: open /path/does/not/exist: no such file or directory"
 			}`))
 			})
 		})
@@ -206,7 +206,7 @@ var _ = Describe("errors", func() {
 				Expect(session.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
 				"msg": "discover network info",
-				"details": "unable to parse flannel subnet file"
+				"details": "get netinfo: unable to parse flannel subnet file"
 			}`))
 			})
 		})

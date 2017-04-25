@@ -3,18 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 
+	"code.cloudfoundry.org/go-db-helpers/json_client"
 	"code.cloudfoundry.org/lager"
 
 	"code.cloudfoundry.org/silk/cni/adapter"
 	"code.cloudfoundry.org/silk/cni/config"
-	"code.cloudfoundry.org/silk/cni/legacy_flannel"
 	"code.cloudfoundry.org/silk/cni/lib"
+	"code.cloudfoundry.org/silk/cni/netinfo"
 	"code.cloudfoundry.org/silk/daemon"
 	libAdapter "code.cloudfoundry.org/silk/lib/adapter"
 	"code.cloudfoundry.org/silk/lib/datastore"
@@ -121,44 +121,19 @@ func typedError(msg string, err error) *types.Error {
 	}
 }
 
-func getNetworkInfo(netConf NetConf) (legacy_flannel.NetworkInfo, error) {
-	var networkInfo legacy_flannel.NetworkInfo
-	var err error
+func getNetworkInfo(netConf NetConf) (daemon.NetworkInfo, error) {
+	discoverer := netinfo.Discoverer{}
 	if netConf.SubnetFile != "" {
-		networkInfo, err = legacy_flannel.DiscoverNetworkInfo(netConf.SubnetFile, netConf.MTU)
-		if err != nil {
-			return legacy_flannel.NetworkInfo{}, typedError("discover network info", err)
+		discoverer.NetInfo = &netinfo.Flannel{
+			SubnetFilePath: netConf.SubnetFile,
 		}
 	} else {
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", netConf.DaemonPort))
-		if err != nil {
-			return legacy_flannel.NetworkInfo{}, typedError("discover network info", err)
-		}
-
-		defer resp.Body.Close()
-
-		contents, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return legacy_flannel.NetworkInfo{}, typedError("discover network info", fmt.Errorf("read response body: %s", err)) //not tested
-		}
-
-		var daemonNetInfo daemon.NetworkInfo
-		err = json.Unmarshal(contents, &daemonNetInfo)
-		if err != nil {
-			return legacy_flannel.NetworkInfo{}, typedError("discover network info", fmt.Errorf("unmarshal network info: %s", err))
-		}
-
-		mtu := netConf.MTU
-		if mtu == 0 {
-			mtu = daemonNetInfo.MTU
-		}
-
-		networkInfo = legacy_flannel.NetworkInfo{
-			Subnet: daemonNetInfo.OverlaySubnet,
-			MTU:    mtu,
+		jsonClient := json_client.New(lager.NewLogger(""), http.DefaultClient, fmt.Sprintf("http://127.0.0.1:%d", netConf.DaemonPort))
+		discoverer.NetInfo = &netinfo.Daemon{
+			JSONClient: jsonClient,
 		}
 	}
-	return networkInfo, nil
+	return discoverer.Discover(netConf.MTU)
 }
 
 func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
@@ -170,11 +145,11 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 
 	networkInfo, err := getNetworkInfo(netConf)
 	if err != nil {
-		return err
+		return typedError("discover network info", err)
 	}
 
 	generator := config.IPAMConfigGenerator{}
-	ipamConfig := generator.GenerateConfig(networkInfo.Subnet, netConf.Name, netConf.DataDir)
+	ipamConfig := generator.GenerateConfig(networkInfo.OverlaySubnet, netConf.Name, netConf.DataDir)
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	result, err := ipam.ExecAdd("host-local", ipamConfigBytes)
@@ -225,11 +200,11 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 
 	networkInfo, err := getNetworkInfo(netConf)
 	if err != nil {
-		return err
+		return typedError("discover network info", err)
 	}
 
 	generator := config.IPAMConfigGenerator{}
-	ipamConfig := generator.GenerateConfig(networkInfo.Subnet, netConf.Name, netConf.DataDir)
+	ipamConfig := generator.GenerateConfig(networkInfo.OverlaySubnet, netConf.Name, netConf.DataDir)
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	err = ipam.ExecDel("host-local", ipamConfigBytes)
