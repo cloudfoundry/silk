@@ -33,6 +33,7 @@ var (
 	DEFAULT_TIMEOUT = "5s"
 
 	localIP               string
+	externalMTU           int
 	daemonConf            config.Config
 	daemonLease           controller.Lease
 	fakeServer            *testsupport.FakeController
@@ -51,6 +52,10 @@ var _ = BeforeEach(func() {
 	var err error
 	localIP, err = localip.LocalIP()
 	Expect(err).NotTo(HaveOccurred())
+	externalIface, err := locateInterface(net.ParseIP(localIP))
+	Expect(err).NotTo(HaveOccurred())
+	externalMTU = externalIface.MTU
+
 	daemonLease = controller.Lease{
 		UnderlayIP:          localIP,
 		OverlaySubnet:       "10.255.30.0/24",
@@ -313,7 +318,8 @@ func doHealthCheck() {
 	err = json.Unmarshal(responseBytes, &response)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(response.OverlaySubnet).To(Equal(daemonLease.OverlaySubnet))
-	Expect(response.MTU).To(Equal(1450))
+	const vxlanEncapOverhead = 50 // bytes
+	Expect(response.MTU).To(Equal(externalMTU - vxlanEncapOverhead))
 }
 
 func writeConfigFile(config config.Config) string {
