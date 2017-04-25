@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"time"
 
 	"code.cloudfoundry.org/go-db-helpers/testsupport"
 	"code.cloudfoundry.org/lager/lagertest"
@@ -45,15 +46,16 @@ var _ = Describe("Silk Controller", func() {
 
 	BeforeEach(func() {
 		conf = config.Config{
-			ListenHost:         "127.0.0.1",
-			ListenPort:         50000 + GinkgoParallelNode(),
-			DebugServerPort:    60000 + GinkgoParallelNode(),
-			CACertFile:         "fixtures/ca.crt",
-			ServerCertFile:     "fixtures/server.crt",
-			ServerKeyFile:      "fixtures/server.key",
-			Network:            "10.255.0.0/16",
-			SubnetPrefixLength: 24,
-			Database:           testDatabase.DBConfig(),
+			ListenHost:          "127.0.0.1",
+			ListenPort:          50000 + GinkgoParallelNode(),
+			DebugServerPort:     60000 + GinkgoParallelNode(),
+			CACertFile:          "fixtures/ca.crt",
+			ServerCertFile:      "fixtures/server.crt",
+			ServerKeyFile:       "fixtures/server.key",
+			Network:             "10.255.0.0/16",
+			SubnetPrefixLength:  24,
+			Database:            testDatabase.DBConfig(),
+			LeaseExpirationTime: 60,
 		}
 		baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 
@@ -120,6 +122,40 @@ var _ = Describe("Silk Controller", func() {
 				err := testClient.ReleaseSubnetLease("9.9.9.9")
 				Expect(err).NotTo(HaveOccurred())
 			})
+		})
+	})
+
+	Describe("lease expiration", func() {
+		BeforeEach(func() {
+			stopServer()
+
+			conf = config.Config{
+				ListenHost:          "127.0.0.1",
+				ListenPort:          50000 + GinkgoParallelNode(),
+				DebugServerPort:     60000 + GinkgoParallelNode(),
+				CACertFile:          "fixtures/ca.crt",
+				ServerCertFile:      "fixtures/server.crt",
+				ServerKeyFile:       "fixtures/server.key",
+				Network:             "10.255.0.0/29",
+				SubnetPrefixLength:  30,
+				Database:            testDatabase.DBConfig(),
+				LeaseExpirationTime: 1,
+			}
+			baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
+
+			startAndWaitForServer()
+		})
+		It("reclaims expired leases", func() {
+			_, err := testClient.AcquireSubnetLease("10.244.4.5")
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = testClient.AcquireSubnetLease("10.244.4.15")
+			Expect(err).To(MatchError(ContainSubstring("No lease available")))
+
+			time.Sleep(2 * time.Second)
+
+			_, err = testClient.AcquireSubnetLease("10.244.4.15")
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 

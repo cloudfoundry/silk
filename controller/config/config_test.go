@@ -39,6 +39,7 @@ var _ = Describe("Config.ReadFromFile", func() {
 				Type:             "mysql",
 				ConnectionString: "some-connection-string",
 			},
+			"lease_expiration_time": 12,
 		}
 	})
 

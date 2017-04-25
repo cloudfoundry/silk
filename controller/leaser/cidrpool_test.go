@@ -43,6 +43,8 @@ var _ = Describe("Cidrpool", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(network.Contains(subnet.IP)).To(BeTrue())
 				Expect(subnet.Mask).To(Equal(net.IPMask{255, 255, 255, 0}))
+				// first subnet from range is never allocated
+				Expect(subnet.IP.To4()).NotTo(Equal(network.IP.To4()))
 			}
 		})
 

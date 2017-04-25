@@ -149,7 +149,7 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 		})
 
-		Context("when the datbase type is not supported", func() {
+		Context("when the database type is not supported", func() {
 			BeforeEach(func() {
 				mockDb.DriverNameReturns("foo")
 			})
@@ -273,7 +273,7 @@ var _ = Describe("DatabaseHandler", func() {
 			databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 		})
 
-		Context("when the datbase is postgres", func() {
+		Context("when the database is postgres", func() {
 			BeforeEach(func() {
 				mockDb.DriverNameReturns("postgres")
 			})
@@ -286,7 +286,7 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 		})
 
-		Context("when the datbase is mysql", func() {
+		Context("when the database is mysql", func() {
 			BeforeEach(func() {
 				mockDb.DriverNameReturns("mysql")
 			})
@@ -299,7 +299,7 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 		})
 
-		Context("when the datbase type is not supported", func() {
+		Context("when the database type is not supported", func() {
 			BeforeEach(func() {
 				mockDb.DriverNameReturns("foo")
 			})
@@ -415,6 +415,60 @@ var _ = Describe("DatabaseHandler", func() {
 
 	})
 
+	Describe("OldestExpired", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("gets the oldest lease that is expired", func() {
+			expiredLease, err := databaseHandler.OldestExpired(0)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(expiredLease).To(Equal(&lease))
+		})
+
+		Context("when the database type is not supported", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.DriverNameReturns("foo")
+			})
+			It("returns an error", func() {
+				_, err := databaseHandler.OldestExpired(23)
+				Expect(err).To(MatchError("database type foo is not supported"))
+			})
+		})
+
+		Context("when no lease is expired", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+				_, err := databaseHandler.Migrate()
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("returns nil and does not error", func() {
+				lease, err := databaseHandler.OldestExpired(23)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lease).To(BeNil())
+			})
+		})
+
+		Context("when parsing the result fails", func() {
+			var result *sql.Row
+			BeforeEach(func() {
+				result = realDb.QueryRow("SELECT 1")
+
+				mockDb.QueryRowReturns(result)
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+			})
+			It("returns an error", func() {
+				_, err := databaseHandler.OldestExpired(23)
+				Expect(err).To(MatchError(ContainSubstring("scan result:")))
+			})
+		})
+	})
 })
 
 //go:generate counterfeiter -o fakes/sqlResult.go --fake-name SqlResult . sqlResult

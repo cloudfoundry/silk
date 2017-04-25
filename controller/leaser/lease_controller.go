@@ -17,6 +17,7 @@ type databaseHandler interface {
 	LastRenewedAtForUnderlayIP(string) (int64, error)
 	RenewLeaseForUnderlayIP(string) error
 	All() ([]controller.Lease, error)
+	OldestExpired(int) (*controller.Lease, error)
 }
 
 //go:generate counterfeiter -o fakes/lease_validator.go --fake-name LeaseValidator . leaseValidator
@@ -40,6 +41,7 @@ type LeaseController struct {
 	AcquireSubnetLeaseAttempts int
 	CIDRPool                   cidrPool
 	LeaseValidator             leaseValidator
+	LeaseExpirationTime        int
 	Logger                     lager.Logger
 }
 
@@ -141,7 +143,18 @@ func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease,
 
 	subnet = c.CIDRPool.GetAvailable(taken)
 	if subnet == "" {
-		return nil, nil
+		lease, err := c.DatabaseHandler.OldestExpired(c.LeaseExpirationTime)
+		if err != nil {
+			return nil, fmt.Errorf("get oldest expired: %s", err)
+		} else if lease == nil {
+			return nil, nil
+		} else {
+			err := c.DatabaseHandler.DeleteEntry(lease.UnderlayIP)
+			if err != nil {
+				return nil, fmt.Errorf("delete expired subnet: %s", err) // test
+			}
+			subnet = lease.OverlaySubnet
+		}
 	}
 
 	vtepIP, _, err := net.ParseCIDR(subnet)

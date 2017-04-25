@@ -68,6 +68,7 @@ func mainWithError() error {
 		LeaseValidator:             &leaser.LeaseValidator{},
 		AcquireSubnetLeaseAttempts: 10,
 		CIDRPool:                   leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
+		LeaseExpirationTime:        conf.LeaseExpirationTime,
 		Logger:                     logger,
 	}
 	migrator := &database.Migrator{

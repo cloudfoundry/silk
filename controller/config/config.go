@@ -12,15 +12,16 @@ import (
 )
 
 type Config struct {
-	DebugServerPort    int       `json:"debug_server_port" validate:"nonzero"`
-	ListenHost         string    `json:"listen_host" validate:"nonzero"`
-	ListenPort         int       `json:"listen_port" validate:"nonzero"`
-	CACertFile         string    `json:"ca_cert_file" validate:"nonzero"`
-	ServerCertFile     string    `json:"server_cert_file" validate:"nonzero"`
-	ServerKeyFile      string    `json:"server_key_file" validate:"nonzero"`
-	Network            string    `json:"network" validate:"nonzero"`
-	SubnetPrefixLength int       `json:"subnet_prefix_length" validate:"nonzero"`
-	Database           db.Config `json:"database" validate:"nonzero"`
+	DebugServerPort     int       `json:"debug_server_port" validate:"nonzero"`
+	ListenHost          string    `json:"listen_host" validate:"nonzero"`
+	ListenPort          int       `json:"listen_port" validate:"nonzero"`
+	CACertFile          string    `json:"ca_cert_file" validate:"nonzero"`
+	ServerCertFile      string    `json:"server_cert_file" validate:"nonzero"`
+	ServerKeyFile       string    `json:"server_key_file" validate:"nonzero"`
+	Network             string    `json:"network" validate:"nonzero"`
+	SubnetPrefixLength  int       `json:"subnet_prefix_length" validate:"nonzero"`
+	Database            db.Config `json:"database" validate:"nonzero"`
+	LeaseExpirationTime int       `json:"lease_expiration_time" validate:"min=1"`
 }
 
 func (c *Config) WriteToFile(configFilePath string) error {

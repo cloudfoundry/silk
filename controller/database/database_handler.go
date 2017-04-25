@@ -10,6 +10,9 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 )
 
+const postgresTimeNow = "EXTRACT(EPOCH FROM now())::numeric::integer"
+const mysqlTimeNow = "UNIX_TIMESTAMP()"
+
 var RecordNotAffectedError = errors.New("record not affected")
 var MultipleRecordsAffectedError = errors.New("multiple records affected")
 
@@ -70,6 +73,28 @@ func (d *DatabaseHandler) All() ([]controller.Lease, error) {
 	return leases, nil
 }
 
+func (d *DatabaseHandler) OldestExpired(expirationTime int) (*controller.Lease, error) {
+	timestamp, err := timestampForDriver(d.db.DriverName())
+	if err != nil {
+		return nil, err
+	}
+
+	var underlayIP, overlaySubnet, overlayHWAddr string
+	result := d.db.QueryRow(fmt.Sprintf("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE last_renewed_at + %d <= %s ORDER BY last_renewed_at ASC LIMIT 1", expirationTime, timestamp))
+	err = result.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("scan result: %s", err)
+	}
+	return &controller.Lease{
+		UnderlayIP:          underlayIP,
+		OverlaySubnet:       overlaySubnet,
+		OverlayHardwareAddr: overlayHWAddr,
+	}, nil
+}
+
 func (d *DatabaseHandler) Migrate() (int, error) {
 	migrations := d.migrations
 	numMigrations, err := d.migrator.Exec(d.db, d.db.DriverName(), *migrations, migrate.Up)
@@ -80,16 +105,13 @@ func (d *DatabaseHandler) Migrate() (int, error) {
 }
 
 func (d *DatabaseHandler) AddEntry(lease controller.Lease) error {
-	var query string
-	switch d.db.DriverName() {
-	case "mysql":
-		query = fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('%s', '%s', '%s', UNIX_TIMESTAMP())", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr)
-	case "postgres":
-		query = fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('%s', '%s', '%s', EXTRACT(EPOCH FROM now())::numeric::integer)", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr)
-	default:
-		return fmt.Errorf("database type %s is not supported", d.db.DriverName())
+	timestamp, err := timestampForDriver(d.db.DriverName())
+	if err != nil {
+		return err
 	}
-	_, err := d.db.Exec(query)
+
+	query := fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('%s', '%s', '%s', %s)", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr, timestamp)
+	_, err = d.db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("adding entry: %s", err)
 	}
@@ -122,7 +144,7 @@ func (d *DatabaseHandler) LeaseForUnderlayIP(underlayIP string) (*controller.Lea
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		return nil, err // test me
 	}
 	return &controller.Lease{
 		UnderlayIP:          underlayIP,
@@ -132,16 +154,13 @@ func (d *DatabaseHandler) LeaseForUnderlayIP(underlayIP string) (*controller.Lea
 }
 
 func (d *DatabaseHandler) RenewLeaseForUnderlayIP(underlayIP string) error {
-	var query string
-	switch d.db.DriverName() {
-	case "mysql":
-		query = fmt.Sprintf("UPDATE subnets SET last_renewed_at = UNIX_TIMESTAMP() WHERE underlay_ip = '%s'", underlayIP)
-	case "postgres":
-		query = fmt.Sprintf("UPDATE subnets SET last_renewed_at = EXTRACT(EPOCH FROM now())::numeric::integer WHERE underlay_ip = '%s'", underlayIP)
-	default:
-		return fmt.Errorf("database type %s is not supported", d.db.DriverName())
+	timestamp, err := timestampForDriver(d.db.DriverName())
+	if err != nil {
+		return err
 	}
-	_, err := d.db.Exec(query)
+
+	query := fmt.Sprintf("UPDATE subnets SET last_renewed_at = %s WHERE underlay_ip = '%s'", timestamp, underlayIP)
+	_, err = d.db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("renewing lease: %s", err)
 	}
@@ -190,4 +209,15 @@ func createSubnetTable(dbType string) string {
 	}
 
 	return ""
+}
+
+func timestampForDriver(driverName string) (string, error) {
+	switch driverName {
+	case "mysql":
+		return mysqlTimeNow, nil
+	case "postgres":
+		return postgresTimeNow, nil
+	default:
+		return "", fmt.Errorf("database type %s is not supported", driverName)
+	}
 }

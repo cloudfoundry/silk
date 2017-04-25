@@ -38,6 +38,7 @@ var _ = Describe("LeaseController", func() {
 			HardwareAddressGenerator: hardwareAddressGenerator,
 			LeaseValidator:           validator,
 			Logger:                   logger,
+			LeaseExpirationTime:      42,
 		}
 		hardwareAddressGenerator.GenerateForVTEPReturns(
 			net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x4c, 0x00}, nil,
@@ -94,13 +95,68 @@ var _ = Describe("LeaseController", func() {
 			BeforeEach(func() {
 				cidrPool.GetAvailableReturns("")
 			})
-			It("eventually returns an error after failing to find a free subnet", func() {
-				lease, err := leaseController.AcquireSubnetLease("10.244.5.6")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(lease).To(BeNil())
+			Context("when there are no expired leases", func() {
+				It("eventually returns an error after failing to find a free subnet", func() {
+					lease, err := leaseController.AcquireSubnetLease("10.244.5.6")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(lease).To(BeNil())
 
-				Expect(databaseHandler.AllCallCount()).To(Equal(10))
-				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+					Expect(databaseHandler.AllCallCount()).To(Equal(10))
+					Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+
+					Expect(databaseHandler.OldestExpiredCallCount()).To(Equal(10))
+					Expect(databaseHandler.OldestExpiredArgsForCall(0)).To(Equal(42))
+				})
+			})
+			Context("when there is an expired lease", func() {
+				var expiredLease *controller.Lease
+
+				BeforeEach(func() {
+					expiredLease = &controller.Lease{
+						UnderlayIP:          "10.244.5.60",
+						OverlaySubnet:       "10.255.76.0/24",
+						OverlayHardwareAddr: "ee:ee:0a:ff:4c:00",
+					}
+					databaseHandler.OldestExpiredReturns(expiredLease, nil)
+				})
+
+				It("Deletes the expired lease and assigns that lease's subnet", func() {
+					lease, err := leaseController.AcquireSubnetLease("10.244.5.6")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(lease).To(Equal(&controller.Lease{
+						UnderlayIP:          "10.244.5.6",
+						OverlaySubnet:       expiredLease.OverlaySubnet,
+						OverlayHardwareAddr: expiredLease.OverlayHardwareAddr,
+					}))
+
+					Expect(databaseHandler.AllCallCount()).To(Equal(1))
+					Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
+					Expect(databaseHandler.DeleteEntryCallCount()).To(Equal(1))
+					Expect(databaseHandler.DeleteEntryArgsForCall(0)).To(Equal(expiredLease.UnderlayIP))
+
+					Expect(databaseHandler.OldestExpiredCallCount()).To(Equal(1))
+					Expect(databaseHandler.OldestExpiredArgsForCall(0)).To(Equal(42))
+				})
+
+				Context("when getting the oldest expired lease returns an error", func() {
+					BeforeEach(func() {
+						databaseHandler.OldestExpiredReturns(nil, errors.New("guava"))
+					})
+					It("returns an error", func() {
+						_, err := leaseController.AcquireSubnetLease("10.244.5.6")
+						Expect(err).To(MatchError("get oldest expired: guava"))
+					})
+				})
+
+				Context("when deleting the entry errors", func() {
+					BeforeEach(func() {
+						databaseHandler.DeleteEntryReturns(errors.New("guava"))
+					})
+					It("returns an error", func() {
+						_, err := leaseController.AcquireSubnetLease("10.244.5.6")
+						Expect(err).To(MatchError("delete expired subnet: guava"))
+					})
+				})
 			})
 		})
 
