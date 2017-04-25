@@ -119,6 +119,7 @@ var _ = BeforeEach(func() {
 
 var _ = AfterEach(func() {
 	fakeServer.Stop()
+	vtepFactory.DeleteVTEP(vtepName)
 })
 
 var _ = Describe("Daemon Integration", func() {
@@ -127,8 +128,6 @@ var _ = Describe("Daemon Integration", func() {
 	})
 
 	AfterEach(func() {
-		err := vtepFactory.DeleteVTEP(vtepName)
-		Expect(err).NotTo(HaveOccurred())
 		stopDaemon()
 	})
 
