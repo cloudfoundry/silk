@@ -13,13 +13,18 @@ type netlinkAdapter interface {
 	LinkSetUp(netlink.Link) error
 	LinkAdd(netlink.Link) error
 	LinkByName(string) (netlink.Link, error)
+	LinkByIndex(int) (netlink.Link, error)
 	LinkSetHardwareAddr(netlink.Link, net.HardwareAddr) error
 	AddrAddScopeLink(link netlink.Link, addr *netlink.Addr) error
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 	RouteAdd(*netlink.Route) error
 	RouteReplace(*netlink.Route) error
+	RouteList(netlink.Link, int) ([]netlink.Route, error)
+	RouteDel(*netlink.Route) error
 	LinkDel(netlink.Link) error
 	NeighSet(*netlink.Neigh) error
+	NeighList(int, int) ([]netlink.Neigh, error)
+	NeighDel(*netlink.Neigh) error
 }
 
 type Factory struct {

@@ -12,6 +12,10 @@ func (*NetlinkAdapter) LinkByName(name string) (netlink.Link, error) {
 	return netlink.LinkByName(name)
 }
 
+func (*NetlinkAdapter) LinkByIndex(index int) (netlink.Link, error) {
+	return netlink.LinkByIndex(index)
+}
+
 func (*NetlinkAdapter) ParseAddr(addr string) (*netlink.Addr, error) {
 	return netlink.ParseAddr(addr)
 }
@@ -41,6 +45,14 @@ func (*NetlinkAdapter) NeighAddPermanentIPv4(index int, destIP net.IP, hwAddr ne
 
 func (*NetlinkAdapter) NeighSet(neigh *netlink.Neigh) error {
 	return netlink.NeighSet(neigh)
+}
+
+func (*NetlinkAdapter) NeighList(linkIndex, family int) ([]netlink.Neigh, error) {
+	return netlink.NeighList(linkIndex, family)
+}
+
+func (*NetlinkAdapter) NeighDel(neigh *netlink.Neigh) error {
+	return netlink.NeighDel(neigh)
 }
 
 func (*NetlinkAdapter) LinkSetARPOff(link netlink.Link) error {
@@ -73,4 +85,12 @@ func (*NetlinkAdapter) RouteAdd(route *netlink.Route) error {
 
 func (*NetlinkAdapter) RouteReplace(route *netlink.Route) error {
 	return netlink.RouteReplace(route)
+}
+
+func (*NetlinkAdapter) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
+	return netlink.RouteList(link, family)
+}
+
+func (*NetlinkAdapter) RouteDel(route *netlink.Route) error {
+	return netlink.RouteDel(route)
 }

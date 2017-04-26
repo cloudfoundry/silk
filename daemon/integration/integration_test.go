@@ -245,6 +245,55 @@ var _ = Describe("Daemon Integration", func() {
 			By("checking that no leases are logged")
 			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
 		})
+
+		FContext("when cells with overlay subnets are brought down", func() {
+			It("polls and updates the leases accordingly", func() {
+				By("checking that the correct leases are logged")
+				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
+				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
+				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
+
+				By("checking the arp fdb and routing are correct")
+				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
+				Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+				Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
+
+				arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
+				Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
+
+				fdbEntries := mustSucceed("bridge", "fdb", "list", "dev", vtepName)
+				Expect(fdbEntries).To(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
+
+				By("simulating a cell shutdown by removing a lease from the controller")
+				fakeServer.SetHandler("/leases", &testsupport.FakeHandler{
+					ResponseCode: 200,
+					ResponseBody: map[string][]controller.Lease{"leases": []controller.Lease{
+						{
+							UnderlayIP:          localIP,
+							OverlaySubnet:       "10.255.30.0/24",
+							OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
+						},
+					}}},
+				)
+
+				By("checking that updated leases are logged")
+				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*log_level.*0`)))
+				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
+				Eventually(session.Out, 2).ShouldNot(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
+
+				By("checking the arp fdb and routing are updated correctly")
+				routes = mustSucceed("ip", "route", "list", "dev", vtepName)
+				Expect(routes).NotTo(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+				Expect(routes).NotTo(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
+
+				arpEntries = mustSucceed("ip", "neigh", "list", "dev", vtepName)
+				Expect(arpEntries).NotTo(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
+
+				fdbEntries = mustSucceed("bridge", "fdb", "list", "dev", vtepName)
+				Expect(fdbEntries).NotTo(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
+
+			})
+		})
 	})
 
 	Context("when a local lease is discovered but it cannot be renewed", func() {

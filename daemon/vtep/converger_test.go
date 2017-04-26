@@ -89,6 +89,112 @@ var _ = Describe("Converger", func() {
 			))
 		})
 
+		Context("when the a remote lease is removed", func() {
+			var neighs []netlink.Neigh
+			BeforeEach(func() {
+				destMac, _ := net.ParseMAC("ee:ee:0a:ff:13:00")
+				destGW, destNet, _ := net.ParseCIDR("10.255.19.0/24")
+
+				oldDestMac, _ := net.ParseMAC("ee:ee:0a:ff:14:00")
+				oldDestGW, oldDestNet, _ := net.ParseCIDR("10.255.20.0/24")
+
+				fakeNetlink.NeighListReturns([]netlink.Neigh{
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Type:         syscall.RTN_UNICAST,
+						IP:           net.ParseIP("10.255.19.0"),
+						HardwareAddr: destMac,
+					},
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Family:       syscall.AF_BRIDGE,
+						Flags:        netlink.NTF_SELF,
+						IP:           net.ParseIP("10.10.0.5"),
+						HardwareAddr: destMac,
+					},
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Type:         syscall.RTN_UNICAST,
+						IP:           net.ParseIP("10.255.20.0"),
+						HardwareAddr: oldDestMac,
+					},
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Family:       syscall.AF_BRIDGE,
+						Flags:        netlink.NTF_SELF,
+						IP:           net.ParseIP("10.10.0.6"),
+						HardwareAddr: oldDestMac,
+					},
+				}, nil)
+
+				fakeNetlink.RouteListReturns([]netlink.Route{
+					netlink.Route{
+						LinkIndex: 42,
+						Scope:     netlink.SCOPE_UNIVERSE,
+						Dst:       destNet,
+						Gw:        destGW,
+						Src:       net.ParseIP("10.255.32.0").To4(),
+					},
+					netlink.Route{
+						LinkIndex: 42,
+						Scope:     netlink.SCOPE_UNIVERSE,
+						Dst:       oldDestNet,
+						Gw:        oldDestGW,
+						Src:       net.ParseIP("10.255.48.0").To4(),
+					},
+				}, nil)
+
+				neighs = []netlink.Neigh{}
+				fakeNetlink.NeighDelStub = func(neigh *netlink.Neigh) error {
+					neighs = append(neighs, *neigh)
+					return nil
+				}
+			})
+
+			It("deletes the routing, ARP, and FDB rules related to the removed lease", func() {
+				err := converger.Converge(leases)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("checking that the route is deleted")
+				Expect(fakeNetlink.RouteDelCallCount()).To(Equal(1))
+				deletedRoute := fakeNetlink.RouteDelArgsForCall(0)
+				destGW, destNet, _ := net.ParseCIDR("10.255.20.0/24")
+				Expect(deletedRoute).To(Equal(&netlink.Route{
+					LinkIndex: 42,
+					Scope:     netlink.SCOPE_UNIVERSE,
+					Dst:       destNet,
+					Gw:        destGW,
+					Src:       net.ParseIP("10.255.48.0").To4(),
+				}))
+
+				By("checking that the ARP and FDB rules is deleted")
+				Expect(fakeNetlink.NeighDelCallCount()).To(Equal(2))
+
+				destMac, _ := net.ParseMAC("ee:ee:0a:ff:14:00")
+				Expect(neighs).To(ConsistOf(
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Type:         syscall.RTN_UNICAST,
+						IP:           net.ParseIP("10.255.20.0"),
+						HardwareAddr: destMac,
+					},
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Family:       syscall.AF_BRIDGE,
+						Flags:        netlink.NTF_SELF,
+						IP:           net.ParseIP("10.10.0.6"),
+						HardwareAddr: destMac,
+					},
+				))
+			})
+		})
+
 		Context("when the lease subnet is malformed", func() {
 			BeforeEach(func() {
 				leases[1].OverlaySubnet = "banana"
