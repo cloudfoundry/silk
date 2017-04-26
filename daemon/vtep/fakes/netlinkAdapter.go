@@ -164,17 +164,29 @@ type NetlinkAdapter struct {
 	neighSetReturnsOnCall map[int]struct {
 		result1 error
 	}
-	NeighListStub        func(int, int) ([]netlink.Neigh, error)
-	neighListMutex       sync.RWMutex
-	neighListArgsForCall []struct {
-		arg1 int
-		arg2 int
+	ARPListStub        func(index int) ([]netlink.Neigh, error)
+	aRPListMutex       sync.RWMutex
+	aRPListArgsForCall []struct {
+		index int
 	}
-	neighListReturns struct {
+	aRPListReturns struct {
 		result1 []netlink.Neigh
 		result2 error
 	}
-	neighListReturnsOnCall map[int]struct {
+	aRPListReturnsOnCall map[int]struct {
+		result1 []netlink.Neigh
+		result2 error
+	}
+	FDBListStub        func(index int) ([]netlink.Neigh, error)
+	fDBListMutex       sync.RWMutex
+	fDBListArgsForCall []struct {
+		index int
+	}
+	fDBListReturns struct {
+		result1 []netlink.Neigh
+		result2 error
+	}
+	fDBListReturnsOnCall map[int]struct {
 		result1 []netlink.Neigh
 		result2 error
 	}
@@ -833,53 +845,103 @@ func (fake *NetlinkAdapter) NeighSetReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *NetlinkAdapter) NeighList(arg1 int, arg2 int) ([]netlink.Neigh, error) {
-	fake.neighListMutex.Lock()
-	ret, specificReturn := fake.neighListReturnsOnCall[len(fake.neighListArgsForCall)]
-	fake.neighListArgsForCall = append(fake.neighListArgsForCall, struct {
-		arg1 int
-		arg2 int
-	}{arg1, arg2})
-	fake.recordInvocation("NeighList", []interface{}{arg1, arg2})
-	fake.neighListMutex.Unlock()
-	if fake.NeighListStub != nil {
-		return fake.NeighListStub(arg1, arg2)
+func (fake *NetlinkAdapter) ARPList(index int) ([]netlink.Neigh, error) {
+	fake.aRPListMutex.Lock()
+	ret, specificReturn := fake.aRPListReturnsOnCall[len(fake.aRPListArgsForCall)]
+	fake.aRPListArgsForCall = append(fake.aRPListArgsForCall, struct {
+		index int
+	}{index})
+	fake.recordInvocation("ARPList", []interface{}{index})
+	fake.aRPListMutex.Unlock()
+	if fake.ARPListStub != nil {
+		return fake.ARPListStub(index)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.neighListReturns.result1, fake.neighListReturns.result2
+	return fake.aRPListReturns.result1, fake.aRPListReturns.result2
 }
 
-func (fake *NetlinkAdapter) NeighListCallCount() int {
-	fake.neighListMutex.RLock()
-	defer fake.neighListMutex.RUnlock()
-	return len(fake.neighListArgsForCall)
+func (fake *NetlinkAdapter) ARPListCallCount() int {
+	fake.aRPListMutex.RLock()
+	defer fake.aRPListMutex.RUnlock()
+	return len(fake.aRPListArgsForCall)
 }
 
-func (fake *NetlinkAdapter) NeighListArgsForCall(i int) (int, int) {
-	fake.neighListMutex.RLock()
-	defer fake.neighListMutex.RUnlock()
-	return fake.neighListArgsForCall[i].arg1, fake.neighListArgsForCall[i].arg2
+func (fake *NetlinkAdapter) ARPListArgsForCall(i int) int {
+	fake.aRPListMutex.RLock()
+	defer fake.aRPListMutex.RUnlock()
+	return fake.aRPListArgsForCall[i].index
 }
 
-func (fake *NetlinkAdapter) NeighListReturns(result1 []netlink.Neigh, result2 error) {
-	fake.NeighListStub = nil
-	fake.neighListReturns = struct {
+func (fake *NetlinkAdapter) ARPListReturns(result1 []netlink.Neigh, result2 error) {
+	fake.ARPListStub = nil
+	fake.aRPListReturns = struct {
 		result1 []netlink.Neigh
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *NetlinkAdapter) NeighListReturnsOnCall(i int, result1 []netlink.Neigh, result2 error) {
-	fake.NeighListStub = nil
-	if fake.neighListReturnsOnCall == nil {
-		fake.neighListReturnsOnCall = make(map[int]struct {
+func (fake *NetlinkAdapter) ARPListReturnsOnCall(i int, result1 []netlink.Neigh, result2 error) {
+	fake.ARPListStub = nil
+	if fake.aRPListReturnsOnCall == nil {
+		fake.aRPListReturnsOnCall = make(map[int]struct {
 			result1 []netlink.Neigh
 			result2 error
 		})
 	}
-	fake.neighListReturnsOnCall[i] = struct {
+	fake.aRPListReturnsOnCall[i] = struct {
+		result1 []netlink.Neigh
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NetlinkAdapter) FDBList(index int) ([]netlink.Neigh, error) {
+	fake.fDBListMutex.Lock()
+	ret, specificReturn := fake.fDBListReturnsOnCall[len(fake.fDBListArgsForCall)]
+	fake.fDBListArgsForCall = append(fake.fDBListArgsForCall, struct {
+		index int
+	}{index})
+	fake.recordInvocation("FDBList", []interface{}{index})
+	fake.fDBListMutex.Unlock()
+	if fake.FDBListStub != nil {
+		return fake.FDBListStub(index)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.fDBListReturns.result1, fake.fDBListReturns.result2
+}
+
+func (fake *NetlinkAdapter) FDBListCallCount() int {
+	fake.fDBListMutex.RLock()
+	defer fake.fDBListMutex.RUnlock()
+	return len(fake.fDBListArgsForCall)
+}
+
+func (fake *NetlinkAdapter) FDBListArgsForCall(i int) int {
+	fake.fDBListMutex.RLock()
+	defer fake.fDBListMutex.RUnlock()
+	return fake.fDBListArgsForCall[i].index
+}
+
+func (fake *NetlinkAdapter) FDBListReturns(result1 []netlink.Neigh, result2 error) {
+	fake.FDBListStub = nil
+	fake.fDBListReturns = struct {
+		result1 []netlink.Neigh
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NetlinkAdapter) FDBListReturnsOnCall(i int, result1 []netlink.Neigh, result2 error) {
+	fake.FDBListStub = nil
+	if fake.fDBListReturnsOnCall == nil {
+		fake.fDBListReturnsOnCall = make(map[int]struct {
+			result1 []netlink.Neigh
+			result2 error
+		})
+	}
+	fake.fDBListReturnsOnCall[i] = struct {
 		result1 []netlink.Neigh
 		result2 error
 	}{result1, result2}
@@ -962,8 +1024,10 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.linkDelMutex.RUnlock()
 	fake.neighSetMutex.RLock()
 	defer fake.neighSetMutex.RUnlock()
-	fake.neighListMutex.RLock()
-	defer fake.neighListMutex.RUnlock()
+	fake.aRPListMutex.RLock()
+	defer fake.aRPListMutex.RUnlock()
+	fake.fDBListMutex.RLock()
+	defer fake.fDBListMutex.RUnlock()
 	fake.neighDelMutex.RLock()
 	defer fake.neighDelMutex.RUnlock()
 	return fake.invocations

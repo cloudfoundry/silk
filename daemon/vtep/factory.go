@@ -23,7 +23,8 @@ type netlinkAdapter interface {
 	RouteDel(*netlink.Route) error
 	LinkDel(netlink.Link) error
 	NeighSet(*netlink.Neigh) error
-	NeighList(int, int) ([]netlink.Neigh, error)
+	ARPList(index int) ([]netlink.Neigh, error)
+	FDBList(index int) ([]netlink.Neigh, error)
 	NeighDel(*netlink.Neigh) error
 }
 

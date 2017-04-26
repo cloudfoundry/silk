@@ -71,19 +71,19 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	datastorePath = filepath.Join(datastoreDir, "container-metadata.json")
 	daemonConf = config.Config{
-		UnderlayIP:                 localIP,
-		SubnetPrefixLength:         24,
-		OverlayNetworkPrefixLength: 16,
-		HealthCheckPort:            uint16(daemonHealthCheckPort),
-		VTEPName:                   vtepName,
-		ConnectivityServerURL:      fmt.Sprintf("https://%s", serverListenAddr),
-		ServerCACertFile:           paths.ServerCACertFile,
-		ClientCertFile:             paths.ClientCertFile,
-		ClientKeyFile:              paths.ClientKeyFile,
-		VNI:                        vni,
-		PollInterval:               1,
-		DebugServerPort:            daemonDebugServerPort,
-		Datastore:                  datastorePath,
+		UnderlayIP:            localIP,
+		SubnetPrefixLength:    24,
+		OverlayNetwork:        "10.255.0.0/16",
+		HealthCheckPort:       uint16(daemonHealthCheckPort),
+		VTEPName:              vtepName,
+		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),
+		ServerCACertFile:      paths.ServerCACertFile,
+		ClientCertFile:        paths.ClientCertFile,
+		ClientKeyFile:         paths.ClientKeyFile,
+		VNI:                   vni,
+		PollInterval:          1,
+		DebugServerPort:       daemonDebugServerPort,
+		Datastore:             datastorePath,
 	}
 
 	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}
@@ -246,7 +246,7 @@ var _ = Describe("Daemon Integration", func() {
 			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
 		})
 
-		FContext("when cells with overlay subnets are brought down", func() {
+		Context("when cells with overlay subnets are brought down", func() {
 			It("polls and updates the leases accordingly", func() {
 				By("checking that the correct leases are logged")
 				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
@@ -283,7 +283,7 @@ var _ = Describe("Daemon Integration", func() {
 
 				By("checking the arp fdb and routing are updated correctly")
 				routes = mustSucceed("ip", "route", "list", "dev", vtepName)
-				Expect(routes).NotTo(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+				Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
 				Expect(routes).NotTo(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
 
 				arpEntries = mustSucceed("ip", "neigh", "list", "dev", vtepName)
@@ -291,7 +291,6 @@ var _ = Describe("Daemon Integration", func() {
 
 				fdbEntries = mustSucceed("bridge", "fdb", "list", "dev", vtepName)
 				Expect(fdbEntries).NotTo(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
-
 			})
 		})
 	})

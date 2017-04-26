@@ -53,13 +53,16 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 		return nil, fmt.Errorf("parsing hardware address: %s", err)
 	}
 
-	if clientConf.OverlayNetworkPrefixLength < 1 {
-		return nil, fmt.Errorf("missing required config overlay network prefix length")
+	_, overlayNetwork, err := net.ParseCIDR(clientConf.OverlayNetwork)
+	if err != nil {
+		return nil, fmt.Errorf("determine overlay network: %s", err)
 	}
 
-	if clientConf.OverlayNetworkPrefixLength >= clientConf.SubnetPrefixLength {
+	overlayNetworkPrefixLength, _ := overlayNetwork.Mask.Size()
+
+	if overlayNetworkPrefixLength >= clientConf.SubnetPrefixLength {
 		return nil, fmt.Errorf("overlay prefix %d must be smaller than subnet prefix %d",
-			clientConf.OverlayNetworkPrefixLength, clientConf.SubnetPrefixLength)
+			overlayNetworkPrefixLength, clientConf.SubnetPrefixLength)
 	}
 
 	return &Config{
@@ -69,7 +72,7 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 		OverlayIP:           overlayIP,
 		OverlayHardwareAddr: overlayHardwareAddr,
 		VNI:                 clientConf.VNI,
-		OverlayNetworkPrefixLength: clientConf.OverlayNetworkPrefixLength,
+		OverlayNetworkPrefixLength: overlayNetworkPrefixLength,
 	}, nil
 }
 

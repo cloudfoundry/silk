@@ -126,6 +126,11 @@ func mainWithError() error {
 		log.Fatalf("parse local subnet CIDR") //TODO add test coverage
 	}
 
+	_, overlayNetwork, err := net.ParseCIDR(cfg.OverlayNetwork)
+	if err != nil {
+		log.Fatalf("parse overlay network CIDR") //TODO add test coverage
+	}
+
 	vxlanIface, err := net.InterfaceByName(cfg.VTEPName)
 	if err != nil || vxlanIface == nil {
 		log.Fatalf("find local VTEP") //TODO add test coverage
@@ -139,6 +144,7 @@ func mainWithError() error {
 			ControllerClient: client,
 			Lease:            lease,
 			Converger: &vtep.Converger{
+				OverlayNetwork: overlayNetwork,
 				LocalSubnet:    localSubnet,
 				LocalVTEP:      *vxlanIface,
 				NetlinkAdapter: &adapter.NetlinkAdapter{},

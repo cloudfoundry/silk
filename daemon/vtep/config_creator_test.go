@@ -30,7 +30,7 @@ var _ = Describe("ConfigCreator", func() {
 				SubnetPrefixLength: 24,
 				VTEPName:           "some-vtep-name",
 				VNI:                99,
-				OverlayNetworkPrefixLength: 16,
+				OverlayNetwork:     "10.255.0.0/16",
 			}
 			lease = controller.Lease{
 				UnderlayIP:          "172.255.30.02",
@@ -67,7 +67,7 @@ var _ = Describe("ConfigCreator", func() {
 
 		Context("when the overlay network prefix length is greater than or equal to the subnet prefix length", func() {
 			BeforeEach(func() {
-				clientConf.OverlayNetworkPrefixLength = 30
+				clientConf.OverlayNetwork = "10.255.0.0/30"
 			})
 			It("returns an error", func() {
 				_, err := creator.Create(clientConf, lease)
@@ -75,13 +75,13 @@ var _ = Describe("ConfigCreator", func() {
 			})
 		})
 
-		Context("when the overlay network prefix length not set", func() {
+		Context("when the overlay network is not set", func() {
 			BeforeEach(func() {
-				clientConf.OverlayNetworkPrefixLength = 0
+				clientConf.OverlayNetwork = ""
 			})
 			It("returns an error", func() {
 				_, err := creator.Create(clientConf, lease)
-				Expect(err).To(MatchError("missing required config overlay network prefix length"))
+				Expect(err).To(MatchError("determine overlay network: invalid CIDR address: "))
 			})
 		})
 

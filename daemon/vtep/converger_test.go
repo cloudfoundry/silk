@@ -18,16 +18,19 @@ var _ = Describe("Converger", func() {
 		fakeNetlink *fakes.NetlinkAdapter
 		converger   *vtep.Converger
 		leases      []controller.Lease
+		overlayNet  *net.IPNet
 	)
 	Describe("Converge", func() {
 		BeforeEach(func() {
 			fakeNetlink = &fakes.NetlinkAdapter{}
 			_, localSubnet, _ := net.ParseCIDR("10.255.32.0/24")
+			_, overlayNet, _ = net.ParseCIDR("10.255.0.0/16")
 			localVTEP := net.Interface{
 				Index: 42,
 				Name:  "silk-vtep",
 			}
 			converger = &vtep.Converger{
+				OverlayNetwork: overlayNet,
 				LocalSubnet:    localSubnet,
 				LocalVTEP:      localVTEP,
 				NetlinkAdapter: fakeNetlink,
@@ -98,14 +101,7 @@ var _ = Describe("Converger", func() {
 				oldDestMac, _ := net.ParseMAC("ee:ee:0a:ff:14:00")
 				oldDestGW, oldDestNet, _ := net.ParseCIDR("10.255.20.0/24")
 
-				fakeNetlink.NeighListReturns([]netlink.Neigh{
-					netlink.Neigh{
-						LinkIndex:    42,
-						State:        netlink.NUD_PERMANENT,
-						Type:         syscall.RTN_UNICAST,
-						IP:           net.ParseIP("10.255.19.0"),
-						HardwareAddr: destMac,
-					},
+				fakeNetlink.FDBListReturns([]netlink.Neigh{
 					netlink.Neigh{
 						LinkIndex:    42,
 						State:        netlink.NUD_PERMANENT,
@@ -117,16 +113,26 @@ var _ = Describe("Converger", func() {
 					netlink.Neigh{
 						LinkIndex:    42,
 						State:        netlink.NUD_PERMANENT,
-						Type:         syscall.RTN_UNICAST,
-						IP:           net.ParseIP("10.255.20.0"),
+						Family:       syscall.AF_BRIDGE,
+						Flags:        netlink.NTF_SELF,
+						IP:           net.ParseIP("10.10.0.6"),
 						HardwareAddr: oldDestMac,
+					},
+				}, nil)
+
+				fakeNetlink.ARPListReturns([]netlink.Neigh{
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Type:         syscall.RTN_UNICAST,
+						IP:           net.ParseIP("10.255.19.0"),
+						HardwareAddr: destMac,
 					},
 					netlink.Neigh{
 						LinkIndex:    42,
 						State:        netlink.NUD_PERMANENT,
-						Family:       syscall.AF_BRIDGE,
-						Flags:        netlink.NTF_SELF,
-						IP:           net.ParseIP("10.10.0.6"),
+						Type:         syscall.RTN_UNICAST,
+						IP:           net.ParseIP("10.255.20.0"),
 						HardwareAddr: oldDestMac,
 					},
 				}, nil)
@@ -137,6 +143,13 @@ var _ = Describe("Converger", func() {
 						Scope:     netlink.SCOPE_UNIVERSE,
 						Dst:       destNet,
 						Gw:        destGW,
+						Src:       net.ParseIP("10.255.32.0").To4(),
+					},
+					netlink.Route{
+						LinkIndex: 42,
+						Scope:     netlink.SCOPE_UNIVERSE,
+						Dst:       overlayNet,
+						Gw:        nil,
 						Src:       net.ParseIP("10.255.32.0").To4(),
 					},
 					netlink.Route{
@@ -193,6 +206,72 @@ var _ = Describe("Converger", func() {
 					},
 				))
 			})
+
+		})
+
+		Context("when there are other routing rules", func() {
+			BeforeEach(func() {
+				fakeNetlink.RouteListReturns([]netlink.Route{
+					netlink.Route{
+						LinkIndex: 42,
+						Scope:     netlink.SCOPE_UNIVERSE,
+						Dst:       overlayNet,
+						Gw:        nil,
+						Src:       net.ParseIP("10.255.32.0").To4(),
+					},
+				}, nil)
+			})
+
+			It("does not delete rules it did not create", func() {
+				err := converger.Converge(leases)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(fakeNetlink.RouteDelCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when the link cannot be found", func() {
+			BeforeEach(func() {
+				fakeNetlink.LinkByIndexReturns(nil, errors.New("passionfruit"))
+			})
+
+			It("breaks early and returns a meaningful error", func() {
+				err := converger.Converge(leases)
+				Expect(err).To(MatchError("link by index: passionfruit"))
+			})
+		})
+
+		Context("when previous routes cannot be found", func() {
+			BeforeEach(func() {
+				fakeNetlink.RouteListReturns(nil, errors.New("peach"))
+			})
+
+			It("breaks early and returns a meaningful error", func() {
+				err := converger.Converge(leases)
+				Expect(err).To(MatchError("list routes: peach"))
+			})
+		})
+
+		Context("when previous fdb entries cannot be found", func() {
+			BeforeEach(func() {
+				fakeNetlink.FDBListReturns(nil, errors.New("kiwi"))
+			})
+
+			It("breaks early and returns a meaningful error", func() {
+				err := converger.Converge(leases)
+				Expect(err).To(MatchError("list fdb: kiwi"))
+			})
+		})
+
+		Context("when previous arp entries cannot be found", func() {
+			BeforeEach(func() {
+				fakeNetlink.ARPListReturns(nil, errors.New("lychee"))
+			})
+
+			It("breaks early and returns a meaningful error", func() {
+				err := converger.Converge(leases)
+				Expect(err).To(MatchError("list arp: lychee"))
+			})
 		})
 
 		Context("when the lease subnet is malformed", func() {
@@ -211,7 +290,7 @@ var _ = Describe("Converger", func() {
 			})
 			It("breaks early and returns a meaningful error", func() {
 				err := converger.Converge(leases)
-				Expect(err).To(MatchError("kumquat is not a valid ip"))
+				Expect(err).To(MatchError("invalid underlay ip"))
 			})
 		})
 
@@ -232,6 +311,48 @@ var _ = Describe("Converger", func() {
 			It("returns a meaningful error", func() {
 				err := converger.Converge(leases)
 				Expect(err).To(MatchError("set neigh: pear"))
+			})
+		})
+
+		Context("when deleting the route fails", func() {
+			BeforeEach(func() {
+				fakeNetlink.RouteDelReturns(errors.New("durian"))
+
+				destGW, destNet, _ := net.ParseCIDR("10.255.19.0/24")
+				fakeNetlink.RouteListReturns([]netlink.Route{
+					netlink.Route{
+						LinkIndex: 42,
+						Scope:     netlink.SCOPE_UNIVERSE,
+						Dst:       destNet,
+						Gw:        destGW,
+						Src:       net.ParseIP("10.255.32.0").To4(),
+					},
+				}, nil)
+			})
+			It("returns a meaningful error", func() {
+				err := converger.Converge([]controller.Lease{})
+				Expect(err).To(MatchError("del route: durian"))
+			})
+		})
+
+		Context("when deleting a neigh fails", func() {
+			BeforeEach(func() {
+				fakeNetlink.NeighDelReturns(errors.New("mango"))
+
+				destMac, _ := net.ParseMAC("ee:ee:0a:ff:14:00")
+				fakeNetlink.ARPListReturns([]netlink.Neigh{
+					netlink.Neigh{
+						LinkIndex:    42,
+						State:        netlink.NUD_PERMANENT,
+						Type:         syscall.RTN_UNICAST,
+						IP:           net.ParseIP("10.255.19.0"),
+						HardwareAddr: destMac,
+					},
+				}, nil)
+			})
+			It("returns a meaningful error", func() {
+				err := converger.Converge([]controller.Lease{})
+				Expect(err).To(MatchError("del neigh: mango"))
 			})
 		})
 	})

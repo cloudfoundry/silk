@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"net"
+	"syscall"
 
 	"github.com/vishvananda/netlink"
 )
@@ -47,8 +48,12 @@ func (*NetlinkAdapter) NeighSet(neigh *netlink.Neigh) error {
 	return netlink.NeighSet(neigh)
 }
 
-func (*NetlinkAdapter) NeighList(linkIndex, family int) ([]netlink.Neigh, error) {
-	return netlink.NeighList(linkIndex, family)
+func (*NetlinkAdapter) ARPList(linkIndex int) ([]netlink.Neigh, error) {
+	return netlink.NeighList(linkIndex, netlink.FAMILY_V4)
+}
+
+func (*NetlinkAdapter) FDBList(linkIndex int) ([]netlink.Neigh, error) {
+	return netlink.NeighList(linkIndex, syscall.AF_BRIDGE)
 }
 
 func (*NetlinkAdapter) NeighDel(neigh *netlink.Neigh) error {

@@ -11,25 +11,16 @@ import (
 )
 
 type Converger struct {
+	OverlayNetwork *net.IPNet
 	LocalSubnet    *net.IPNet
 	LocalVTEP      net.Interface
 	NetlinkAdapter netlinkAdapter
 }
 
 func (c *Converger) Converge(leases []controller.Lease) error {
-	link, err := c.NetlinkAdapter.LinkByIndex(c.LocalVTEP.Index)
+	previousRoutes, previousNeighs, err := c.getPreviousState(c.LocalVTEP.Index)
 	if err != nil {
-		panic(err)
-	}
-
-	previousRoutes, err := c.NetlinkAdapter.RouteList(link, 0)
-	if err != nil {
-		panic(err)
-	}
-
-	previousNeighs, err := c.NetlinkAdapter.NeighList(c.LocalVTEP.Index, 0)
-	if err != nil {
-		panic(err)
+		return err
 	}
 
 	var currentRoutes []netlink.Route
@@ -40,68 +31,29 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 			return fmt.Errorf("parse lease: %s", err)
 		}
 
-		remoteUnderlayIP := net.ParseIP(lease.UnderlayIP)
-		if remoteUnderlayIP == nil {
-			return fmt.Errorf("%s is not a valid ip", lease.UnderlayIP)
-		}
-
 		if c.isLocal(destNet) {
 			continue
 		}
 
-		route := netlink.Route{
-			LinkIndex: c.LocalVTEP.Index,
-			Scope:     netlink.SCOPE_UNIVERSE,
-			Dst:       destNet,
-			Gw:        destAddr,
-			Src:       c.LocalSubnet.IP,
-		}
-		err = c.NetlinkAdapter.RouteReplace(&route)
+		route, err := c.addRoute(destNet, destAddr)
 		if err != nil {
-			return fmt.Errorf("add route: %s", err)
+			return err
 		}
-
 		currentRoutes = append(currentRoutes, route)
 
-		remoteVTEPMac, err := hwaddr.GenerateHardwareAddr4(destAddr, []byte{0xee, 0xee})
+		neighs, err := c.addNeighs(net.ParseIP(lease.UnderlayIP), destAddr)
 		if err != nil {
-			return fmt.Errorf("generate remote vtep mac: %s", err) // untested, should be impossible
+			return err
 		}
-
-		neighs := []*netlink.Neigh{
-			{ // ARP
-				LinkIndex:    c.LocalVTEP.Index,
-				State:        netlink.NUD_PERMANENT,
-				Type:         syscall.RTN_UNICAST,
-				IP:           destAddr,
-				HardwareAddr: remoteVTEPMac,
-			},
-			{ // FDB
-				LinkIndex:    c.LocalVTEP.Index,
-				State:        netlink.NUD_PERMANENT,
-				Family:       syscall.AF_BRIDGE,
-				Flags:        netlink.NTF_SELF,
-				IP:           remoteUnderlayIP,
-				HardwareAddr: remoteVTEPMac,
-			},
-		}
-		for _, neigh := range neighs {
-			err = c.NetlinkAdapter.NeighSet(neigh)
-			if err != nil {
-				return fmt.Errorf("set neigh: %s", err)
-			}
-
-			currentNeighs = append(currentNeighs, *neigh)
-		}
+		currentNeighs = append(currentNeighs, neighs...)
 	}
 
 	routesForDeletion := getDeletedRoutes(previousRoutes, currentRoutes)
 	for _, route := range routesForDeletion {
-		if route.LinkIndex == c.LocalVTEP.Index && route.Protocol != 2 {
-			fmt.Printf("route flags are : %+v/n/n", route.ListFlags())
+		if route.LinkIndex == c.LocalVTEP.Index && c.OverlayNetwork.Contains(route.Gw) {
 			err = c.NetlinkAdapter.RouteDel(&route)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("del route: %s", err)
 			}
 		}
 	}
@@ -111,7 +63,7 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 		if neigh.LinkIndex == c.LocalVTEP.Index {
 			err = c.NetlinkAdapter.NeighDel(&neigh)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("del neigh: %s", err)
 			}
 		}
 	}
@@ -125,19 +77,15 @@ func (c *Converger) isLocal(destNet *net.IPNet) bool {
 
 func getDeletedRoutes(previous, current []netlink.Route) []netlink.Route {
 	var deletedRoutes []netlink.Route
-	isRemoved := true
 	for _, previousRoute := range previous {
+		isRemoved := true
 		for _, currentRoute := range current {
-			if previousRoute.String() == currentRoute.String() {
-				isRemoved = false
-			}
+			isRemoved = isRemoved && !routeEqual(previousRoute, currentRoute)
 		}
 
 		if isRemoved {
 			deletedRoutes = append(deletedRoutes, previousRoute)
 		}
-
-		isRemoved = true
 	}
 
 	return deletedRoutes
@@ -146,21 +94,115 @@ func getDeletedRoutes(previous, current []netlink.Route) []netlink.Route {
 
 func getDeletedNeighs(previous, current []netlink.Neigh) []netlink.Neigh {
 	var deletedNeighs []netlink.Neigh
-	isRemoved := true
 	for _, previousNeigh := range previous {
+		isRemoved := true
 		for _, currentNeigh := range current {
-			if previousNeigh.String() == currentNeigh.String() {
-				isRemoved = false
-			}
+			isRemoved = isRemoved && !neighEqual(previousNeigh, currentNeigh)
 		}
 
 		if isRemoved {
 			deletedNeighs = append(deletedNeighs, previousNeigh)
 		}
-
-		isRemoved = true
-
 	}
 
 	return deletedNeighs
+}
+
+func (c *Converger) getPreviousState(index int) ([]netlink.Route, []netlink.Neigh, error) {
+	link, err := c.NetlinkAdapter.LinkByIndex(c.LocalVTEP.Index)
+	if err != nil {
+		return nil, nil, fmt.Errorf("link by index: %s", err)
+	}
+
+	previousRoutes, err := c.NetlinkAdapter.RouteList(link, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list routes: %s", err)
+	}
+
+	previousFDBNeighs, err := c.NetlinkAdapter.FDBList(c.LocalVTEP.Index)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list fdb: %s", err)
+	}
+
+	previousARPNeighs, err := c.NetlinkAdapter.ARPList(c.LocalVTEP.Index)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list arp: %s", err)
+	}
+
+	previousNeighs := append(previousARPNeighs, previousFDBNeighs...)
+
+	return previousRoutes, previousNeighs, nil
+}
+
+func (c *Converger) addRoute(destNet *net.IPNet, destAddr net.IP) (netlink.Route, error) {
+	route := netlink.Route{
+		LinkIndex: c.LocalVTEP.Index,
+		Scope:     netlink.SCOPE_UNIVERSE,
+		Dst:       destNet,
+		Gw:        destAddr,
+		Src:       c.LocalSubnet.IP,
+	}
+
+	err := c.NetlinkAdapter.RouteReplace(&route)
+	if err != nil {
+		return netlink.Route{}, fmt.Errorf("add route: %s", err)
+	}
+
+	return route, nil
+}
+
+func (c *Converger) addNeighs(underlayIP, destAddr net.IP) ([]netlink.Neigh, error) {
+	if underlayIP == nil {
+		return nil, fmt.Errorf("invalid underlay ip")
+	}
+
+	remoteVTEPMac, err := hwaddr.GenerateHardwareAddr4(destAddr, []byte{0xee, 0xee})
+	if err != nil {
+		return nil, fmt.Errorf("generate remote vtep mac: %s", err) // untested, should be impossible
+	}
+
+	neighs := []*netlink.Neigh{
+		{ // ARP
+			LinkIndex:    c.LocalVTEP.Index,
+			State:        netlink.NUD_PERMANENT,
+			Type:         syscall.RTN_UNICAST,
+			IP:           destAddr,
+			HardwareAddr: remoteVTEPMac,
+		},
+		{ // FDB
+			LinkIndex:    c.LocalVTEP.Index,
+			State:        netlink.NUD_PERMANENT,
+			Family:       syscall.AF_BRIDGE,
+			Flags:        netlink.NTF_SELF,
+			IP:           underlayIP,
+			HardwareAddr: remoteVTEPMac,
+		},
+	}
+
+	var currentNeighs []netlink.Neigh
+	for _, neigh := range neighs {
+		err = c.NetlinkAdapter.NeighSet(neigh)
+		if err != nil {
+			return nil, fmt.Errorf("set neigh: %s", err)
+		}
+
+		currentNeighs = append(currentNeighs, *neigh)
+	}
+
+	return currentNeighs, nil
+}
+
+func routeEqual(r1, r2 netlink.Route) bool {
+	return r1.LinkIndex == r2.LinkIndex &&
+		r1.Scope == r2.Scope &&
+		r1.Dst.String() == r2.Dst.String() &&
+		r1.Gw.String() == r2.Gw.String() &&
+		r1.Src.String() == r2.Src.String()
+}
+
+func neighEqual(n1, n2 netlink.Neigh) bool {
+	return n1.LinkIndex == n2.LinkIndex &&
+		n1.State == n2.State &&
+		n1.IP.String() == n2.IP.String() &&
+		n1.HardwareAddr.String() == n2.HardwareAddr.String()
 }
