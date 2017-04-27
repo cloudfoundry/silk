@@ -123,7 +123,7 @@ func (c *LeaseController) RenewSubnetLease(lease controller.Lease) error {
 }
 
 func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
-	leases, err := c.DatabaseHandler.AllActive(c.LeaseExpirationTime)
+	leases, err := c.DatabaseHandler.AllActive(c.LeaseExpirationSeconds)
 	if err != nil {
 		return nil, fmt.Errorf("getting all leases: %s", err)
 	}
