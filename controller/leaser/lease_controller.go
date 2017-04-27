@@ -17,6 +17,7 @@ type databaseHandler interface {
 	LastRenewedAtForUnderlayIP(string) (int64, error)
 	RenewLeaseForUnderlayIP(string) error
 	All() ([]controller.Lease, error)
+	AllActive(int) ([]controller.Lease, error)
 	OldestExpired(int) (*controller.Lease, error)
 }
 
@@ -122,7 +123,7 @@ func (c *LeaseController) RenewSubnetLease(lease controller.Lease) error {
 }
 
 func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
-	leases, err := c.DatabaseHandler.All()
+	leases, err := c.DatabaseHandler.AllActive(c.LeaseExpirationTime)
 	if err != nil {
 		return nil, fmt.Errorf("getting all leases: %s", err)
 	}

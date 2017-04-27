@@ -73,6 +73,32 @@ func (d *DatabaseHandler) All() ([]controller.Lease, error) {
 	return leases, nil
 }
 
+func (d *DatabaseHandler) AllActive(duration int) ([]controller.Lease, error) {
+	timestamp, err := timestampForDriver(d.db.DriverName())
+	if err != nil {
+		return nil, err
+	}
+	leases := []controller.Lease{}
+	rows, err := d.db.Query(fmt.Sprintf("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE last_renewed_at + %d > %s", duration, timestamp))
+	if err != nil {
+		return nil, fmt.Errorf("selecting all active subnets: %s", err)
+	}
+	for rows.Next() {
+		var underlayIP, overlaySubnet, overlayHWAddr string
+		err := rows.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing result for all active subnets: %s", err)
+		}
+		leases = append(leases, controller.Lease{
+			UnderlayIP:          underlayIP,
+			OverlaySubnet:       overlaySubnet,
+			OverlayHardwareAddr: overlayHWAddr,
+		})
+	}
+
+	return leases, nil
+}
+
 func (d *DatabaseHandler) OldestExpired(expirationTime int) (*controller.Lease, error) {
 	timestamp, err := timestampForDriver(d.db.DriverName())
 	if err != nil {

@@ -412,7 +412,85 @@ var _ = Describe("DatabaseHandler", func() {
 				Expect(err.Error()).To(ContainSubstring("parsing result for all subnets"))
 			})
 		})
+	})
 
+	Describe("AllActive", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease2)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the leases which have been renewed within the expiration time", func() {
+			leases, err := databaseHandler.AllActive(1000)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(leases).To(HaveLen(2))
+			Expect(leases).To(ConsistOf([]controller.Lease{
+				{
+					UnderlayIP:          "10.244.11.22",
+					OverlaySubnet:       "10.255.17.0/24",
+					OverlayHardwareAddr: "ee:ee:0a:ff:11:00",
+				},
+				{
+					UnderlayIP:          "10.244.22.33",
+					OverlaySubnet:       "10.255.93.15/32",
+					OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
+				},
+			}))
+
+			leases, err = databaseHandler.AllActive(0)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(leases).To(HaveLen(0))
+		})
+
+		Context("when the db driver name is not supported", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.DriverNameReturns("foo")
+			})
+			It("should return an error", func() {
+				_, err := databaseHandler.AllActive(1000)
+				Expect(err).To(MatchError("database type foo is not supported"))
+			})
+		})
+
+		Context("when the query fails", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(nil, errors.New("strawberry"))
+			})
+			It("returns an error", func() {
+				_, err := databaseHandler.AllActive(100)
+				Expect(err).To(MatchError("selecting all active subnets: strawberry"))
+			})
+		})
+
+		Context("when the parsing the result fails", func() {
+			var rows *sql.Rows
+			BeforeEach(func() {
+				var err error
+				rows, err = realDb.Query("SELECT 1")
+				Expect(err).NotTo(HaveOccurred())
+
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(rows, nil)
+			})
+
+			AfterEach(func() {
+				rows.Close()
+			})
+
+			It("returns an error", func() {
+				_, err := databaseHandler.AllActive(100)
+				Expect(err.Error()).To(ContainSubstring("parsing result for all active subnets"))
+			})
+		})
 	})
 
 	Describe("OldestExpired", func() {

@@ -128,7 +128,6 @@ var _ = Describe("Silk Controller", func() {
 	Describe("lease expiration", func() {
 		BeforeEach(func() {
 			stopServer()
-
 			conf = config.Config{
 				ListenHost:          "127.0.0.1",
 				ListenPort:          50000 + GinkgoParallelNode(),
@@ -145,6 +144,7 @@ var _ = Describe("Silk Controller", func() {
 
 			startAndWaitForServer()
 		})
+
 		It("reclaims expired leases", func() {
 			oldLease, err := testClient.AcquireSubnetLease("10.244.4.5")
 			Expect(err).NotTo(HaveOccurred())
@@ -158,6 +158,24 @@ var _ = Describe("Silk Controller", func() {
 			newLease, err := testClient.AcquireSubnetLease("10.244.4.15")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newLease.OverlaySubnet).To(Equal(oldLease.OverlaySubnet))
+		})
+
+		It("does not return expired leases", func() {
+			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+			Expect(err).NotTo(HaveOccurred())
+
+			leases, err := testClient.GetRoutableLeases()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(leases).To(ConsistOf(lease))
+
+			// wait for lease to expire
+			time.Sleep(2 * time.Second)
+
+			leases, err = testClient.GetRoutableLeases()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(leases).NotTo(ContainElement(lease))
 		})
 	})
 

@@ -428,18 +428,19 @@ var _ = Describe("LeaseController", func() {
 			},
 		}
 		BeforeEach(func() {
-			databaseHandler.AllReturns(activeLeases, nil)
+			databaseHandler.AllActiveReturns(activeLeases, nil)
 		})
-		It("returns all the subnet leases", func() {
+		It("returns all the active subnet leases", func() {
 			leases, err := leaseController.RoutableLeases()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(databaseHandler.AllCallCount()).To(Equal(1))
+			Expect(databaseHandler.AllActiveCallCount()).To(Equal(1))
+			Expect(databaseHandler.AllActiveArgsForCall(0)).To(Equal(42))
 			Expect(leases).To(Equal(activeLeases))
 		})
 
 		Context("when getting the leases fails", func() {
 			BeforeEach(func() {
-				databaseHandler.AllReturns(nil, errors.New("cupcake"))
+				databaseHandler.AllActiveReturns(nil, errors.New("cupcake"))
 			})
 			It("wraps the error from the database handler", func() {
 				_, err := leaseController.RoutableLeases()

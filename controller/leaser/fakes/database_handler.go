@@ -78,6 +78,19 @@ type DatabaseHandler struct {
 		result1 []controller.Lease
 		result2 error
 	}
+	AllActiveStub        func(int) ([]controller.Lease, error)
+	allActiveMutex       sync.RWMutex
+	allActiveArgsForCall []struct {
+		arg1 int
+	}
+	allActiveReturns struct {
+		result1 []controller.Lease
+		result2 error
+	}
+	allActiveReturnsOnCall map[int]struct {
+		result1 []controller.Lease
+		result2 error
+	}
 	OldestExpiredStub        func(int) (*controller.Lease, error)
 	oldestExpiredMutex       sync.RWMutex
 	oldestExpiredArgsForCall []struct {
@@ -384,6 +397,57 @@ func (fake *DatabaseHandler) AllReturnsOnCall(i int, result1 []controller.Lease,
 	}{result1, result2}
 }
 
+func (fake *DatabaseHandler) AllActive(arg1 int) ([]controller.Lease, error) {
+	fake.allActiveMutex.Lock()
+	ret, specificReturn := fake.allActiveReturnsOnCall[len(fake.allActiveArgsForCall)]
+	fake.allActiveArgsForCall = append(fake.allActiveArgsForCall, struct {
+		arg1 int
+	}{arg1})
+	fake.recordInvocation("AllActive", []interface{}{arg1})
+	fake.allActiveMutex.Unlock()
+	if fake.AllActiveStub != nil {
+		return fake.AllActiveStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.allActiveReturns.result1, fake.allActiveReturns.result2
+}
+
+func (fake *DatabaseHandler) AllActiveCallCount() int {
+	fake.allActiveMutex.RLock()
+	defer fake.allActiveMutex.RUnlock()
+	return len(fake.allActiveArgsForCall)
+}
+
+func (fake *DatabaseHandler) AllActiveArgsForCall(i int) int {
+	fake.allActiveMutex.RLock()
+	defer fake.allActiveMutex.RUnlock()
+	return fake.allActiveArgsForCall[i].arg1
+}
+
+func (fake *DatabaseHandler) AllActiveReturns(result1 []controller.Lease, result2 error) {
+	fake.AllActiveStub = nil
+	fake.allActiveReturns = struct {
+		result1 []controller.Lease
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *DatabaseHandler) AllActiveReturnsOnCall(i int, result1 []controller.Lease, result2 error) {
+	fake.AllActiveStub = nil
+	if fake.allActiveReturnsOnCall == nil {
+		fake.allActiveReturnsOnCall = make(map[int]struct {
+			result1 []controller.Lease
+			result2 error
+		})
+	}
+	fake.allActiveReturnsOnCall[i] = struct {
+		result1 []controller.Lease
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *DatabaseHandler) OldestExpired(arg1 int) (*controller.Lease, error) {
 	fake.oldestExpiredMutex.Lock()
 	ret, specificReturn := fake.oldestExpiredReturnsOnCall[len(fake.oldestExpiredArgsForCall)]
@@ -450,6 +514,8 @@ func (fake *DatabaseHandler) Invocations() map[string][][]interface{} {
 	defer fake.renewLeaseForUnderlayIPMutex.RUnlock()
 	fake.allMutex.RLock()
 	defer fake.allMutex.RUnlock()
+	fake.allActiveMutex.RLock()
+	defer fake.allActiveMutex.RUnlock()
 	fake.oldestExpiredMutex.RLock()
 	defer fake.oldestExpiredMutex.RUnlock()
 	return fake.invocations
