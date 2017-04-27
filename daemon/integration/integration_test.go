@@ -71,19 +71,20 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	datastorePath = filepath.Join(datastoreDir, "container-metadata.json")
 	daemonConf = config.Config{
-		UnderlayIP:            localIP,
-		SubnetPrefixLength:    24,
-		OverlayNetwork:        "10.255.0.0/16",
-		HealthCheckPort:       uint16(daemonHealthCheckPort),
-		VTEPName:              vtepName,
-		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),
-		ServerCACertFile:      paths.ServerCACertFile,
-		ClientCertFile:        paths.ClientCertFile,
-		ClientKeyFile:         paths.ClientKeyFile,
-		VNI:                   vni,
-		PollInterval:          1,
-		DebugServerPort:       daemonDebugServerPort,
-		Datastore:             datastorePath,
+		UnderlayIP:              localIP,
+		SubnetPrefixLength:      24,
+		OverlayNetwork:          "10.255.0.0/16",
+		HealthCheckPort:         uint16(daemonHealthCheckPort),
+		VTEPName:                vtepName,
+		ConnectivityServerURL:   fmt.Sprintf("https://%s", serverListenAddr),
+		ServerCACertFile:        paths.ServerCACertFile,
+		ClientCertFile:          paths.ClientCertFile,
+		ClientKeyFile:           paths.ClientKeyFile,
+		VNI:                     vni,
+		PollInterval:            1,
+		DebugServerPort:         daemonDebugServerPort,
+		Datastore:               datastorePath,
+		LeaseExpirationDuration: 10, // seconds
 	}
 
 	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}
@@ -168,19 +169,19 @@ var _ = Describe("Daemon Integration", func() {
 		By("stopping the daemon")
 		stopDaemon()
 
-		By("set up renew handler")
-		handler := &testsupport.FakeHandler{
+		By("setting up renew handler")
+		renewHandler := &testsupport.FakeHandler{
 			ResponseCode: 200,
 			ResponseBody: struct{}{},
 		}
-		fakeServer.SetHandler("/leases/renew", handler)
+		fakeServer.SetHandler("/leases/renew", renewHandler)
 
 		By("restarting the daemon")
 		startAndWaitForDaemon()
 
 		By("renewing its lease")
 		var renewRequest controller.Lease
-		Expect(json.Unmarshal(handler.LastRequestBody, &renewRequest)).To(Succeed())
+		Expect(json.Unmarshal(renewHandler.LastRequestBody, &renewRequest)).To(Succeed())
 		Expect(renewRequest).To(Equal(daemonLease))
 
 		By("checking the daemon's healthcheck")
@@ -358,16 +359,33 @@ func startAndWaitForDaemon() {
 }
 
 func doHealthCheck() {
+	Expect(doHealthCheckWithErr()).To(Succeed())
+}
+
+func doHealthCheckWithErr() error {
 	resp, err := http.Get(daemonHealthCheckURL)
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		return err
+	}
 	responseBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 
 	var response daemon.NetworkInfo
 	err = json.Unmarshal(responseBytes, &response)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(response.OverlaySubnet).To(Equal(daemonLease.OverlaySubnet))
+	if err != nil {
+		return err
+	}
+	if response.OverlaySubnet != daemonLease.OverlaySubnet {
+		return fmt.Errorf("mismatched overlay subnet: %s vs %s", response.OverlaySubnet, daemonLease.OverlaySubnet)
+	}
 	const vxlanEncapOverhead = 50 // bytes
 	Expect(response.MTU).To(Equal(externalMTU - vxlanEncapOverhead))
+	if response.MTU != externalMTU-vxlanEncapOverhead {
+		return fmt.Errorf("mismatched mtu: %d vs %d", response.MTU, externalMTU-vxlanEncapOverhead)
+	}
+	return nil
 }
 
 func writeConfigFile(config config.Config) string {

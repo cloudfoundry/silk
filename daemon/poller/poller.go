@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon"
 )
 
 type Poller struct {
@@ -26,7 +26,7 @@ func (m *Poller) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		case <-time.After(m.PollInterval):
 			if err := m.SingleCycleFunc(); err != nil {
 				m.Logger.Error("poll-cycle", err)
-				if _, ok := err.(controller.NonRetriableError); ok {
+				if _, ok := err.(daemon.FatalError); ok {
 					return fmt.Errorf("This cell must be restarted (run \"bosh restart <job>\"): %s", err)
 				}
 				continue

@@ -1,9 +1,11 @@
 package integration_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"code.cloudfoundry.org/silk/testsupport"
 
@@ -91,10 +93,36 @@ var _ = Describe("error cases", func() {
 
 	Context("when a local lease is discovered", func() {
 		BeforeEach(func() {
-			startAndWaitForDaemon()
-			stopDaemon()
-
+			By("ensuring a local lease is already present")
+			startAndWaitForDaemon() // creates a new lease
+			stopDaemon()            // stops daemon, but leaves local lease intact
 		})
+
+		Context("when the controller becomes unavailable for a long time", func() {
+			It("allows containers to be scheduled until the local lease has expired", func() {
+				By("starting the daemon and waiting for it to become healthy")
+				startAndWaitForDaemon()
+
+				By("stopping the controller")
+				fakeServer.Stop()
+
+				leaseExpirationConfig := time.Duration(daemonConf.LeaseExpirationDuration) * time.Second
+				const leaseExpirationTolerance = 2 * time.Second
+				By("verifying that the daemon remains alive for the LeaseExpirationDuration")
+				Consistently(func() error {
+					if exitCode := session.ExitCode(); exitCode != -1 {
+						return fmt.Errorf("expected daemon to be alive, but it exited with code %d", exitCode)
+					}
+					if err := doHealthCheckWithErr(); err != nil {
+						return err
+					}
+					return nil
+				}, leaseExpirationConfig-leaseExpirationTolerance).Should(Succeed())
+
+				Eventually(session, leaseExpirationTolerance*2).Should(gexec.Exit(1))
+			})
+		})
+
 		Context("when renewing the local lease fails due to a retriable error", func() {
 			BeforeEach(func() {
 				fakeServer.SetHandler("/leases/renew", &testsupport.FakeHandler{
@@ -180,7 +208,7 @@ var _ = Describe("error cases", func() {
 				configFilePath := writeConfigFile(daemonConf)
 				startDaemon(configFilePath)
 				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-				Expect(string(session.Err.Contents())).To(ContainSubstring(`This cell must be restarted (run "bosh restart <job>"): non-retriable renew lease: non-retriable:`))
+				Expect(string(session.Err.Contents())).To(ContainSubstring(`This cell must be restarted (run "bosh restart <job>"): fatal: renew lease: non-retriable:`))
 			})
 		})
 	})

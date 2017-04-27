@@ -6,6 +6,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon"
 	"code.cloudfoundry.org/silk/daemon/planner"
 	"code.cloudfoundry.org/silk/daemon/planner/fakes"
 
@@ -37,12 +38,14 @@ var _ = Describe("VxlanPlanner", func() {
 		vxlanPlanner     *planner.VXLANPlanner
 		controllerClient *fakes.ControllerClient
 		converger        *fakes.Converger
+		errorDetector    *fakes.FatalErrorDetector
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		controllerClient = &fakes.ControllerClient{}
 		converger = &fakes.Converger{}
+		errorDetector = &fakes.FatalErrorDetector{}
 		vxlanPlanner = &planner.VXLANPlanner{
 			Logger:           logger,
 			ControllerClient: controllerClient,
@@ -52,6 +55,7 @@ var _ = Describe("VxlanPlanner", func() {
 				OverlaySubnet:       "10.244.17.0/24",
 				OverlayHardwareAddr: "ee:ee:0a:f4:11:00",
 			},
+			ErrorDetector: errorDetector,
 		}
 	})
 
@@ -93,6 +97,9 @@ var _ = Describe("VxlanPlanner", func() {
 					),
 				)),
 			)))
+
+			By("informing the error detector of the successful renewal")
+			Expect(errorDetector.GotSuccessCallCount()).To(Equal(1))
 		})
 
 		It("calls the converger to get all routable leases", func() {
@@ -120,27 +127,39 @@ var _ = Describe("VxlanPlanner", func() {
 			)))
 		})
 
-		Context("when renewing the subnet lease fails from a retriable error", func() {
-			BeforeEach(func() {
-				controllerClient.RenewSubnetLeaseReturns(errors.New("guava"))
-			})
-			It("returns the error", func() {
-				err := vxlanPlanner.DoCycle()
-				Expect(err).To(MatchError("renew lease: guava"))
-				_, ok := err.(controller.NonRetriableError)
-				Expect(ok).NotTo(BeTrue())
-			})
-		})
+		Context("when renewing the subnet lease fails from an error", func() {
+			Context("when the error is detected as non-fatal", func() {
+				BeforeEach(func() {
+					controllerClient.RenewSubnetLeaseReturns(errors.New("guava"))
+					errorDetector.IsFatalReturns(false)
+				})
+				It("returns the error as non-fatal", func() {
+					err := vxlanPlanner.DoCycle()
+					Expect(err).To(MatchError("renew lease: guava"))
+					_, ok := err.(daemon.FatalError)
+					Expect(ok).NotTo(BeTrue())
 
-		Context("when renewing the subnet lease fails from a non-retriable error", func() {
-			BeforeEach(func() {
-				controllerClient.RenewSubnetLeaseReturns(controller.NonRetriableError("guava"))
+					Expect(errorDetector.IsFatalCallCount()).To(Equal(1))
+					Expect(errorDetector.IsFatalArgsForCall(0)).To(Equal(errors.New("guava")))
+					Expect(errorDetector.GotSuccessCallCount()).To(Equal(0))
+				})
 			})
-			It("returns the error as a non-retriable error", func() {
-				err := vxlanPlanner.DoCycle()
-				Expect(err).To(MatchError("non-retriable renew lease: guava"))
-				_, ok := err.(controller.NonRetriableError)
-				Expect(ok).To(BeTrue())
+
+			Context("when the error is detected as fatal", func() {
+				BeforeEach(func() {
+					controllerClient.RenewSubnetLeaseReturns(errors.New("guava"))
+					errorDetector.IsFatalReturns(true)
+				})
+				It("returns the error as a fatal error", func() {
+					err := vxlanPlanner.DoCycle()
+					Expect(err).To(MatchError("fatal: renew lease: guava"))
+					_, ok := err.(daemon.FatalError)
+					Expect(ok).To(BeTrue())
+
+					Expect(errorDetector.IsFatalCallCount()).To(Equal(1))
+					Expect(errorDetector.IsFatalArgsForCall(0)).To(Equal(errors.New("guava")))
+					Expect(errorDetector.GotSuccessCallCount()).To(Equal(0))
+				})
 			})
 		})
 

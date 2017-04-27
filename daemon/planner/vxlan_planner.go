@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon"
 )
 
 //go:generate counterfeiter -o fakes/controller_client.go --fake-name ControllerClient . controllerClient
@@ -23,16 +24,18 @@ type VXLANPlanner struct {
 	ControllerClient controllerClient
 	Converger        converger
 	Lease            controller.Lease
+	ErrorDetector    FatalErrorDetector
 }
 
 func (v *VXLANPlanner) DoCycle() error {
 	err := v.ControllerClient.RenewSubnetLease(v.Lease)
 	if err != nil {
-		if _, ok := err.(controller.NonRetriableError); ok {
-			return controller.NonRetriableError(fmt.Sprintf("non-retriable renew lease: %s", err))
+		if v.ErrorDetector.IsFatal(err) {
+			return daemon.FatalError(fmt.Sprintf("renew lease: %s", err))
 		}
 		return fmt.Errorf("renew lease: %s", err)
 	}
+	v.ErrorDetector.GotSuccess()
 	v.Logger.Debug("renew-lease", lager.Data{"lease": v.Lease})
 
 	leases, err := v.ControllerClient.GetRoutableLeases()

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/lager/lagertest"
-	"code.cloudfoundry.org/silk/controller"
+	"code.cloudfoundry.org/silk/daemon"
 	"code.cloudfoundry.org/silk/daemon/poller"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -62,7 +62,7 @@ var _ = Describe("Poller", func() {
 			Eventually(retChan).Should(Receive(nil))
 		})
 
-		Context("when the cycle func fails with a retriable error", func() {
+		Context("when the cycle func fails with a non-fatal error", func() {
 			BeforeEach(func() {
 				p.SingleCycleFunc = func() error { return errors.New("banana") }
 			})
@@ -83,10 +83,10 @@ var _ = Describe("Poller", func() {
 			})
 		})
 
-		Context("when the cycle func fails with a non-retriable error", func() {
+		Context("when the cycle func fails with a fatal error", func() {
 			BeforeEach(func() {
 				p.SingleCycleFunc = func() error {
-					return controller.NonRetriableError("banana")
+					return daemon.FatalError("banana")
 				}
 			})
 
@@ -98,7 +98,7 @@ var _ = Describe("Poller", func() {
 				Eventually(ready).Should(BeClosed())
 				Eventually(logger).Should(gbytes.Say("poll-cycle.*banana"))
 				Eventually(retChan).Should(Receive(MatchError(
-					"This cell must be restarted (run \"bosh restart <job>\"): banana",
+					"This cell must be restarted (run \"bosh restart <job>\"): fatal: banana",
 				)))
 			})
 		})

@@ -39,6 +39,7 @@ var _ = Describe("Config.LoadConfig", func() {
 			"poll_interval":                 5,
 			"debug_server_port":             22229,
 			"datastore":                     "/some/data-store-file.json",
+			"lease_expiration_duration":     25,
 		}
 	})
 
