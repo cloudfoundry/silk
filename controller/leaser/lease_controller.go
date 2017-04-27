@@ -42,7 +42,7 @@ type LeaseController struct {
 	AcquireSubnetLeaseAttempts int
 	CIDRPool                   cidrPool
 	LeaseValidator             leaseValidator
-	LeaseExpirationTime        int
+	LeaseExpirationSeconds     int
 	Logger                     lager.Logger
 }
 
@@ -144,7 +144,7 @@ func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease,
 
 	subnet = c.CIDRPool.GetAvailable(taken)
 	if subnet == "" {
-		lease, err := c.DatabaseHandler.OldestExpired(c.LeaseExpirationTime)
+		lease, err := c.DatabaseHandler.OldestExpired(c.LeaseExpirationSeconds)
 		if err != nil {
 			return nil, fmt.Errorf("get oldest expired: %s", err)
 		} else if lease == nil {

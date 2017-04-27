@@ -46,16 +46,16 @@ var _ = Describe("Silk Controller", func() {
 
 	BeforeEach(func() {
 		conf = config.Config{
-			ListenHost:          "127.0.0.1",
-			ListenPort:          50000 + GinkgoParallelNode(),
-			DebugServerPort:     60000 + GinkgoParallelNode(),
-			CACertFile:          "fixtures/ca.crt",
-			ServerCertFile:      "fixtures/server.crt",
-			ServerKeyFile:       "fixtures/server.key",
-			Network:             "10.255.0.0/16",
-			SubnetPrefixLength:  24,
-			Database:            testDatabase.DBConfig(),
-			LeaseExpirationTime: 60,
+			ListenHost:             "127.0.0.1",
+			ListenPort:             50000 + GinkgoParallelNode(),
+			DebugServerPort:        60000 + GinkgoParallelNode(),
+			CACertFile:             "fixtures/ca.crt",
+			ServerCertFile:         "fixtures/server.crt",
+			ServerKeyFile:          "fixtures/server.key",
+			Network:                "10.255.0.0/16",
+			SubnetPrefixLength:     24,
+			Database:               testDatabase.DBConfig(),
+			LeaseExpirationSeconds: 60,
 		}
 		baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 
@@ -129,16 +129,16 @@ var _ = Describe("Silk Controller", func() {
 		BeforeEach(func() {
 			stopServer()
 			conf = config.Config{
-				ListenHost:          "127.0.0.1",
-				ListenPort:          50000 + GinkgoParallelNode(),
-				DebugServerPort:     60000 + GinkgoParallelNode(),
-				CACertFile:          "fixtures/ca.crt",
-				ServerCertFile:      "fixtures/server.crt",
-				ServerKeyFile:       "fixtures/server.key",
-				Network:             "10.255.0.0/29",
-				SubnetPrefixLength:  30,
-				Database:            testDatabase.DBConfig(),
-				LeaseExpirationTime: 1,
+				ListenHost:             "127.0.0.1",
+				ListenPort:             50000 + GinkgoParallelNode(),
+				DebugServerPort:        60000 + GinkgoParallelNode(),
+				CACertFile:             "fixtures/ca.crt",
+				ServerCertFile:         "fixtures/server.crt",
+				ServerKeyFile:          "fixtures/server.key",
+				Network:                "10.255.0.0/29",
+				SubnetPrefixLength:     30,
+				Database:               testDatabase.DBConfig(),
+				LeaseExpirationSeconds: 1,
 			}
 			baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 

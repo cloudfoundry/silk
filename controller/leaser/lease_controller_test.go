@@ -38,7 +38,7 @@ var _ = Describe("LeaseController", func() {
 			HardwareAddressGenerator: hardwareAddressGenerator,
 			LeaseValidator:           validator,
 			Logger:                   logger,
-			LeaseExpirationTime:      42,
+			LeaseExpirationSeconds:   42,
 		}
 		hardwareAddressGenerator.GenerateForVTEPReturns(
 			net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x4c, 0x00}, nil,
