@@ -44,19 +44,20 @@ var _ = BeforeEach(func() {
 	datastoreFile, _ := ioutil.TempFile("", "-datastore")
 	datastoreFile.Close()
 	clientConf = config.Config{
-		UnderlayIP:            localIP,
-		SubnetPrefixLength:    24,
-		OverlayNetwork:        "10.255.0.0/16", // unused by teardown, but config requires it
-		HealthCheckPort:       4000,
-		VTEPName:              vtepConfig.VTEPName,
-		ConnectivityServerURL: fmt.Sprintf("https://%s", serverListenAddr),
-		ServerCACertFile:      paths.ServerCACertFile,
-		ClientCertFile:        paths.ClientCertFile,
-		ClientKeyFile:         paths.ClientKeyFile,
-		VNI:                   GinkgoParallelNode(),
-		PollInterval:          5,                    // unused by teardown
-		DebugServerPort:       GinkgoParallelNode(), // unused by teardown
-		Datastore:             datastoreFile.Name(),
+		UnderlayIP:              localIP,
+		SubnetPrefixLength:      24,
+		OverlayNetwork:          "10.255.0.0/16", // unused by teardown, but config requires it
+		HealthCheckPort:         4000,
+		VTEPName:                vtepConfig.VTEPName,
+		ConnectivityServerURL:   fmt.Sprintf("https://%s", serverListenAddr),
+		ServerCACertFile:        paths.ServerCACertFile,
+		ClientCertFile:          paths.ClientCertFile,
+		ClientKeyFile:           paths.ClientKeyFile,
+		VNI:                     GinkgoParallelNode(),
+		PollInterval:            5,                    // unused by teardown
+		DebugServerPort:         GinkgoParallelNode(), // unused by teardown
+		Datastore:               datastoreFile.Name(),
+		LeaseExpirationDuration: 60, // unused by teardown
 	}
 
 	serverTLSConfig, err := mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
