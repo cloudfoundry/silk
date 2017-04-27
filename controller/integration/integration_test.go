@@ -159,24 +159,6 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newLease.OverlaySubnet).To(Equal(oldLease.OverlaySubnet))
 		})
-
-		It("does not return expired leases", func() {
-			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
-			Expect(err).NotTo(HaveOccurred())
-
-			leases, err := testClient.GetRoutableLeases()
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(leases).To(ConsistOf(lease))
-
-			// wait for lease to expire
-			time.Sleep(2 * time.Second)
-
-			leases, err = testClient.GetRoutableLeases()
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(leases).NotTo(ContainElement(lease))
-		})
 	})
 
 	Describe("renewal", func() {
@@ -244,14 +226,59 @@ var _ = Describe("Silk Controller", func() {
 		})
 	})
 
-	It("provides an endpoint to get the current routable leases", func() {
-		lease, err := testClient.AcquireSubnetLease("10.244.4.5")
-		Expect(err).NotTo(HaveOccurred())
+	Describe("listing leases", func() {
+		It("provides an endpoint to get the current routable leases", func() {
+			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+			Expect(err).NotTo(HaveOccurred())
 
-		leases, err := testClient.GetRoutableLeases()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(leases)).To(Equal(1))
-		Expect(leases[0]).To(Equal(lease))
+			leases, err := testClient.GetRoutableLeases()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(leases)).To(Equal(1))
+			Expect(leases[0]).To(Equal(lease))
+		})
+
+		Context("when a lease expires", func() {
+			BeforeEach(func() {
+				stopServer()
+				conf = config.Config{
+					ListenHost:          "127.0.0.1",
+					ListenPort:          50000 + GinkgoParallelNode(),
+					DebugServerPort:     60000 + GinkgoParallelNode(),
+					CACertFile:          "fixtures/ca.crt",
+					ServerCertFile:      "fixtures/server.crt",
+					ServerKeyFile:       "fixtures/server.key",
+					Network:             "10.255.0.0/16",
+					SubnetPrefixLength:  24,
+					Database:            testDatabase.DBConfig(),
+					LeaseExpirationTime: 1,
+				}
+				baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
+
+				startAndWaitForServer()
+			})
+
+			It("does not return expired leases", func() {
+				lease1, err := testClient.AcquireSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+				lease2, err := testClient.AcquireSubnetLease("10.244.4.6")
+				Expect(err).NotTo(HaveOccurred())
+
+				leases, err := testClient.GetRoutableLeases()
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(leases).To(ConsistOf(lease1, lease2))
+
+				renewAndCheck := func() []controller.Lease {
+					Expect(testClient.RenewSubnetLease(lease2)).To(Succeed())
+					leases, err := testClient.GetRoutableLeases()
+					Expect(err).NotTo(HaveOccurred())
+					return leases
+				}
+
+				Eventually(renewAndCheck, 2).Should(ConsistOf(lease2))
+				Consistently(renewAndCheck).Should(ConsistOf(lease2))
+			})
+		})
 	})
 
 	It("assigns unique leases from the whole network to multiple clients acquiring subnets concurrently", func() {
