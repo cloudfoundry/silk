@@ -250,7 +250,7 @@ var _ = Describe("Silk Controller", func() {
 					Network:                "10.255.0.0/16",
 					SubnetPrefixLength:     24,
 					Database:               testDatabase.DBConfig(),
-					LeaseExpirationSeconds: 1,
+					LeaseExpirationSeconds: 2,
 				}
 				baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
 
@@ -275,7 +275,7 @@ var _ = Describe("Silk Controller", func() {
 					return leases
 				}
 
-				Eventually(renewAndCheck, 2).Should(ConsistOf(lease2))
+				Eventually(renewAndCheck, 4).Should(ConsistOf(lease2))
 				Consistently(renewAndCheck).Should(ConsistOf(lease2))
 			})
 		})
