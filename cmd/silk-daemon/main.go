@@ -149,8 +149,9 @@ func mainWithError() error {
 				LocalVTEP:      *vxlanIface,
 				NetlinkAdapter: &adapter.NetlinkAdapter{},
 			},
-			ErrorDetector: planner.NewGracefulDetector(time.Duration(cfg.LeaseExpirationDuration) * time.Second),
-		}).DoCycle,
+			ErrorDetector: planner.NewGracefulDetector(
+				time.Duration(cfg.PartitionToleranceSeconds) * time.Second,
+			)}).DoCycle,
 	}
 
 	members := grouper.Members{

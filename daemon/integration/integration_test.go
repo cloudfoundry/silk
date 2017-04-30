@@ -71,20 +71,20 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	datastorePath = filepath.Join(datastoreDir, "container-metadata.json")
 	daemonConf = config.Config{
-		UnderlayIP:              localIP,
-		SubnetPrefixLength:      24,
-		OverlayNetwork:          "10.255.0.0/16",
-		HealthCheckPort:         uint16(daemonHealthCheckPort),
-		VTEPName:                vtepName,
-		ConnectivityServerURL:   fmt.Sprintf("https://%s", serverListenAddr),
-		ServerCACertFile:        paths.ServerCACertFile,
-		ClientCertFile:          paths.ClientCertFile,
-		ClientKeyFile:           paths.ClientKeyFile,
-		VNI:                     vni,
-		PollInterval:            1,
-		DebugServerPort:         daemonDebugServerPort,
-		Datastore:               datastorePath,
-		LeaseExpirationDuration: 10, // seconds
+		UnderlayIP:                localIP,
+		SubnetPrefixLength:        24,
+		OverlayNetwork:            "10.255.0.0/16",
+		HealthCheckPort:           uint16(daemonHealthCheckPort),
+		VTEPName:                  vtepName,
+		ConnectivityServerURL:     fmt.Sprintf("https://%s", serverListenAddr),
+		ServerCACertFile:          paths.ServerCACertFile,
+		ClientCertFile:            paths.ClientCertFile,
+		ClientKeyFile:             paths.ClientKeyFile,
+		VNI:                       vni,
+		PollInterval:              1,
+		DebugServerPort:           daemonDebugServerPort,
+		Datastore:                 datastorePath,
+		PartitionToleranceSeconds: 10, // seconds
 	}
 
 	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}

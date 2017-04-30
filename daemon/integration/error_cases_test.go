@@ -99,16 +99,16 @@ var _ = Describe("error cases", func() {
 		})
 
 		Context("when the controller becomes unavailable for a long time", func() {
-			It("allows containers to be scheduled until the local lease has expired", func() {
+			It("allows containers to be scheduled until the partition tolerance duration has elapsed", func() {
 				By("starting the daemon and waiting for it to become healthy")
 				startAndWaitForDaemon()
 
 				By("stopping the controller")
 				fakeServer.Stop()
 
-				leaseExpirationConfig := time.Duration(daemonConf.LeaseExpirationDuration) * time.Second
-				const leaseExpirationTolerance = 2 * time.Second
-				By("verifying that the daemon remains alive for the LeaseExpirationDuration")
+				partitionToleranceConfig := time.Duration(daemonConf.PartitionToleranceSeconds) * time.Second
+				const partitionToleranceEpsilon = 2 * time.Second // an error margin
+				By("verifying that the daemon remains alive during a partition shorter than the tolerance duration")
 				Consistently(func() error {
 					if exitCode := session.ExitCode(); exitCode != -1 {
 						return fmt.Errorf("expected daemon to be alive, but it exited with code %d", exitCode)
@@ -117,9 +117,10 @@ var _ = Describe("error cases", func() {
 						return err
 					}
 					return nil
-				}, leaseExpirationConfig-leaseExpirationTolerance).Should(Succeed())
+				}, partitionToleranceConfig-partitionToleranceEpsilon).Should(Succeed())
 
-				Eventually(session, leaseExpirationTolerance*2).Should(gexec.Exit(1))
+				By("verifying that the daemon crashes once the partition lasts longer than the tolerance")
+				Eventually(session, partitionToleranceEpsilon*2).Should(gexec.Exit(1))
 			})
 		})
 
