@@ -32,6 +32,7 @@ var (
 )
 
 var _ = BeforeEach(func() {
+	localIP := "127.0.0.1"
 	vtepConfig = &vtep.Config{
 		VTEPName:            fmt.Sprintf("t-v-%d", GinkgoParallelNode()),
 		UnderlayIP:          net.ParseIP(localIP),

@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
-	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon"
@@ -29,10 +28,12 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-var (
+const (
 	DEFAULT_TIMEOUT = "5s"
+	localIP         = "127.0.0.1"
+)
 
-	localIP               string
+var (
 	externalMTU           int
 	daemonConf            config.Config
 	daemonLease           controller.Lease
@@ -49,9 +50,6 @@ var (
 )
 
 var _ = BeforeEach(func() {
-	var err error
-	localIP, err = localip.LocalIP()
-	Expect(err).NotTo(HaveOccurred())
 	externalIface, err := locateInterface(net.ParseIP(localIP))
 	Expect(err).NotTo(HaveOccurred())
 	externalMTU = externalIface.MTU
