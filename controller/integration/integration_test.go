@@ -34,38 +34,32 @@ var _ = BeforeEach(func() {
 	dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
 	dbConnectionInfo := testsupport.GetDBConnectionInfo()
 	testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+
+	conf = config.Config{
+		ListenHost:             "127.0.0.1",
+		ListenPort:             50000 + GinkgoParallelNode(),
+		DebugServerPort:        60000 + GinkgoParallelNode(),
+		CACertFile:             "fixtures/ca.crt",
+		ServerCertFile:         "fixtures/server.crt",
+		ServerKeyFile:          "fixtures/server.key",
+		Network:                "10.255.0.0/16",
+		SubnetPrefixLength:     24,
+		Database:               testDatabase.DBConfig(),
+		LeaseExpirationSeconds: 60,
+	}
+	baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
+
+	startAndWaitForServer()
 })
 
 var _ = AfterEach(func() {
+	stopServer()
 	if testDatabase != nil {
 		testDatabase.Destroy()
 	}
 })
 
 var _ = Describe("Silk Controller", func() {
-
-	BeforeEach(func() {
-		conf = config.Config{
-			ListenHost:             "127.0.0.1",
-			ListenPort:             50000 + GinkgoParallelNode(),
-			DebugServerPort:        60000 + GinkgoParallelNode(),
-			CACertFile:             "fixtures/ca.crt",
-			ServerCertFile:         "fixtures/server.crt",
-			ServerKeyFile:          "fixtures/server.key",
-			Network:                "10.255.0.0/16",
-			SubnetPrefixLength:     24,
-			Database:               testDatabase.DBConfig(),
-			LeaseExpirationSeconds: 60,
-		}
-		baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
-
-		startAndWaitForServer()
-	})
-
-	AfterEach(func() {
-		stopServer()
-	})
-
 	It("gracefully terminates when sent an interrupt signal", func() {
 		Consistently(session).ShouldNot(gexec.Exit())
 
@@ -128,20 +122,9 @@ var _ = Describe("Silk Controller", func() {
 	Describe("lease expiration", func() {
 		BeforeEach(func() {
 			stopServer()
-			conf = config.Config{
-				ListenHost:             "127.0.0.1",
-				ListenPort:             50000 + GinkgoParallelNode(),
-				DebugServerPort:        60000 + GinkgoParallelNode(),
-				CACertFile:             "fixtures/ca.crt",
-				ServerCertFile:         "fixtures/server.crt",
-				ServerKeyFile:          "fixtures/server.key",
-				Network:                "10.255.0.0/29",
-				SubnetPrefixLength:     30,
-				Database:               testDatabase.DBConfig(),
-				LeaseExpirationSeconds: 1,
-			}
-			baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
-
+			conf.Network = "10.255.0.0/29"
+			conf.SubnetPrefixLength = 30
+			conf.LeaseExpirationSeconds = 1
 			startAndWaitForServer()
 		})
 
@@ -240,20 +223,7 @@ var _ = Describe("Silk Controller", func() {
 		Context("when a lease expires", func() {
 			BeforeEach(func() {
 				stopServer()
-				conf = config.Config{
-					ListenHost:             "127.0.0.1",
-					ListenPort:             50000 + GinkgoParallelNode(),
-					DebugServerPort:        60000 + GinkgoParallelNode(),
-					CACertFile:             "fixtures/ca.crt",
-					ServerCertFile:         "fixtures/server.crt",
-					ServerKeyFile:          "fixtures/server.key",
-					Network:                "10.255.0.0/16",
-					SubnetPrefixLength:     24,
-					Database:               testDatabase.DBConfig(),
-					LeaseExpirationSeconds: 2,
-				}
-				baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
-
+				conf.LeaseExpirationSeconds = 2
 				startAndWaitForServer()
 			})
 
