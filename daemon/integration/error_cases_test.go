@@ -224,9 +224,10 @@ var _ = Describe("error cases", func() {
 			mustSucceed("iptables", "-D", "INPUT", "-p", "tcp", "--dport", strconv.Itoa(serverListenPort), "-j", "DROP")
 		})
 		It("exits with status 1", func() {
+			daemonConf.ClientTimeoutSeconds = 1
 			configFilePath := writeConfigFile(daemonConf)
 			startDaemon(configFilePath)
-			Eventually(session, 10*time.Second).Should(gexec.Exit(1))
+			Eventually(session, 3*time.Second).Should(gexec.Exit(1))
 			Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: acquire subnet lease: http client do:.*request canceled while waiting for connection`))
 		})
 	})

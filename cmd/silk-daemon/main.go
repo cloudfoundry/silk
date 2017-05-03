@@ -63,7 +63,7 @@ func mainWithError() error {
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfig,
 		},
-		Timeout: 5 * time.Second,
+		Timeout: time.Duration(cfg.ClientTimeoutSeconds) * time.Second,
 	}
 	vtepFactory := &vtep.Factory{
 		NetlinkAdapter: &adapter.NetlinkAdapter{},

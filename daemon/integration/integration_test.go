@@ -85,6 +85,7 @@ var _ = BeforeEach(func() {
 		DebugServerPort:           daemonDebugServerPort,
 		Datastore:                 datastorePath,
 		PartitionToleranceSeconds: 10, // seconds
+		ClientTimeoutSeconds:      5,  // seconds
 	}
 
 	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}

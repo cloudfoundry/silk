@@ -59,6 +59,7 @@ var _ = BeforeEach(func() {
 		DebugServerPort:           GinkgoParallelNode(), // unused by teardown
 		Datastore:                 datastoreFile.Name(),
 		PartitionToleranceSeconds: 60, // unused by teardown
+		ClientTimeoutSeconds:      5,  // unused by teardown
 	}
 
 	serverTLSConfig, err := mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)

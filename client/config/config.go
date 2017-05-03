@@ -23,6 +23,7 @@ type Config struct {
 	DebugServerPort           int    `json:"debug_server_port" validate:"nonzero"`
 	Datastore                 string `json:"datastore" validate:"nonzero"`
 	PartitionToleranceSeconds int    `json:"partition_tolerance_seconds" validate:"nonzero"`
+	ClientTimeoutSeconds      int    `json:"client_timeout_seconds" validate:"nonzero"`
 }
 
 func LoadConfig(filePath string) (Config, error) {

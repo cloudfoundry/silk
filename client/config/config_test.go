@@ -26,20 +26,21 @@ var _ = Describe("Config.LoadConfig", func() {
 
 	BeforeEach(func() {
 		requiredFields = map[string]interface{}{
-			"underlay_ip":                   "1.2.3.4",
-			"subnet_prefix_length":          24,
-			"overlay_network_prefix_length": 12,
-			"health_check_port":             22222,
-			"vtep_name":                     "silk-vxlan",
-			"connectivity_server_url":       "https://silk-controller.something",
-			"ca_cert_file":                  "/some/cert/file.pem",
-			"client_cert_file":              "/some/client-cert/file.pem",
-			"client_key_file":               "/some/client-key/file.pem",
-			"vni":                           44,
-			"poll_interval":                 5,
-			"debug_server_port":             22229,
-			"datastore":                     "/some/data-store-file.json",
-			"partition_tolerance_seconds":   25,
+			"underlay_ip":                 "1.2.3.4",
+			"subnet_prefix_length":        24,
+			"overlay_network":             "10.255.0.0/16",
+			"health_check_port":           22222,
+			"vtep_name":                   "silk-vxlan",
+			"connectivity_server_url":     "https://silk-controller.something",
+			"ca_cert_file":                "/some/cert/file.pem",
+			"client_cert_file":            "/some/client-cert/file.pem",
+			"client_key_file":             "/some/client-key/file.pem",
+			"vni":                         44,
+			"poll_interval":               5,
+			"debug_server_port":           22229,
+			"datastore":                   "/some/data-store-file.json",
+			"partition_tolerance_seconds": 25,
+			"client_timeout_seconds":      5,
 		}
 	})
 
