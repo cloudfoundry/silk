@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/silk/testsupport"
@@ -211,6 +212,22 @@ var _ = Describe("error cases", func() {
 				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
 				Expect(string(session.Err.Contents())).To(ContainSubstring(`This cell must be restarted (run "bosh restart <job>"): fatal: renew lease: non-retriable:`))
 			})
+		})
+	})
+
+	Context("when requests to the controller server time out", func() {
+		BeforeEach(func() {
+			mustSucceed("iptables", "-A", "INPUT", "-p", "tcp", "--dport", strconv.Itoa(serverListenPort), "-j", "DROP")
+		})
+
+		AfterEach(func() {
+			mustSucceed("iptables", "-D", "INPUT", "-p", "tcp", "--dport", strconv.Itoa(serverListenPort), "-j", "DROP")
+		})
+		It("exits with status 1", func() {
+			configFilePath := writeConfigFile(daemonConf)
+			startDaemon(configFilePath)
+			Eventually(session, 10*time.Second).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: acquire subnet lease: http client do:.*request canceled while waiting for connection`))
 		})
 	})
 })

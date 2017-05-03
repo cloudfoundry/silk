@@ -38,6 +38,7 @@ var (
 	daemonConf            config.Config
 	daemonLease           controller.Lease
 	fakeServer            *testsupport.FakeController
+	serverListenPort      int
 	serverListenAddr      string
 	serverTLSConfig       *tls.Config
 	session               *gexec.Session
@@ -64,7 +65,8 @@ var _ = BeforeEach(func() {
 	daemonHealthCheckPort := 4000 + GinkgoParallelNode()
 	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
 	daemonDebugServerPort = 20000 + GinkgoParallelNode()
-	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
+	serverListenPort = 40000 + GinkgoParallelNode()
+	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", serverListenPort)
 	datastoreDir, err := ioutil.TempDir("", "")
 	Expect(err).NotTo(HaveOccurred())
 	datastorePath = filepath.Join(datastoreDir, "container-metadata.json")
