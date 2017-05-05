@@ -47,6 +47,30 @@ var _ = Describe("errors", func() {
 			})
 		})
 
+		Context("when the MTU is less than 0", func() {
+			BeforeEach(func() {
+				fakeServer = startFakeDaemonInHost(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1472}`)
+				cniStdin = fmt.Sprintf(`{
+				"cniVersion": "0.3.0",
+				"name": "my-silk-network",
+				"type": "silk",
+				"mtu": -123,
+				"dataDir": "%s",
+				"daemonPort": %d,
+				"datastore": "%s"}`, dataDir, daemonPort, datastorePath)
+			})
+			It("exits with nonzero status and prints a CNI error result as JSON to stdout", func() {
+				session := startCommandInHost("ADD", cniStdin)
+				Eventually(session, cmdTimeout).Should(gexec.Exit(1))
+
+				Expect(session.Out.Contents()).To(MatchJSON(`{
+        "code": 100,
+				"msg": "discover network info",
+        "details": "invalid config: MTU: less than min"
+        }`))
+			})
+		})
+
 		Context("when the daemon url fails to return a response", func() {
 			BeforeEach(func() {
 				if fakeServer != nil {

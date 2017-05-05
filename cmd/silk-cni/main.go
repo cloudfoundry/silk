@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"gopkg.in/validator.v2"
+
 	"code.cloudfoundry.org/go-db-helpers/json_client"
 	"code.cloudfoundry.org/lager"
 
@@ -94,7 +96,7 @@ type NetConf struct {
 	types.NetConf
 	DataDir    string `json:"dataDir"`
 	SubnetFile string `json:"subnetFile"`
-	MTU        int    `json:"mtu"`
+	MTU        int    `json:"mtu" validate:"min=0"`
 	Datastore  string `json:"datastore"`
 	DaemonPort int    `json:"daemonPort"`
 }
@@ -122,6 +124,11 @@ func typedError(msg string, err error) *types.Error {
 }
 
 func getNetworkInfo(netConf NetConf) (daemon.NetworkInfo, error) {
+	err := validator.Validate(netConf)
+	if err != nil {
+		return daemon.NetworkInfo{}, fmt.Errorf("invalid config: %s", err)
+	}
+
 	discoverer := netinfo.Discoverer{}
 	if netConf.SubnetFile != "" {
 		discoverer.NetInfo = &netinfo.Flannel{
