@@ -94,7 +94,7 @@ type NetConf struct {
 	types.NetConf
 	DataDir    string `json:"dataDir"`
 	SubnetFile string `json:"subnetFile"`
-	MTU        uint   `json:"mtu"`
+	MTU        int    `json:"mtu"`
 	Datastore  string `json:"datastore"`
 	DaemonPort int    `json:"daemonPort"`
 }

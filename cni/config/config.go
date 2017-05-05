@@ -24,7 +24,7 @@ type Config struct {
 		TemporaryDeviceName string
 		Namespace           netNS
 		Address             DualAddress
-		MTU                 uint
+		MTU                 int
 		Routes              []*types.Route
 	}
 	Host struct {

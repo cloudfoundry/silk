@@ -43,7 +43,7 @@ FLANNEL_IPMASQ=false
 		networkInfo, err := flannelNetInfo.Get()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(networkInfo.OverlaySubnet).To(Equal("10.255.19.1/24"))
-		Expect(networkInfo.MTU).To(Equal(uint(1450)))
+		Expect(networkInfo.MTU).To(Equal(1450))
 	})
 
 	Context("when there is a problem opening the file", func() {

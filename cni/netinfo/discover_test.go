@@ -41,7 +41,7 @@ var _ = Describe("Discover", func() {
 		})
 	})
 
-	Context("when it is called with MTU greater than 0", func() {
+	Context("when it is called with non-zero MTU", func() {
 		It("overrides the MTU from the netinfo", func() {
 			info, err := discoverer.Discover(42)
 			Expect(err).NotTo(HaveOccurred())

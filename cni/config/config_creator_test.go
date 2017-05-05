@@ -91,7 +91,7 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.Container.Address.IP).To(Equal(ipamResult.IPs[0].Address.IP))
 			Expect(conf.Container.Address.Hardware).To(Equal(containerMAC))
 			Expect(conf.Container.Routes).To(Equal(ipamResult.Routes))
-			Expect(conf.Container.MTU).To(Equal(uint(1450)))
+			Expect(conf.Container.MTU).To(Equal(1450))
 		})
 
 		It("creates a config with the desired host device metadata", func() {

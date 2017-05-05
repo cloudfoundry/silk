@@ -15,7 +15,7 @@ type Discoverer struct {
 	NetInfo netInfo
 }
 
-func (d *Discoverer) Discover(mtu uint) (daemon.NetworkInfo, error) {
+func (d *Discoverer) Discover(mtu int) (daemon.NetworkInfo, error) {
 	info, err := d.NetInfo.Get()
 	if err != nil {
 		return daemon.NetworkInfo{}, fmt.Errorf("get netinfo: %s", err)
