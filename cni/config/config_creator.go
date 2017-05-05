@@ -34,7 +34,7 @@ type ConfigCreator struct {
 	NamespaceAdapter         namespaceAdapter
 }
 
-func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResult *current.Result, mtu int) (*Config, error) {
+func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResult *current.Result, mtu uint) (*Config, error) {
 	var conf Config
 	var err error
 

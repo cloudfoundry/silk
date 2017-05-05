@@ -41,6 +41,6 @@ func (f *Flannel) Get() (daemon.NetworkInfo, error) {
 
 	return daemon.NetworkInfo{
 		OverlaySubnet: subnetMatches[1],
-		MTU:           mtu,
+		MTU:           uint(mtu), // mtu should always be non-negative due to regex match
 	}, nil
 }

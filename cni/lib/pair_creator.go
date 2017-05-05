@@ -23,7 +23,7 @@ func (c *VethPairCreator) Create(cfg *config.Config) error {
 		LinkAttrs: netlink.LinkAttrs{
 			Name:  hostName,
 			Flags: net.FlagUp,
-			MTU:   cfg.Container.MTU,
+			MTU:   int(cfg.Container.MTU),
 		},
 		PeerName: containerName,
 	}
