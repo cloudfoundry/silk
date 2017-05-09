@@ -24,6 +24,7 @@ type Config struct {
 	Datastore                 string `json:"datastore" validate:"nonzero"`
 	PartitionToleranceSeconds int    `json:"partition_tolerance_seconds" validate:"nonzero"`
 	ClientTimeoutSeconds      int    `json:"client_timeout_seconds" validate:"nonzero"`
+	MetronPort                int    `json:"metron_port" validate:"min=1"`
 }
 
 func LoadConfig(filePath string) (Config, error) {

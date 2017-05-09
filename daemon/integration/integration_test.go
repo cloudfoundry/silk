@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"code.cloudfoundry.org/go-db-helpers/metrics"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
@@ -24,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/types"
 	"github.com/tedsuo/ifrit"
 	"github.com/vishvananda/netlink"
 )
@@ -48,9 +50,12 @@ var (
 	vtepFactory           *vtep.Factory
 	vtepName              string
 	vni                   int
+	fakeMetron            metrics.FakeMetron
 )
 
 var _ = BeforeEach(func() {
+	fakeMetron = metrics.NewFakeMetron()
+
 	externalIface, err := locateInterface(net.ParseIP(localIP))
 	Expect(err).NotTo(HaveOccurred())
 	externalMTU = externalIface.MTU
@@ -84,8 +89,9 @@ var _ = BeforeEach(func() {
 		PollInterval:              1,
 		DebugServerPort:           daemonDebugServerPort,
 		Datastore:                 datastorePath,
-		PartitionToleranceSeconds: 10, // seconds
-		ClientTimeoutSeconds:      5,  // seconds
+		PartitionToleranceSeconds: 10,
+		ClientTimeoutSeconds:      5,
+		MetronPort:                fakeMetron.Port(),
 	}
 
 	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}
@@ -190,6 +196,16 @@ var _ = Describe("Daemon Integration", func() {
 
 		By("inspecting the daemon's log to see that it renewed a new lease")
 		Expect(session.Out).To(gbytes.Say(`renewed-lease.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
+	})
+
+	It("emits an uptime metric", func() {
+		withName := func(name string) types.GomegaMatcher {
+			return WithTransform(func(ev metrics.Event) string {
+				return ev.Name
+			}, Equal(name))
+		}
+
+		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
 	})
 
 	Describe("polling", func() {

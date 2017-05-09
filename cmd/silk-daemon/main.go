@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/go-db-helpers/metrics"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
@@ -24,6 +25,7 @@ import (
 	"code.cloudfoundry.org/silk/lib/filelock"
 	"code.cloudfoundry.org/silk/lib/serial"
 
+	"github.com/cloudfoundry/dropsonde"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/tedsuo/ifrit"
@@ -40,6 +42,7 @@ func main() {
 
 func mainWithError() error {
 	logger := lager.NewLogger("silk-daemon")
+
 	reconfigurableSink := lager.NewReconfigurableSink(
 		lager.NewWriterSink(os.Stdout, lager.DEBUG),
 		lager.INFO)
@@ -155,10 +158,18 @@ func mainWithError() error {
 			)}).DoCycle,
 	}
 
+	metronAddress := fmt.Sprintf("127.0.0.1:%d", cfg.MetronPort)
+	err = dropsonde.Initialize(metronAddress, "silk-daemon")
+	if err != nil {
+		log.Fatalf("initializing dropsonde: %s", err)
+	}
+	uptimeSource := metrics.NewUptimeSource()
+	metricsEmitter := metrics.NewMetricsEmitter(logger, 30*time.Second, uptimeSource)
 	members := grouper.Members{
 		{"server", healthCheckServer},
-		{"vxlan_poller", vxlanPoller},
+		{"vxlan-poller", vxlanPoller},
 		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},
+		{"metrics-emitter", metricsEmitter},
 	}
 	group := grouper.NewOrdered(os.Interrupt, members)
 	monitor := ifrit.Invoke(sigmon.New(group))

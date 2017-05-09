@@ -41,6 +41,7 @@ var _ = Describe("Config.LoadConfig", func() {
 			"datastore":                   "/some/data-store-file.json",
 			"partition_tolerance_seconds": 25,
 			"client_timeout_seconds":      5,
+			"metron_port":                 5435,
 		}
 	})
 
