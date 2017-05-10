@@ -5,6 +5,7 @@ import (
 	"net"
 	"syscall"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller"
 	"github.com/containernetworking/cni/pkg/utils/hwaddr"
 	"github.com/vishvananda/netlink"
@@ -15,6 +16,7 @@ type Converger struct {
 	LocalSubnet    *net.IPNet
 	LocalVTEP      net.Interface
 	NetlinkAdapter netlinkAdapter
+	Logger         lager.Logger
 }
 
 func (c *Converger) Converge(leases []controller.Lease) error {
@@ -23,6 +25,7 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 		return err
 	}
 
+	nonRoutableLeaseCount := 0
 	var currentRoutes []netlink.Route
 	var currentNeighs []netlink.Neigh
 	for _, lease := range leases {
@@ -32,6 +35,11 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 		}
 
 		if c.isLocal(destNet) {
+			continue
+		}
+
+		if !c.OverlayNetwork.Contains(destNet.IP) {
+			nonRoutableLeaseCount++
 			continue
 		}
 
@@ -66,6 +74,10 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 				return fmt.Errorf("del neigh: %s", err)
 			}
 		}
+	}
+
+	if nonRoutableLeaseCount > 0 {
+		c.Logger.Info("converger", lager.Data{"non-routable-lease-count": nonRoutableLeaseCount})
 	}
 
 	return nil

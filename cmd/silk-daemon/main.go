@@ -152,6 +152,7 @@ func mainWithError() error {
 				LocalSubnet:    localSubnet,
 				LocalVTEP:      *vxlanIface,
 				NetlinkAdapter: &adapter.NetlinkAdapter{},
+				Logger:         logger,
 			},
 			ErrorDetector: planner.NewGracefulDetector(
 				time.Duration(cfg.PartitionToleranceSeconds) * time.Second,

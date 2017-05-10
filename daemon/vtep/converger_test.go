@@ -5,6 +5,8 @@ import (
 	"net"
 	"syscall"
 
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/daemon/vtep/fakes"
@@ -19,12 +21,14 @@ var _ = Describe("Converger", func() {
 		converger   *vtep.Converger
 		leases      []controller.Lease
 		overlayNet  *net.IPNet
+		logger      *lagertest.TestLogger
 	)
 	Describe("Converge", func() {
 		BeforeEach(func() {
 			fakeNetlink = &fakes.NetlinkAdapter{}
 			_, localSubnet, _ := net.ParseCIDR("10.255.32.0/24")
 			_, overlayNet, _ = net.ParseCIDR("10.255.0.0/16")
+			logger = lagertest.NewTestLogger("test")
 			localVTEP := net.Interface{
 				Index: 42,
 				Name:  "silk-vtep",
@@ -34,6 +38,7 @@ var _ = Describe("Converger", func() {
 				LocalSubnet:    localSubnet,
 				LocalVTEP:      localVTEP,
 				NetlinkAdapter: fakeNetlink,
+				Logger:         logger,
 			}
 			leases = []controller.Lease{
 				controller.Lease{
@@ -90,6 +95,13 @@ var _ = Describe("Converger", func() {
 					HardwareAddr: destMac,
 				},
 			))
+		})
+
+		It("does not log anything about non-routable leases", func() {
+			err := converger.Converge(leases)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(logger.Logs()).To(HaveLen(0))
 		})
 
 		Context("when the a remote lease is removed", func() {
@@ -353,6 +365,46 @@ var _ = Describe("Converger", func() {
 			It("returns a meaningful error", func() {
 				err := converger.Converge([]controller.Lease{})
 				Expect(err).To(MatchError("del neigh: mango"))
+			})
+		})
+
+		Context("when there are remote leases that are not in the overlay network", func() {
+			BeforeEach(func() {
+				leases = []controller.Lease{
+					controller.Lease{ // local, skipped
+						UnderlayIP:    "10.10.0.2",
+						OverlaySubnet: "10.255.32.0/24",
+					},
+					controller.Lease{ // not in overlay, skipped
+						UnderlayIP:    "10.10.0.3",
+						OverlaySubnet: "10.254.11.0/24",
+					},
+					controller.Lease{ // not in overlay, skipped
+						UnderlayIP:    "10.10.0.4",
+						OverlaySubnet: "10.254.12.0/24",
+					},
+					controller.Lease{ // in overlay
+						UnderlayIP:    "10.10.0.5",
+						OverlaySubnet: "10.255.19.0/24",
+					},
+				}
+			})
+			It("does not touch them and adds only the leases in the overlay network", func() {
+				err := converger.Converge(leases)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(fakeNetlink.RouteReplaceCallCount()).To(Equal(1))
+				addedRoute := fakeNetlink.RouteReplaceArgsForCall(0)
+				Expect(addedRoute.Dst.IP).To(Equal(net.ParseIP("10.255.19.0").To4()))
+				Expect(fakeNetlink.NeighSetCallCount()).To(Equal(2))
+				addedARP := fakeNetlink.NeighSetArgsForCall(0)
+				Expect(addedARP.IP).To(Equal(net.ParseIP("10.255.19.0")))
+				addedFDB := fakeNetlink.NeighSetArgsForCall(1)
+				Expect(addedFDB.IP).To(Equal(net.ParseIP("10.10.0.5")))
+
+				Expect(logger.Logs()).To(HaveLen(1))
+				Expect(logger.Logs()[0].LogLevel).To(Equal(lager.INFO))
+				Expect(logger.Logs()[0].ToJSON()).To(MatchRegexp("converger.*non-routable-lease-count.*2"))
 			})
 		})
 	})
