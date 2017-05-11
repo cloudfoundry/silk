@@ -224,6 +224,33 @@ var _ = Describe("Silk Controller", func() {
 			})
 		})
 
+		Context("when there is an existing lease for the underlay IP", func() {
+			var existingLease controller.Lease
+			BeforeEach(func() {
+				var err error
+				existingLease, err = testClient.AcquireSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			Context("when the existing lease is in a different overlay network", func() {
+				BeforeEach(func() {
+					stopServer()
+					conf.Network = "10.254.0.0/16"
+					startAndWaitForServer()
+				})
+				It("renews the same lease in the old network", func() {
+					err := testClient.RenewSubnetLease(existingLease)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("checking that the lease is present in the list of routable leases")
+					leases, err := testClient.GetRoutableLeases()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(leases)).To(Equal(1))
+					Expect(leases[0]).To(Equal(existingLease))
+				})
+			})
+		})
+
 		Context("when the local lease is not present in the database", func() {
 			It("the renew succeeds (even though its really more of an acquire)", func() {
 				lease := controller.Lease{
@@ -283,6 +310,30 @@ var _ = Describe("Silk Controller", func() {
 
 				Eventually(renewAndCheck, 4).Should(ConsistOf(lease2))
 				Consistently(renewAndCheck).Should(ConsistOf(lease2))
+			})
+		})
+
+		Context("when there are leases from different networks", func() {
+			var oldNetworkLease controller.Lease
+			var newNetworkLease controller.Lease
+			BeforeEach(func() {
+				var err error
+				oldNetworkLease, err = testClient.AcquireSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+
+				stopServer()
+				conf.Network = "10.254.0.0/16"
+				startAndWaitForServer()
+
+				newNetworkLease, err = testClient.AcquireSubnetLease("10.244.4.6")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns all the leases", func() {
+				leases, err := testClient.GetRoutableLeases()
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(leases).To(ConsistOf(oldNetworkLease, newNetworkLease))
 			})
 		})
 	})
