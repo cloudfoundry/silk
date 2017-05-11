@@ -26,11 +26,16 @@ type Config struct {
 	OverlayHardwareAddr        net.HardwareAddr
 	VNI                        int
 	OverlayNetworkPrefixLength int
+	VTEPPort                   int
 }
 
 func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.Lease) (*Config, error) {
 	if clientConf.VTEPName == "" {
 		return nil, fmt.Errorf("empty vtep name")
+	}
+
+	if clientConf.VTEPPort < 1 {
+		return nil, fmt.Errorf("vtep port must be greater than 0")
 	}
 
 	underlayIP := net.ParseIP(clientConf.UnderlayIP)
@@ -73,6 +78,7 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 		OverlayHardwareAddr: overlayHardwareAddr,
 		VNI:                 clientConf.VNI,
 		OverlayNetworkPrefixLength: overlayNetworkPrefixLength,
+		VTEPPort:                   clientConf.VTEPPort,
 	}, nil
 }
 

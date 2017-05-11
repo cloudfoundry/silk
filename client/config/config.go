@@ -19,6 +19,7 @@ type Config struct {
 	ClientCertFile            string `json:"client_cert_file" validate:"nonzero"`
 	ClientKeyFile             string `json:"client_key_file" validate:"nonzero"`
 	VNI                       int    `json:"vni" validate:"nonzero"`
+	VTEPPort                  int    `json:"vtep_port" validate:"min=1"`
 	PollInterval              int    `json:"poll_interval" validate:"nonzero"`
 	DebugServerPort           int    `json:"debug_server_port" validate:"nonzero"`
 	Datastore                 string `json:"datastore" validate:"nonzero"`

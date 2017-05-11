@@ -31,6 +31,7 @@ var _ = Describe("ConfigCreator", func() {
 				VTEPName:           "some-vtep-name",
 				VNI:                99,
 				OverlayNetwork:     "10.255.0.0/16",
+				VTEPPort:           12225,
 			}
 			lease = controller.Lease{
 				UnderlayIP:          "172.255.30.02",
@@ -59,6 +60,7 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.OverlayHardwareAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x1e, 0x00}))
 			Expect(conf.VNI).To(Equal(99))
 			Expect(conf.OverlayNetworkPrefixLength).To(Equal(16))
+			Expect(conf.VTEPPort).To(Equal(12225))
 
 			Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(1))
 			Expect(fakeNetAdapter.InterfaceAddrsCallCount()).To(Equal(1))
@@ -92,6 +94,17 @@ var _ = Describe("ConfigCreator", func() {
 			It("returns a sensible error", func() {
 				_, err := creator.Create(clientConf, lease)
 				Expect(err).To(MatchError("empty vtep name"))
+			})
+		})
+
+		Context("when the vtep port is less than 1", func() {
+			BeforeEach(func() {
+				clientConf.VTEPPort = 0
+			})
+
+			It("returns a sensible error", func() {
+				_, err := creator.Create(clientConf, lease)
+				Expect(err).To(MatchError("vtep port must be greater than 0"))
 			})
 		})
 

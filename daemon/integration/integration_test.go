@@ -49,6 +49,7 @@ var (
 	datastorePath         string
 	vtepFactory           *vtep.Factory
 	vtepName              string
+	vtepPort              int
 	vni                   int
 	fakeMetron            metrics.FakeMetron
 )
@@ -70,7 +71,8 @@ var _ = BeforeEach(func() {
 	daemonHealthCheckPort := 4000 + GinkgoParallelNode()
 	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
 	daemonDebugServerPort = 20000 + GinkgoParallelNode()
-	serverListenPort = 40000 + GinkgoParallelNode()
+	serverListenPort = 30000 + GinkgoParallelNode()
+	vtepPort = 40000 + GinkgoParallelNode()
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", serverListenPort)
 	datastoreDir, err := ioutil.TempDir("", "")
 	Expect(err).NotTo(HaveOccurred())
@@ -92,6 +94,7 @@ var _ = BeforeEach(func() {
 		PartitionToleranceSeconds: 10,
 		ClientTimeoutSeconds:      5,
 		MetronPort:                fakeMetron.Port(),
+		VTEPPort:                  vtepPort,
 	}
 
 	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}
@@ -158,7 +161,7 @@ var _ = Describe("Daemon Integration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vtep.VtepDevIndex).To(Equal(defaultDevice.Index))
 		Expect(vtep.VxlanId).To(Equal(vni))
-		Expect(vtep.Port).To(Equal(4789))
+		Expect(vtep.Port).To(Equal(vtepPort))
 		Expect(vtep.Learning).To(Equal(false))
 		Expect(vtep.GBP).To(BeTrue())
 

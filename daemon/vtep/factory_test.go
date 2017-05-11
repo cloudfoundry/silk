@@ -40,6 +40,7 @@ var _ = Describe("Factory", func() {
 			OverlayHardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00},
 			VNI:                 99,
 			OverlayNetworkPrefixLength: 10,
+			VTEPPort:                   4913,
 		}
 	})
 
@@ -55,7 +56,7 @@ var _ = Describe("Factory", func() {
 				VxlanId:      99,
 				SrcAddr:      net.IP{172, 255, 0, 0},
 				GBP:          true,
-				Port:         4789,
+				Port:         4913,
 				VtepDevIndex: 4,
 			}
 

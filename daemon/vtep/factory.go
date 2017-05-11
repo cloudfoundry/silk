@@ -39,9 +39,9 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 		},
 		VxlanId:      cfg.VNI,
 		SrcAddr:      cfg.UnderlayIP,
-		GBP:          true,
-		Port:         4789,
+		Port:         cfg.VTEPPort,
 		VtepDevIndex: cfg.UnderlayInterface.Index,
+		GBP:          true,
 	}
 	err := f.NetlinkAdapter.LinkAdd(vxlan)
 	if err != nil {
