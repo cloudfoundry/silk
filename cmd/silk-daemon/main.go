@@ -82,6 +82,11 @@ func mainWithError() error {
 		Locker:     &filelock.Locker{},
 	}
 
+	_, overlayNetwork, err := net.ParseCIDR(cfg.OverlayNetwork)
+	if err != nil {
+		log.Fatalf("parse overlay network CIDR") //TODO add test coverage
+	}
+
 	lease, err := discoverLocalLease(cfg)
 	if err != nil {
 		lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
@@ -89,6 +94,15 @@ func mainWithError() error {
 			return err
 		}
 	} else {
+		_, localSubnet, err := net.ParseCIDR(lease.OverlaySubnet)
+		if err != nil {
+			log.Fatalf("parse local subnet CIDR") //TODO add test coverage
+		}
+
+		if !overlayNetwork.Contains(localSubnet.IP) {
+			return fmt.Errorf("discovered lease is not in overlay network")
+		}
+
 		err = client.RenewSubnetLease(lease)
 		if err != nil {
 			logger.Error("renew-lease", err, lager.Data{"lease": lease})
@@ -128,11 +142,6 @@ func mainWithError() error {
 	_, localSubnet, err := net.ParseCIDR(lease.OverlaySubnet)
 	if err != nil {
 		log.Fatalf("parse local subnet CIDR") //TODO add test coverage
-	}
-
-	_, overlayNetwork, err := net.ParseCIDR(cfg.OverlayNetwork)
-	if err != nil {
-		log.Fatalf("parse overlay network CIDR") //TODO add test coverage
 	}
 
 	vxlanIface, err := net.InterfaceByName(cfg.VTEPName)

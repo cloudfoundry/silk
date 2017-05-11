@@ -231,4 +231,27 @@ var _ = Describe("error cases", func() {
 			Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: acquire subnet lease: http client do:.*request canceled while waiting for connection`))
 		})
 	})
+
+	Context("when a local lease that is not part of the overlay network is discovered", func() {
+		BeforeEach(func() {
+			By("ensuring a local lease is already present")
+			startAndWaitForDaemon() // creates a new lease
+			stopDaemon()            // stops daemon, but leaves local lease intact
+
+			daemonConf.OverlayNetwork = "10.254.0.0/16"
+			configFilePath := writeConfigFile(daemonConf)
+			writeConfigFile(daemonConf)
+			startDaemon(configFilePath)
+		})
+
+		AfterEach(func() {
+			err := vtepFactory.DeleteVTEP(vtepName)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("exits with status 1", func() {
+			Eventually(session, 3*time.Second).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: discovered lease is not in overlay network`))
+		})
+	})
 })
