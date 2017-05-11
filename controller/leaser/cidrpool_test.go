@@ -62,4 +62,27 @@ var _ = Describe("Cidrpool", func() {
 			})
 		})
 	})
+
+	Describe("IsMember", func() {
+		var cidrPool *leaser.CIDRPool
+		BeforeEach(func() {
+			subnetRange := "10.255.0.0/16"
+			cidrPool = leaser.NewCIDRPool(subnetRange, 24)
+		})
+		It("returns true if the subnet is a member of the pool", func() {
+			Expect(cidrPool.IsMember("10.255.30.0/24")).To(BeTrue())
+		})
+
+		Context("when the subnet start is not a match for an entry", func() {
+			It("returns false", func() {
+				Expect(cidrPool.IsMember("10.255.30.10/24")).To(BeFalse())
+			})
+		})
+
+		Context("when the subnet size is not a match", func() {
+			It("returns false", func() {
+				Expect(cidrPool.IsMember("10.255.30.0/20")).To(BeFalse())
+			})
+		})
+	})
 })

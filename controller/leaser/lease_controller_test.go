@@ -205,24 +205,66 @@ var _ = Describe("LeaseController", func() {
 		})
 
 		Context("when a lease has already been assigned", func() {
+			var existingLease *controller.Lease
 			BeforeEach(func() {
-				existingLease := &controller.Lease{
+				existingLease = &controller.Lease{
 					UnderlayIP:          "10.244.5.6",
 					OverlaySubnet:       "10.255.76.0/24",
 					OverlayHardwareAddr: "ee:ee:0a:ff:4c:00",
 				}
 				databaseHandler.LeaseForUnderlayIPReturns(existingLease, nil)
+				cidrPool.IsMemberReturns(true)
 			})
 
 			It("gets the previously assigned lease", func() {
-				_, err := leaseController.AcquireSubnetLease("10.244.5.6")
+				lease, err := leaseController.AcquireSubnetLease("10.244.5.6")
 				Expect(err).NotTo(HaveOccurred())
+				Expect(lease).To(Equal(existingLease))
+
 				Expect(logger.Logs()[0].Message).To(Equal("test.lease-renewed"))
 				loggedLease, err := json.Marshal(logger.Logs()[0].Data["lease"])
 				Expect(err).NotTo(HaveOccurred())
 				Expect(loggedLease).To(MatchJSON(`{"underlay_ip":"10.244.5.6","overlay_subnet":"10.255.76.0/24","overlay_hardware_addr":"ee:ee:0a:ff:4c:00"}`))
 
 				Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when a lease has already been assigned in a different network", func() {
+			var existingLease *controller.Lease
+			BeforeEach(func() {
+				existingLease = &controller.Lease{
+					UnderlayIP:          "10.244.5.6",
+					OverlaySubnet:       "10.254.76.0/24",
+					OverlayHardwareAddr: "ee:ee:0a:fe:4c:00",
+				}
+				databaseHandler.LeaseForUnderlayIPReturns(existingLease, nil)
+				cidrPool.IsMemberReturns(false)
+			})
+
+			It("deletes the previously assigned lease and assigns a new one", func() {
+				lease, err := leaseController.AcquireSubnetLease("10.244.5.6")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lease).NotTo(Equal(existingLease))
+
+				Expect(logger.Logs()[0].Message).To(Equal("test.lease-deleted"))
+				deletedLease, err := json.Marshal(logger.Logs()[0].Data["lease"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deletedLease).To(MatchJSON(`{"underlay_ip":"10.244.5.6","overlay_subnet":"10.254.76.0/24","overlay_hardware_addr":"ee:ee:0a:fe:4c:00"}`))
+
+				Expect(databaseHandler.DeleteEntryCallCount()).To(Equal(1))
+				Expect(databaseHandler.AddEntryCallCount()).To(Equal(1))
+			})
+
+			Context("when deleting the existing entry fails", func() {
+				BeforeEach(func() {
+					databaseHandler.DeleteEntryReturns(fmt.Errorf("peanut"))
+				})
+				It("returns an error", func() {
+					_, err := leaseController.AcquireSubnetLease("10.244.5.6")
+					Expect(err).To(MatchError("deleting lease for underlay ip 10.244.5.6: peanut"))
+					Expect(databaseHandler.AddEntryCallCount()).To(Equal(0))
+				})
 			})
 		})
 

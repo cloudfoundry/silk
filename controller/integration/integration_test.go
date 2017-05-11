@@ -76,17 +76,53 @@ var _ = Describe("Silk Controller", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	})
 
-	It("provides an endpoint to acquire a subnet leases", func() {
-		lease, err := testClient.AcquireSubnetLease("10.244.4.5")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(lease.UnderlayIP).To(Equal("10.244.4.5"))
-		_, subnet, err := net.ParseCIDR(lease.OverlaySubnet)
-		Expect(err).NotTo(HaveOccurred())
-		_, network, err := net.ParseCIDR(conf.Network)
-		Expect(network.Contains(subnet.IP)).To(BeTrue())
-		expectedHardwareAddr, err := (&leaser.HardwareAddressGenerator{}).GenerateForVTEP(subnet.IP)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(lease.OverlayHardwareAddr).To(Equal(expectedHardwareAddr.String()))
+	Describe("acquiring", func() {
+		It("provides an endpoint to acquire a subnet leases", func() {
+			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(lease.UnderlayIP).To(Equal("10.244.4.5"))
+			_, subnet, err := net.ParseCIDR(lease.OverlaySubnet)
+			Expect(err).NotTo(HaveOccurred())
+			_, network, err := net.ParseCIDR(conf.Network)
+			Expect(network.Contains(subnet.IP)).To(BeTrue())
+			expectedHardwareAddr, err := (&leaser.HardwareAddressGenerator{}).GenerateForVTEP(subnet.IP)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(lease.OverlayHardwareAddr).To(Equal(expectedHardwareAddr.String()))
+
+		})
+
+		Context("when there is an existing lease for the underlay IP", func() {
+			var existingLease controller.Lease
+			BeforeEach(func() {
+				var err error
+				existingLease, err = testClient.AcquireSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("returns the same lease", func() {
+				lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(lease).To(Equal(existingLease))
+			})
+
+			Context("when the existing lease is in a different overlay network", func() {
+				BeforeEach(func() {
+					stopServer()
+					conf.Network = "10.254.0.0/16"
+					startAndWaitForServer()
+				})
+				It("returns a new lease in the new network", func() {
+					lease, err := testClient.AcquireSubnetLease("10.244.4.5")
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(lease).NotTo(Equal(existingLease))
+					_, subnet, err := net.ParseCIDR(lease.OverlaySubnet)
+					Expect(err).NotTo(HaveOccurred())
+					_, network, err := net.ParseCIDR(conf.Network)
+					Expect(network.Contains(subnet.IP)).To(BeTrue())
+				})
+			})
+		})
 	})
 
 	Describe("releasing", func() {

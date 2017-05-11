@@ -29,6 +29,7 @@ type leaseValidator interface {
 //go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
 type cidrPool interface {
 	GetAvailable([]string) string
+	IsMember(string) bool
 }
 
 //go:generate counterfeiter -o fakes/hardwareAddressGenerator.go --fake-name HardwareAddressGenerator . hardwareAddressGenerator
@@ -74,8 +75,15 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lea
 	}
 
 	if lease != nil {
-		c.Logger.Info("lease-renewed", lager.Data{"lease": lease})
-		return lease, nil
+		if c.CIDRPool.IsMember(lease.OverlaySubnet) {
+			c.Logger.Info("lease-renewed", lager.Data{"lease": lease})
+			return lease, nil
+		}
+		err := c.DatabaseHandler.DeleteEntry(underlayIP)
+		if err != nil {
+			return nil, fmt.Errorf("deleting lease for underlay ip %s: %s", underlayIP, err)
+		}
+		c.Logger.Info("lease-deleted", lager.Data{"lease": lease})
 	}
 
 	for numErrs := 0; numErrs < c.AcquireSubnetLeaseAttempts; numErrs++ {
