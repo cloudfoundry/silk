@@ -100,7 +100,28 @@ func mainWithError() error {
 		}
 
 		if !overlayNetwork.Contains(localSubnet.IP) {
-			return fmt.Errorf("discovered lease is not in overlay network")
+			logger.Error("network-contains-lease", fmt.Errorf("discovered lease is not in overlay network"), lager.Data{
+				"lease":   lease,
+				"network": cfg.OverlayNetwork,
+			})
+
+			metadata, err := store.ReadAll(cfg.Datastore)
+			if err != nil {
+				return fmt.Errorf("read datastore: %s", err)
+			}
+
+			if len(metadata) != 0 {
+				return fmt.Errorf("discovered lease is not in overlay network and has containers: %d", len(metadata))
+			} else {
+				err := vtepFactory.DeleteVTEP(cfg.VTEPName)
+				if err != nil {
+					return fmt.Errorf("delete vtep: %s", err) // not tested, should be impossible
+				}
+				lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		err = client.RenewSubnetLease(lease)

@@ -416,6 +416,22 @@ var _ = Describe("Daemon Integration", func() {
 			})
 		})
 	})
+
+	Context("when the discovered lease is not in the overlay network", func() {
+		BeforeEach(func() {
+			stopDaemon()
+
+			daemonConf.OverlayNetwork = "10.254.0.0/16"
+		})
+
+		Context("when no containers are running", func() {
+			It("logs an error message and acquires a new lease", func() {
+				startAndWaitForDaemon()
+				Expect(session.Out).To(gbytes.Say(`network-contains-lease.*"error":"discovered lease is not in overlay network"`))
+				Expect(session.Out).To(gbytes.Say(`acquired-lease.*`))
+			})
+		})
+	})
 })
 
 func startAndWaitForDaemon() {

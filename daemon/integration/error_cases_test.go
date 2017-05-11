@@ -237,21 +237,70 @@ var _ = Describe("error cases", func() {
 			By("ensuring a local lease is already present")
 			startAndWaitForDaemon() // creates a new lease
 			stopDaemon()            // stops daemon, but leaves local lease intact
-
-			daemonConf.OverlayNetwork = "10.254.0.0/16"
-			configFilePath := writeConfigFile(daemonConf)
-			writeConfigFile(daemonConf)
-			startDaemon(configFilePath)
 		})
 
-		AfterEach(func() {
-			err := vtepFactory.DeleteVTEP(vtepName)
-			Expect(err).NotTo(HaveOccurred())
+		Context("when containers are running", func() {
+			BeforeEach(func() {
+				err := ioutil.WriteFile(datastorePath, []byte(`{
+	          "some-handle": {
+	              "handle": "some-handle",
+	              "ip": "192.168.0.100",
+	              "metadata": {}
+	          }
+	      }`), os.FileMode(0600))
+				Expect(err).NotTo(HaveOccurred())
+
+				daemonConf.OverlayNetwork = "10.254.0.0/16"
+				configFilePath := writeConfigFile(daemonConf)
+				writeConfigFile(daemonConf)
+				startDaemon(configFilePath)
+			})
+
+			AfterEach(func() {
+				err := vtepFactory.DeleteVTEP(vtepName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("exits with status 1", func() {
+				Eventually(session, 3*time.Second).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: discovered lease is not in overlay network and has containers: 1`))
+			})
 		})
 
-		It("exits with status 1", func() {
-			Eventually(session, 3*time.Second).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: discovered lease is not in overlay network`))
+		Context("when reading the datastore fails", func() {
+			BeforeEach(func() {
+				daemonConf.Datastore = "/dev/urandom"
+				daemonConf.OverlayNetwork = "10.254.0.0/16"
+				configFilePath := writeConfigFile(daemonConf)
+				startDaemon(configFilePath)
+			})
+
+			AfterEach(func() {
+				err := vtepFactory.DeleteVTEP(vtepName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("exits with status 1", func() {
+				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("read datastore"))
+			})
+		})
+
+		Context("no containers are running but acquiring a new lease fails", func() {
+			BeforeEach(func() {
+				fakeServer.SetHandler("/leases/acquire", &testsupport.FakeHandler{
+					ResponseCode: 500,
+					ResponseBody: struct{}{},
+				})
+			})
+
+			It("exits with status 1", func() {
+				daemonConf.OverlayNetwork = "10.254.0.0/16"
+				configFilePath := writeConfigFile(daemonConf)
+				startDaemon(configFilePath)
+				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: http status 500"))
+			})
 		})
 	})
 })
