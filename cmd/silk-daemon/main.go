@@ -113,11 +113,7 @@ func mainWithError() error {
 			if len(metadata) != 0 {
 				return fmt.Errorf("discovered lease is not in overlay network and has containers: %d", len(metadata))
 			} else {
-				err := vtepFactory.DeleteVTEP(cfg.VTEPName)
-				if err != nil {
-					return fmt.Errorf("delete vtep: %s", err) // not tested, should be impossible
-				}
-				lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
+				lease, err = deleteAndAcquire(cfg, logger, client, vtepConfigCreator, vtepFactory)
 				if err != nil {
 					return err
 				}
@@ -136,11 +132,7 @@ func mainWithError() error {
 			if len(metadata) != 0 {
 				return fmt.Errorf("renew subnet lease with containers: %d", len(metadata))
 			} else {
-				err := vtepFactory.DeleteVTEP(cfg.VTEPName)
-				if err != nil {
-					return fmt.Errorf("delete vtep: %s", err) // not tested, should be impossible
-				}
-				lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
+				lease, err = deleteAndAcquire(cfg, logger, client, vtepConfigCreator, vtepFactory)
 				if err != nil {
 					return err
 				}
@@ -277,4 +269,12 @@ func getNetworkInfo(vtepFactory *vtep.Factory, clientConfig config.Config, lease
 		OverlaySubnet: lease.OverlaySubnet,
 		MTU:           mtu,
 	}, nil
+}
+
+func deleteAndAcquire(cfg config.Config, logger lager.Logger, client *controller.Client, vtepConfigCreator *vtep.ConfigCreator, vtepFactory *vtep.Factory) (controller.Lease, error) {
+	err := vtepFactory.DeleteVTEP(cfg.VTEPName)
+	if err != nil {
+		return controller.Lease{}, fmt.Errorf("delete vtep: %s", err) // not tested, should be impossible
+	}
+	return acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
 }
