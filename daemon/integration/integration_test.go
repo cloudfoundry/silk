@@ -201,13 +201,23 @@ var _ = Describe("Daemon Integration", func() {
 		Expect(session.Out).To(gbytes.Say(`renewed-lease.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
 	})
 
-	It("emits an uptime metric", func() {
-		withName := func(name string) types.GomegaMatcher {
-			return WithTransform(func(ev metrics.Event) string {
-				return ev.Name
-			}, Equal(name))
-		}
+	withName := func(name string) types.GomegaMatcher {
+		return WithTransform(func(ev metrics.Event) string {
+			return ev.Name
+		}, Equal(name))
+	}
 
+	withValue := func(value interface{}) types.GomegaMatcher {
+		return WithTransform(func(ev metrics.Event) float64 {
+			return ev.Value
+		}, BeEquivalentTo(value))
+	}
+
+	hasMetricWithValue := func(name string, value interface{}) types.GomegaMatcher {
+		return SatisfyAll(withName(name), withValue(value))
+	}
+
+	It("emits an uptime metric", func() {
 		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
 	})
 
@@ -257,11 +267,17 @@ var _ = Describe("Daemon Integration", func() {
 			fdbEntries := mustSucceed("bridge", "fdb", "list", "dev", vtepName)
 			Expect(fdbEntries).To(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
 
+			By("checking that it emits a metric for the number of leases it sees")
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(hasMetricWithValue("numberLeases", 2)))
+
 			By("removing the leases from the controller")
 			fakeServer.SetHandler("/leases", &testsupport.FakeHandler{
 				ResponseCode: 200,
 				ResponseBody: map[string][]controller.Lease{"leases": []controller.Lease{}}},
 			)
+
+			By("checking that the emitted number of leases has updated to zero")
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(hasMetricWithValue("numberLeases", 0)))
 
 			By("checking that no leases are logged")
 			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))

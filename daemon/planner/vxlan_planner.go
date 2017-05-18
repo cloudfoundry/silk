@@ -19,12 +19,18 @@ type converger interface {
 	Converge([]controller.Lease) error
 }
 
+//go:generate counterfeiter -o fakes/metricSender.go --fake-name MetricSender . metricSender
+type metricSender interface {
+	SendValue(name string, value float64, units string)
+}
+
 type VXLANPlanner struct {
 	Logger           lager.Logger
 	ControllerClient controllerClient
 	Converger        converger
 	Lease            controller.Lease
 	ErrorDetector    FatalErrorDetector
+	MetricSender     metricSender
 }
 
 func (v *VXLANPlanner) DoCycle() error {
@@ -42,6 +48,8 @@ func (v *VXLANPlanner) DoCycle() error {
 	if err != nil {
 		return fmt.Errorf("get routable leases: %s", err)
 	}
+
+	v.MetricSender.SendValue("numberLeases", float64(len(leases)), "")
 
 	err = v.Converger.Converge(leases)
 	if err != nil {

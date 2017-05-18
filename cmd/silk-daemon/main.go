@@ -26,6 +26,7 @@ import (
 	"code.cloudfoundry.org/silk/lib/serial"
 
 	"github.com/cloudfoundry/dropsonde"
+
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/tedsuo/ifrit"
@@ -162,6 +163,9 @@ func mainWithError() error {
 		log.Fatalf("find local VTEP") //TODO add test coverage
 	}
 
+	metricSender := &metrics.MetricsSender{
+		Logger: logger,
+	}
 	vxlanPoller := &poller.Poller{
 		Logger:       logger,
 		PollInterval: time.Duration(cfg.PollInterval) * time.Second,
@@ -178,7 +182,9 @@ func mainWithError() error {
 			},
 			ErrorDetector: planner.NewGracefulDetector(
 				time.Duration(cfg.PartitionToleranceSeconds) * time.Second,
-			)}).DoCycle,
+			),
+			MetricSender: metricSender,
+		}).DoCycle,
 	}
 
 	metronAddress := fmt.Sprintf("127.0.0.1:%d", cfg.MetronPort)

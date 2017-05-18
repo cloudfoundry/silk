@@ -39,12 +39,14 @@ var _ = Describe("VxlanPlanner", func() {
 		controllerClient *fakes.ControllerClient
 		converger        *fakes.Converger
 		errorDetector    *fakes.FatalErrorDetector
+		metricSender     *fakes.MetricSender
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		controllerClient = &fakes.ControllerClient{}
 		converger = &fakes.Converger{}
+		metricSender = &fakes.MetricSender{}
 		errorDetector = &fakes.FatalErrorDetector{}
 		vxlanPlanner = &planner.VXLANPlanner{
 			Logger:           logger,
@@ -56,6 +58,7 @@ var _ = Describe("VxlanPlanner", func() {
 				OverlayHardwareAddr: "ee:ee:0a:f4:11:00",
 			},
 			ErrorDetector: errorDetector,
+			MetricSender:  metricSender,
 		}
 	})
 
@@ -102,7 +105,32 @@ var _ = Describe("VxlanPlanner", func() {
 			Expect(errorDetector.GotSuccessCallCount()).To(Equal(1))
 		})
 
-		It("calls the converger to get all routable leases", func() {
+		It("emits a metric with the number of leases received", func() {
+			err := vxlanPlanner.DoCycle()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(metricSender.SendValueCallCount()).To(Equal(1))
+			name, value, unit := metricSender.SendValueArgsForCall(0)
+			Expect(name).To(Equal("numberLeases"))
+			Expect(value).To(BeEquivalentTo(2))
+			Expect(unit).To(Equal(""))
+
+			leases = append(leases, controller.Lease{
+				UnderlayIP:          "172.244.17.0",
+				OverlaySubnet:       "10.244.17.0/24",
+				OverlayHardwareAddr: "ee:ee:0a:f6:10:00",
+			})
+			controllerClient.GetRoutableLeasesReturns(leases, nil)
+
+			err = vxlanPlanner.DoCycle()
+			name, value, unit = metricSender.SendValueArgsForCall(1)
+			Expect(name).To(Equal("numberLeases"))
+			Expect(value).To(BeEquivalentTo(3))
+			Expect(unit).To(Equal(""))
+
+		})
+
+		It("passes the received leases to the converger to update the networking stack", func() {
 			err := vxlanPlanner.DoCycle()
 			Expect(err).NotTo(HaveOccurred())
 
