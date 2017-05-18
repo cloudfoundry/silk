@@ -18,9 +18,9 @@ Silk has three components:
 - `silk-controller` runs on at least one central node and manages IP subnet lease allocation across the cluster.
    It is implemented as a stateless HTTP JSON API backed by a SQL database.
 
-- `silk-daemon` runs on each host in order to acquire and renew the subnet lease for that 
+- `silk-daemon` runs on each host in order to acquire and renew the subnet lease for the host by calling the `silk-controller` API.  It also has an HTTP JSON API endpoint that serves the subnet lease information and also acts as a health check.
 
-- `silk-cni` is a short-lived program, executed by the container runner, to set up the network stack for a particular container.
+- `silk-cni` is a short-lived program, executed by the container runner, to set up the network stack for a particular container.  Before setting up the network stack for the container, it calls the `silk-daemon` API to check its health and retrieve the host's subnet information.
 
 ![](control-plane.png)
 
