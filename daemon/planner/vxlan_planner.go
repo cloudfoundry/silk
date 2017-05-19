@@ -56,6 +56,6 @@ func (v *VXLANPlanner) DoCycle() error {
 		return fmt.Errorf("converge leases: %s", err)
 	}
 
-	v.Logger.Debug("get-routable-leases", lager.Data{"leases": leases})
+	v.Logger.Debug("converge-leases", lager.Data{"leases": leases})
 	return nil
 }

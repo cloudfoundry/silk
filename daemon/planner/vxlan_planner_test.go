@@ -139,7 +139,7 @@ var _ = Describe("VxlanPlanner", func() {
 
 			By("checking that the leases were logged at debug level")
 			Expect(logger.Logs()).To(ContainElement(SatisfyAll(
-				LogsWith(lager.DEBUG, "test.get-routable-leases"),
+				LogsWith(lager.DEBUG, "test.converge-leases"),
 				HaveLogData(HaveKeyWithValue("leases", ConsistOf(
 					SatisfyAll(
 						HaveKeyWithValue("underlay_ip", "172.244.15.0"),

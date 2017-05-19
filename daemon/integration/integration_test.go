@@ -252,7 +252,7 @@ var _ = Describe("Daemon Integration", func() {
 
 		It("polls for other leases and logs at debug level", func() {
 			By("checking that the correct leases are logged")
-			Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
+			Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
 			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 			Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
@@ -280,13 +280,13 @@ var _ = Describe("Daemon Integration", func() {
 			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(hasMetricWithValue("numberLeases", 0)))
 
 			By("checking that no leases are logged")
-			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*"leases":\[]`)))
+			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.converge-leases.*"leases":\[]`)))
 		})
 
 		Context("when cells with overlay subnets are brought down", func() {
 			It("polls and updates the leases accordingly", func() {
 				By("checking that the correct leases are logged")
-				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
+				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
 				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
@@ -314,7 +314,7 @@ var _ = Describe("Daemon Integration", func() {
 				)
 
 				By("checking that updated leases are logged")
-				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.get-routable-leases.*log_level.*0`)))
+				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.converge-leases.*log_level.*0`)))
 				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 				Eventually(session.Out, 2).ShouldNot(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
@@ -356,14 +356,13 @@ var _ = Describe("Daemon Integration", func() {
 					},
 				}
 				fakeServer.SetHandler("/leases", indexHandler)
-
 			})
 			It("only updates the leases inside the overlay network", func() {
 				By("logging the number of leases we skipped")
 				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converger.*log_level.*1.*non-routable-lease-count.*1`))
 
 				By("checking that the correct leases are logged")
-				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.get-routable-leases.*log_level.*0`))
+				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
 				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
