@@ -95,7 +95,7 @@ func mainWithError() error {
 
 	_, overlayNetwork, err := net.ParseCIDR(cfg.OverlayNetwork)
 	if err != nil {
-		log.Fatalf("parse overlay network CIDR") //TODO add test coverage
+		return fmt.Errorf("parse overlay network CIDR: %s", err) //TODO add test coverage
 	}
 
 	lease, err := discoverLocalLease(cfg)
@@ -107,7 +107,7 @@ func mainWithError() error {
 	} else {
 		_, localSubnet, err := net.ParseCIDR(lease.OverlaySubnet)
 		if err != nil {
-			log.Fatalf("parse local subnet CIDR") //TODO add test coverage
+			return fmt.Errorf("parse local subnet CIDR: %s", err) //TODO add test coverage
 		}
 
 		if !overlayNetwork.Contains(localSubnet.IP) {
@@ -165,12 +165,12 @@ func mainWithError() error {
 
 	_, localSubnet, err := net.ParseCIDR(lease.OverlaySubnet)
 	if err != nil {
-		log.Fatalf("parse local subnet CIDR") //TODO add test coverage
+		return fmt.Errorf("parse local subnet CIDR: %s", err) //TODO add test coverage
 	}
 
 	vxlanIface, err := net.InterfaceByName(cfg.VTEPName)
 	if err != nil || vxlanIface == nil {
-		log.Fatalf("find local VTEP") //TODO add test coverage
+		return fmt.Errorf("find local VTEP: %s", err) //TODO add test coverage
 	}
 
 	vxlanPoller := &poller.Poller{
