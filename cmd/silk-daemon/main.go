@@ -98,7 +98,7 @@ func mainWithError() error {
 		return fmt.Errorf("parse overlay network CIDR: %s", err) //TODO add test coverage
 	}
 
-	lease, err := discoverLocalLease(cfg)
+	lease, err := discoverLocalLease(cfg, vtepFactory)
 	if err != nil {
 		lease, err = acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
 		if err != nil {
@@ -248,14 +248,15 @@ func buildHealthCheckServer(healthCheckPort uint16, networkInfo daemon.NetworkIn
 	), nil
 }
 
-func discoverLocalLease(clientConfig config.Config) (controller.Lease, error) {
-	vtepFactory := &vtep.Factory{
-		NetlinkAdapter: &adapter.NetlinkAdapter{},
-	}
+func discoverLocalLease(clientConfig config.Config, vtepFactory *vtep.Factory) (controller.Lease, error) {
 	overlayHwAddr, overlayIP, _, err := vtepFactory.GetVTEPState(clientConfig.VTEPName)
 	if err != nil {
 		return controller.Lease{}, fmt.Errorf("get vtep overlay ip: %s", err) // not tested
 	}
+	return leaseFromVTEPState(clientConfig, overlayHwAddr, overlayIP), nil
+}
+
+func leaseFromVTEPState(clientConfig config.Config, overlayHwAddr net.HardwareAddr, overlayIP net.IP) controller.Lease {
 	overlaySubnet := &net.IPNet{
 		IP:   overlayIP,
 		Mask: net.CIDRMask(clientConfig.SubnetPrefixLength, 32),
@@ -264,7 +265,7 @@ func discoverLocalLease(clientConfig config.Config) (controller.Lease, error) {
 		UnderlayIP:          clientConfig.UnderlayIP,
 		OverlaySubnet:       overlaySubnet.String(),
 		OverlayHardwareAddr: overlayHwAddr.String(),
-	}, nil
+	}
 }
 
 func getNetworkInfo(vtepFactory *vtep.Factory, clientConfig config.Config, lease controller.Lease) (daemon.NetworkInfo, error) {
