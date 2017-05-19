@@ -69,6 +69,16 @@ func mainWithError() error {
 		},
 		Timeout: time.Duration(cfg.ClientTimeoutSeconds) * time.Second,
 	}
+
+	metronAddress := fmt.Sprintf("127.0.0.1:%d", cfg.MetronPort)
+	err = dropsonde.Initialize(metronAddress, "silk-daemon")
+	if err != nil {
+		return fmt.Errorf("initializing dropsonde: %s", err)
+	}
+	metricSender := &metrics.MetricsSender{
+		Logger: logger,
+	}
+
 	vtepFactory := &vtep.Factory{
 		NetlinkAdapter: &adapter.NetlinkAdapter{},
 	}
@@ -163,9 +173,6 @@ func mainWithError() error {
 		log.Fatalf("find local VTEP") //TODO add test coverage
 	}
 
-	metricSender := &metrics.MetricsSender{
-		Logger: logger,
-	}
 	vxlanPoller := &poller.Poller{
 		Logger:       logger,
 		PollInterval: time.Duration(cfg.PollInterval) * time.Second,
@@ -187,11 +194,6 @@ func mainWithError() error {
 		}).DoCycle,
 	}
 
-	metronAddress := fmt.Sprintf("127.0.0.1:%d", cfg.MetronPort)
-	err = dropsonde.Initialize(metronAddress, "silk-daemon")
-	if err != nil {
-		log.Fatalf("initializing dropsonde: %s", err)
-	}
 	uptimeSource := metrics.NewUptimeSource()
 	metricsEmitter := metrics.NewMetricsEmitter(logger, 30*time.Second, uptimeSource)
 	members := grouper.Members{
