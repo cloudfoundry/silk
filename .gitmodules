@@ -73,3 +73,6 @@
 [submodule "vendor/github.com/nu7hatch/gouuid"]
 	path = vendor/github.com/nu7hatch/gouuid
 	url = https://github.com/nu7hatch/gouuid
+[submodule "vendor/github.com/Kount/pq-timeouts"]
+	path = vendor/github.com/Kount/pq-timeouts
+	url = https://github.com/Kount/pq-timeouts
