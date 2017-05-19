@@ -397,10 +397,11 @@ var _ = Describe("Daemon Integration", func() {
 		})
 
 		Context("when no containers are running", func() {
-			It("logs an error message and acquires a new lease", func() {
+			It("logs an error message, acquires a new lease and stays alive", func() {
 				startAndWaitForDaemon()
 				Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"http status 404: "`))
 				Expect(session.Out).To(gbytes.Say(`acquired-lease.*`))
+				Consistently(session, "4s").ShouldNot(gexec.Exit())
 			})
 
 			Context("when renew returns a 500", func() {
@@ -411,9 +412,10 @@ var _ = Describe("Daemon Integration", func() {
 					})
 				})
 
-				It("logs the correct error message", func() {
+				It("logs the error message and stays alive", func() {
 					startAndWaitForDaemon()
 					Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"http status 500: "`))
+					Consistently(session, "4s").ShouldNot(gexec.Exit())
 				})
 			})
 
@@ -425,9 +427,11 @@ var _ = Describe("Daemon Integration", func() {
 					})
 				})
 
-				It("logs the correct error message", func() {
+				It("logs the error and dies", func() {
 					startAndWaitForDaemon()
 					Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"non-retriable: lease mismatch"`))
+
+					Eventually(session, "10s").Should(gexec.Exit(1))
 				})
 			})
 		})
@@ -436,7 +440,6 @@ var _ = Describe("Daemon Integration", func() {
 	Context("when the discovered lease is not in the overlay network", func() {
 		BeforeEach(func() {
 			stopDaemon()
-
 			daemonConf.OverlayNetwork = "10.254.0.0/16"
 		})
 
