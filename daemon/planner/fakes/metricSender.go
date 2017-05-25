@@ -13,6 +13,11 @@ type MetricSender struct {
 		value float64
 		units string
 	}
+	IncrementCounterStub        func(name string)
+	incrementCounterMutex       sync.RWMutex
+	incrementCounterArgsForCall []struct {
+		name string
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -43,11 +48,37 @@ func (fake *MetricSender) SendValueArgsForCall(i int) (string, float64, string) 
 	return fake.sendValueArgsForCall[i].name, fake.sendValueArgsForCall[i].value, fake.sendValueArgsForCall[i].units
 }
 
+func (fake *MetricSender) IncrementCounter(name string) {
+	fake.incrementCounterMutex.Lock()
+	fake.incrementCounterArgsForCall = append(fake.incrementCounterArgsForCall, struct {
+		name string
+	}{name})
+	fake.recordInvocation("IncrementCounter", []interface{}{name})
+	fake.incrementCounterMutex.Unlock()
+	if fake.IncrementCounterStub != nil {
+		fake.IncrementCounterStub(name)
+	}
+}
+
+func (fake *MetricSender) IncrementCounterCallCount() int {
+	fake.incrementCounterMutex.RLock()
+	defer fake.incrementCounterMutex.RUnlock()
+	return len(fake.incrementCounterArgsForCall)
+}
+
+func (fake *MetricSender) IncrementCounterArgsForCall(i int) string {
+	fake.incrementCounterMutex.RLock()
+	defer fake.incrementCounterMutex.RUnlock()
+	return fake.incrementCounterArgsForCall[i].name
+}
+
 func (fake *MetricSender) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.sendValueMutex.RLock()
 	defer fake.sendValueMutex.RUnlock()
+	fake.incrementCounterMutex.RLock()
+	defer fake.incrementCounterMutex.RUnlock()
 	return fake.invocations
 }
 

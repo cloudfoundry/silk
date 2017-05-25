@@ -103,6 +103,10 @@ var _ = Describe("VxlanPlanner", func() {
 
 			By("informing the error detector of the successful renewal")
 			Expect(errorDetector.GotSuccessCallCount()).To(Equal(1))
+
+			Expect(metricSender.IncrementCounterCallCount()).To(Equal(1))
+			name := metricSender.IncrementCounterArgsForCall(0)
+			Expect(name).To(Equal("renewSuccess"))
 		})
 
 		It("emits a metric with the number of leases received", func() {
@@ -155,13 +159,13 @@ var _ = Describe("VxlanPlanner", func() {
 			)))
 		})
 
-		Context("when renewing the subnet lease fails from an error", func() {
+		Context("when renewing the subnet lease fails", func() {
 			Context("when the error is detected as non-fatal", func() {
 				BeforeEach(func() {
 					controllerClient.RenewSubnetLeaseReturns(errors.New("guava"))
 					errorDetector.IsFatalReturns(false)
 				})
-				It("returns the error as non-fatal", func() {
+				It("returns the error as non-fatal and emits a failure metric", func() {
 					err := vxlanPlanner.DoCycle()
 					Expect(err).To(MatchError("renew lease: guava"))
 					_, ok := err.(daemon.FatalError)
@@ -170,6 +174,9 @@ var _ = Describe("VxlanPlanner", func() {
 					Expect(errorDetector.IsFatalCallCount()).To(Equal(1))
 					Expect(errorDetector.IsFatalArgsForCall(0)).To(Equal(errors.New("guava")))
 					Expect(errorDetector.GotSuccessCallCount()).To(Equal(0))
+
+					Expect(metricSender.IncrementCounterCallCount()).To(Equal(1))
+					Expect(metricSender.IncrementCounterArgsForCall(0)).To(Equal("renewFailure"))
 				})
 			})
 
@@ -178,7 +185,7 @@ var _ = Describe("VxlanPlanner", func() {
 					controllerClient.RenewSubnetLeaseReturns(errors.New("guava"))
 					errorDetector.IsFatalReturns(true)
 				})
-				It("returns the error as a fatal error", func() {
+				It("returns the error as a fatal error and emits a failure metric", func() {
 					err := vxlanPlanner.DoCycle()
 					Expect(err).To(MatchError("fatal: renew lease: guava"))
 					_, ok := err.(daemon.FatalError)
@@ -187,6 +194,9 @@ var _ = Describe("VxlanPlanner", func() {
 					Expect(errorDetector.IsFatalCallCount()).To(Equal(1))
 					Expect(errorDetector.IsFatalArgsForCall(0)).To(Equal(errors.New("guava")))
 					Expect(errorDetector.GotSuccessCallCount()).To(Equal(0))
+
+					Expect(metricSender.IncrementCounterCallCount()).To(Equal(1))
+					Expect(metricSender.IncrementCounterArgsForCall(0)).To(Equal("renewFailure"))
 				})
 			})
 		})

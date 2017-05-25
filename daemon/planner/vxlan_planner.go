@@ -22,6 +22,7 @@ type converger interface {
 //go:generate counterfeiter -o fakes/metricSender.go --fake-name MetricSender . metricSender
 type metricSender interface {
 	SendValue(name string, value float64, units string)
+	IncrementCounter(name string)
 }
 
 type VXLANPlanner struct {
@@ -36,6 +37,7 @@ type VXLANPlanner struct {
 func (v *VXLANPlanner) DoCycle() error {
 	err := v.ControllerClient.RenewSubnetLease(v.Lease)
 	if err != nil {
+		v.MetricSender.IncrementCounter("renewFailure")
 		if v.ErrorDetector.IsFatal(err) {
 			return daemon.FatalError(fmt.Sprintf("renew lease: %s", err))
 		}
@@ -43,6 +45,8 @@ func (v *VXLANPlanner) DoCycle() error {
 	}
 	v.ErrorDetector.GotSuccess()
 	v.Logger.Debug("renew-lease", lager.Data{"lease": v.Lease})
+
+	v.MetricSender.IncrementCounter("renewSuccess")
 
 	leases, err := v.ControllerClient.GetRoutableLeases()
 	if err != nil {

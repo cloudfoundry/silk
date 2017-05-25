@@ -19,8 +19,6 @@ import (
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
 	"code.cloudfoundry.org/silk/testsupport"
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -147,6 +145,22 @@ var _ = Describe("Daemon Integration", func() {
 		stopDaemon()
 	})
 
+	withName := func(name string) types.GomegaMatcher {
+		return WithTransform(func(ev metrics.Event) string {
+			return ev.Name
+		}, Equal(name))
+	}
+
+	withValue := func(value interface{}) types.GomegaMatcher {
+		return WithTransform(func(ev metrics.Event) float64 {
+			return ev.Value
+		}, BeEquivalentTo(value))
+	}
+
+	hasMetricWithValue := func(name string, value interface{}) types.GomegaMatcher {
+		return SatisfyAll(withName(name), withValue(value))
+	}
+
 	It("syncs with the controller and updates the local networking stack", func() {
 		By("getting the device")
 		link, err := netlink.LinkByName(vtepName)
@@ -199,23 +213,20 @@ var _ = Describe("Daemon Integration", func() {
 
 		By("inspecting the daemon's log to see that it renewed a new lease")
 		Expect(session.Out).To(gbytes.Say(`renewed-lease.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
+
+		By("checking that a renew-success metric was emitted")
+		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("renewSuccess")))
+
+		By("modifying the renewHandler to respond with 404")
+		renewHandler = &testsupport.FakeHandler{
+			ResponseCode: 404,
+			ResponseBody: struct{}{},
+		}
+		fakeServer.SetHandler("/leases/renew", renewHandler)
+
+		By("checking that a renew-failed metric was emitted")
+		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("renewFailure")))
 	})
-
-	withName := func(name string) types.GomegaMatcher {
-		return WithTransform(func(ev metrics.Event) string {
-			return ev.Name
-		}, Equal(name))
-	}
-
-	withValue := func(value interface{}) types.GomegaMatcher {
-		return WithTransform(func(ev metrics.Event) float64 {
-			return ev.Value
-		}, BeEquivalentTo(value))
-	}
-
-	hasMetricWithValue := func(name string, value interface{}) types.GomegaMatcher {
-		return SatisfyAll(withName(name), withValue(value))
-	}
 
 	It("emits an uptime metric", func() {
 		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
