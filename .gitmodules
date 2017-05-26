@@ -34,9 +34,9 @@
 [submodule "vendor/code.cloudfoundry.org/lager"]
 	path = vendor/code.cloudfoundry.org/lager
 	url = https://github.com/cloudfoundry/lager
-[submodule "vendor/code.cloudfoundry.org/go-db-helpers"]
-	path = vendor/code.cloudfoundry.org/go-db-helpers
-	url = https://github.com/cloudfoundry-incubator/go-db-helpers
+[submodule "vendor/code.cloudfoundry.org/cf-networking-helpers"]
+	path = vendor/code.cloudfoundry.org/cf-networking-helpers
+	url = https://github.com/cloudfoundry-incubator/cf-networking-helpers
 [submodule "vendor/github.com/jmoiron/sqlx"]
 	path = vendor/github.com/jmoiron/sqlx
 	url = https://github.com/jmoiron/sqlx
