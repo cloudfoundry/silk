@@ -1,22 +1,17 @@
 package integration_test
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
-	"os"
-	"os/exec"
 	"time"
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
-	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"
+	"code.cloudfoundry.org/silk/controller/integration/helpers"
 	"code.cloudfoundry.org/silk/controller/leaser"
 
 	. "github.com/onsi/ginkgo"
@@ -32,30 +27,19 @@ var (
 	configFilePath string
 	baseURL        string
 )
+
 var _ = BeforeEach(func() {
 	dbConfig = testsupport.GetDBConfig()
 	dbConfig.DatabaseName = fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
 	testsupport.CreateDatabase(dbConfig)
 
-	conf = config.Config{
-		ListenHost:             "127.0.0.1",
-		ListenPort:             50000 + GinkgoParallelNode(),
-		DebugServerPort:        60000 + GinkgoParallelNode(),
-		CACertFile:             "fixtures/ca.crt",
-		ServerCertFile:         "fixtures/server.crt",
-		ServerKeyFile:          "fixtures/server.key",
-		Network:                "10.255.0.0/16",
-		SubnetPrefixLength:     24,
-		Database:               dbConfig,
-		LeaseExpirationSeconds: 60,
-	}
-	baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
-
-	startAndWaitForServer()
+	conf = helpers.DefaultTestConfig(dbConfig, "fixtures")
+	testClient = helpers.TestClient(conf, "fixtures")
+	session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 })
 
 var _ = AfterEach(func() {
-	stopServer()
+	helpers.StopServer(session)
 	Expect(testsupport.RemoveDatabase(dbConfig)).To(Succeed())
 })
 
@@ -64,7 +48,7 @@ var _ = Describe("Silk Controller", func() {
 		Consistently(session).ShouldNot(gexec.Exit())
 
 		session.Interrupt()
-		Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
+		Eventually(session, "5s").Should(gexec.Exit(0))
 	})
 
 	It("runs the cf debug server on the configured port", func() {
@@ -107,9 +91,9 @@ var _ = Describe("Silk Controller", func() {
 
 			Context("when the existing lease is in a different overlay network", func() {
 				BeforeEach(func() {
-					stopServer()
+					helpers.StopServer(session)
 					conf.Network = "10.254.0.0/16"
-					startAndWaitForServer()
+					session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 				})
 				It("returns a new lease in the new network", func() {
 					lease, err := testClient.AcquireSubnetLease("10.244.4.5")
@@ -157,11 +141,11 @@ var _ = Describe("Silk Controller", func() {
 
 	Describe("lease expiration", func() {
 		BeforeEach(func() {
-			stopServer()
+			helpers.StopServer(session)
 			conf.Network = "10.255.0.0/29"
 			conf.SubnetPrefixLength = 30
 			conf.LeaseExpirationSeconds = 1
-			startAndWaitForServer()
+			session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 		})
 
 		It("reclaims expired leases", func() {
@@ -234,9 +218,9 @@ var _ = Describe("Silk Controller", func() {
 
 			Context("when the existing lease is in a different overlay network", func() {
 				BeforeEach(func() {
-					stopServer()
+					helpers.StopServer(session)
 					conf.Network = "10.254.0.0/16"
-					startAndWaitForServer()
+					session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 				})
 				It("renews the same lease in the old network", func() {
 					err := testClient.RenewSubnetLease(existingLease)
@@ -285,9 +269,9 @@ var _ = Describe("Silk Controller", func() {
 
 		Context("when a lease expires", func() {
 			BeforeEach(func() {
-				stopServer()
+				helpers.StopServer(session)
 				conf.LeaseExpirationSeconds = 2
-				startAndWaitForServer()
+				session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 			})
 
 			It("does not return expired leases", func() {
@@ -321,9 +305,9 @@ var _ = Describe("Silk Controller", func() {
 				oldNetworkLease, err = testClient.AcquireSubnetLease("10.244.4.5")
 				Expect(err).NotTo(HaveOccurred())
 
-				stopServer()
+				helpers.StopServer(session)
 				conf.Network = "10.254.0.0/16"
-				startAndWaitForServer()
+				session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 
 				newNetworkLease, err = testClient.AcquireSubnetLease("10.244.4.6")
 				Expect(err).NotTo(HaveOccurred())
@@ -376,72 +360,3 @@ var _ = Describe("Silk Controller", func() {
 	})
 
 })
-
-func startAndWaitForServer() {
-	configFile, err := ioutil.TempFile("", "config-")
-	Expect(err).NotTo(HaveOccurred())
-	configFilePath = configFile.Name()
-	Expect(configFile.Close()).To(Succeed())
-	Expect(conf.WriteToFile(configFilePath)).To(Succeed())
-
-	session = startServer(configFilePath)
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: makeClientTLSConfig(),
-		},
-	}
-
-	testClient = controller.NewClient(lagertest.NewTestLogger("test"), httpClient, baseURL)
-
-	By("waiting for the http server to boot")
-	serverIsUp := func() error {
-		_, err := testClient.GetRoutableLeases()
-		return err
-	}
-	Eventually(serverIsUp, DEFAULT_TIMEOUT).Should(Succeed())
-}
-
-func startServer(configFilePath string) *gexec.Session {
-	cmd := exec.Command(controllerBinaryPath, "-config", configFilePath)
-	s, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
-	session = s
-	return s
-}
-
-func stopServer() {
-	session.Interrupt()
-	Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(0))
-	Expect(os.Remove(configFilePath)).To(Succeed())
-}
-
-func verifyHTTPConnection(httpClient *http.Client, baseURL string) error {
-	resp, err := httpClient.Get(baseURL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected server to respond %d but got %d", http.StatusOK, resp.StatusCode)
-	}
-	return nil
-}
-
-func makeClientTLSConfig() *tls.Config {
-	cert, err := tls.LoadX509KeyPair("fixtures/client.crt", "fixtures/client.key")
-	Expect(err).NotTo(HaveOccurred())
-
-	clientCACert, err := ioutil.ReadFile("fixtures/ca.crt")
-	Expect(err).NotTo(HaveOccurred())
-
-	clientCertPool := x509.NewCertPool()
-	clientCertPool.AppendCertsFromPEM(clientCACert)
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      clientCertPool,
-	}
-	tlsConfig.BuildNameToCertificate()
-	return tlsConfig
-}

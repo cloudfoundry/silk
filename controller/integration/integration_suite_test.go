@@ -11,8 +11,6 @@ import (
 	"testing"
 )
 
-const DEFAULT_TIMEOUT = "5s"
-
 var controllerBinaryPath string
 
 func TestIntegration(t *testing.T) {
