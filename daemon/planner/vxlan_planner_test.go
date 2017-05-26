@@ -104,7 +104,7 @@ var _ = Describe("VxlanPlanner", func() {
 			By("informing the error detector of the successful renewal")
 			Expect(errorDetector.GotSuccessCallCount()).To(Equal(1))
 
-			Expect(metricSender.IncrementCounterCallCount()).To(Equal(1))
+			Expect(metricSender.IncrementCounterCallCount()).To(Equal(2))
 			name := metricSender.IncrementCounterArgsForCall(0)
 			Expect(name).To(Equal("renewSuccess"))
 		})
@@ -157,6 +157,10 @@ var _ = Describe("VxlanPlanner", func() {
 					),
 				))),
 			)))
+
+			By("checking that a metric was emitted for converge success")
+			Expect(metricSender.IncrementCounterCallCount()).To(Equal(2))
+			Expect(metricSender.IncrementCounterArgsForCall(1)).To(Equal("convergeSuccess"))
 		})
 
 		Context("when renewing the subnet lease fails", func() {
@@ -218,6 +222,10 @@ var _ = Describe("VxlanPlanner", func() {
 			It("returns an error", func() {
 				err := vxlanPlanner.DoCycle()
 				Expect(err).To(MatchError("converge leases: banana"))
+
+				By("checking that a metric was emitted for converge failure")
+				Expect(metricSender.IncrementCounterCallCount()).To(Equal(2))
+				Expect(metricSender.IncrementCounterArgsForCall(1)).To(Equal("convergeFailure"))
 			})
 		})
 	})

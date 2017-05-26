@@ -57,8 +57,10 @@ func (v *VXLANPlanner) DoCycle() error {
 
 	err = v.Converger.Converge(leases)
 	if err != nil {
+		v.MetricSender.IncrementCounter("convergeFailure")
 		return fmt.Errorf("converge leases: %s", err)
 	}
+	v.MetricSender.IncrementCounter("convergeSuccess")
 
 	v.Logger.Debug("converge-leases", lager.Data{"leases": leases})
 	return nil
