@@ -48,6 +48,7 @@ func mainWithError() error {
 	if err != nil {
 		return fmt.Errorf("loading config: %s", err)
 	}
+	logger.Info("parsed-config")
 
 	debugServerAddress := fmt.Sprintf("127.0.0.1:%d", conf.DebugServerPort)
 	mainServerAddress := fmt.Sprintf("%s:%d", conf.ListenHost, conf.ListenPort)
@@ -60,6 +61,7 @@ func mainWithError() error {
 	if err != nil {
 		return fmt.Errorf("connecting to database: %s", err)
 	}
+	logger.Info("db-connection-established")
 
 	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
 	leaseController := &leaser.LeaseController{
@@ -134,6 +136,7 @@ func mainWithError() error {
 		return fmt.Errorf("creating router: %s", err)
 	}
 
+	logger.Info("starting-servers")
 	httpServer := http_server.NewTLSServer(mainServerAddress, router, tlsConfig)
 	members := grouper.Members{
 		{"http_server", httpServer},
@@ -143,6 +146,7 @@ func mainWithError() error {
 	group := grouper.NewOrdered(os.Interrupt, members)
 	monitor := ifrit.Invoke(sigmon.New(group))
 
+	logger.Info("running")
 	err = <-monitor.Wait()
 	if err != nil {
 		return fmt.Errorf("wait returned error: %s", err)
