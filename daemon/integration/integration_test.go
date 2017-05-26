@@ -302,7 +302,7 @@ var _ = Describe("Daemon Integration", func() {
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
 				By("checking the arp fdb and routing are correct")
-				Eventually(session.Out, "5s").Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
+				Eventually(string(session.Out.Contents()), "5s").Should(ContainSubstring(`silk-daemon.converge-leases","log_level":0,"data":{"leases":[{"underlay_ip":"127.0.0.1","overlay_subnet":"10.255.30.0/24","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"},{"underlay_ip":"172.17.0.5","overlay_subnet":"10.255.40.0/24","overlay_hardware_addr":"ee:ee:0a:ff:28:00"}]}}`))
 
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
 				Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
