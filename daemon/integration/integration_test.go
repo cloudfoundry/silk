@@ -302,6 +302,8 @@ var _ = Describe("Daemon Integration", func() {
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
 				By("checking the arp fdb and routing are correct")
+				Eventually(session.Out, "5s").Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
+
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
 				Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
 				Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
@@ -369,15 +371,6 @@ var _ = Describe("Daemon Integration", func() {
 				fakeServer.SetHandler("/leases", indexHandler)
 			})
 
-			tryRun := func(cmd string, args ...string) func() (string, error) {
-				return func() (string, error) {
-					output, err := exec.Command(cmd, args...).CombinedOutput()
-					if err != nil {
-						return "", err
-					}
-					return string(output), nil
-				}
-			}
 			It("only updates the leases inside the overlay network", func() {
 				By("logging the number of leases we skipped")
 				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converger.*log_level.*1.*non-routable-lease-count.*1`))
@@ -387,8 +380,7 @@ var _ = Describe("Daemon Integration", func() {
 				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*10.255.30.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*10.255.40.0/24.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
-				Eventually(tryRun("ip", "route", "list", "dev", vtepName)).Should(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
-				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
+				Eventually(session.Out.Contents(), "5s").Should(ContainSubstring(`silk-daemon.converge-leases","log_level":0,"data":{"leases":[{"underlay_ip":"127.0.0.1","overlay_subnet":"10.255.30.0/24","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"},{"underlay_ip":"172.17.0.4","overlay_subnet":"10.254.40.0/24","overlay_hardware_addr":"ee:ee:0a:fe:28:00"},{"underlay_ip":"172.17.0.5","overlay_subnet":"10.255.40.0/24","overlay_hardware_addr":"ee:ee:0a:ff:28:00"}]}}`))
 
 				By("checking the arp fdb and routing are correct")
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
