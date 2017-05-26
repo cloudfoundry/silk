@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 
-	"code.cloudfoundry.org/go-db-helpers/mutualtls"
+	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"

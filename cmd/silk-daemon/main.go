@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/debugserver"
-	"code.cloudfoundry.org/go-db-helpers/metrics"
-	"code.cloudfoundry.org/go-db-helpers/mutualtls"
+	"code.cloudfoundry.org/cf-networking-helpers/metrics"
+	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"

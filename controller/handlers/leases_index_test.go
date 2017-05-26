@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	hfakes "code.cloudfoundry.org/go-db-helpers/fakes"
+	hfakes "code.cloudfoundry.org/cf-networking-helpers/fakes"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"

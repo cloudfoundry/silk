@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"time"
 
-	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"

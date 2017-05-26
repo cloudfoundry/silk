@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"code.cloudfoundry.org/go-db-helpers/db"
+	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/silk/controller/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

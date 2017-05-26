@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	hfakes "code.cloudfoundry.org/go-db-helpers/fakes"
-	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	hfakes "code.cloudfoundry.org/cf-networking-helpers/fakes"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"

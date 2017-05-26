@@ -3,7 +3,7 @@ package netinfo_test
 import (
 	"errors"
 
-	helperfakes "code.cloudfoundry.org/go-db-helpers/fakes"
+	helperfakes "code.cloudfoundry.org/cf-networking-helpers/fakes"
 	"code.cloudfoundry.org/silk/cni/netinfo"
 	"code.cloudfoundry.org/silk/daemon"
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync/atomic"
 
-	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
 	"code.cloudfoundry.org/silk/lib/datastore"
 	"code.cloudfoundry.org/silk/lib/serial"
 

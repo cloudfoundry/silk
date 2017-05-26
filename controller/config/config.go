@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/validator.v2"
 
-	"code.cloudfoundry.org/go-db-helpers/db"
+	"code.cloudfoundry.org/cf-networking-helpers/db"
 )
 
 type Config struct {

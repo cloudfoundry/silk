@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"time"
 
-	"code.cloudfoundry.org/go-db-helpers/db"
-	"code.cloudfoundry.org/go-db-helpers/testsupport"
+	"code.cloudfoundry.org/cf-networking-helpers/db"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
 
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/database"

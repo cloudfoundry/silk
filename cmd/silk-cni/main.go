@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/validator.v2"
 
-	"code.cloudfoundry.org/go-db-helpers/json_client"
+	"code.cloudfoundry.org/cf-networking-helpers/json_client"
 	"code.cloudfoundry.org/lager"
 
 	"code.cloudfoundry.org/silk/cni/adapter"

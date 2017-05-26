@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/go-db-helpers/marshal"
+	"code.cloudfoundry.org/cf-networking-helpers/marshal"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller"
 )
