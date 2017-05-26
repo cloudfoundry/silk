@@ -27,18 +27,15 @@ var _ = Describe("Config.ReadFromFile", func() {
 
 	BeforeEach(func() {
 		requiredFields = map[string]interface{}{
-			"debug_server_port":    234,
-			"listen_host":          "0.0.0.0",
-			"listen_port":          678,
-			"ca_cert_file":         "/some/cert/file",
-			"server_cert_file":     "/some/other/cert/file",
-			"server_key_file":      "/some/key/file",
-			"network":              "10.255.0.0/16",
-			"subnet_prefix_length": 24,
-			"database": db.Config{
-				Type:             "mysql",
-				ConnectionString: "some-connection-string",
-			},
+			"debug_server_port":     234,
+			"listen_host":           "0.0.0.0",
+			"listen_port":           678,
+			"ca_cert_file":          "/some/cert/file",
+			"server_cert_file":      "/some/other/cert/file",
+			"server_key_file":       "/some/key/file",
+			"network":               "10.255.0.0/16",
+			"subnet_prefix_length":  24,
+			"database":              db.Config{},
 			"lease_expiration_time": 12,
 		}
 	})

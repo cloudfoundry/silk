@@ -5,12 +5,14 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"time"
 
+	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
@@ -23,7 +25,7 @@ import (
 )
 
 var (
-	testDatabase   *testsupport.TestDatabase
+	dbConfig       db.Config
 	session        *gexec.Session
 	conf           config.Config
 	testClient     *controller.Client
@@ -31,9 +33,9 @@ var (
 	baseURL        string
 )
 var _ = BeforeEach(func() {
-	dbName := fmt.Sprintf("test_database_%x", GinkgoParallelNode())
-	dbConnectionInfo := testsupport.GetDBConnectionInfo()
-	testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+	dbConfig = testsupport.GetDBConfig()
+	dbConfig.DatabaseName = fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
+	testsupport.CreateDatabase(dbConfig)
 
 	conf = config.Config{
 		ListenHost:             "127.0.0.1",
@@ -44,7 +46,7 @@ var _ = BeforeEach(func() {
 		ServerKeyFile:          "fixtures/server.key",
 		Network:                "10.255.0.0/16",
 		SubnetPrefixLength:     24,
-		Database:               testDatabase.DBConfig(),
+		Database:               dbConfig,
 		LeaseExpirationSeconds: 60,
 	}
 	baseURL = fmt.Sprintf("https://%s:%d", conf.ListenHost, conf.ListenPort)
@@ -54,9 +56,7 @@ var _ = BeforeEach(func() {
 
 var _ = AfterEach(func() {
 	stopServer()
-	if testDatabase != nil {
-		testDatabase.Destroy()
-	}
+	Expect(testsupport.RemoveDatabase(dbConfig)).To(Succeed())
 })
 
 var _ = Describe("Silk Controller", func() {

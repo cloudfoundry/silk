@@ -24,7 +24,7 @@ var _ = Describe("DatabaseHandler", func() {
 		databaseHandler    *database.DatabaseHandler
 		realDb             *sqlx.DB
 		realMigrateAdapter *database.MigrateAdapter
-		testDatabase       *testsupport.TestDatabase
+		dbConfig           db.Config
 		mockDb             *fakes.Db
 		mockMigrateAdapter *fakes.MigrateAdapter
 		lease              controller.Lease
@@ -34,12 +34,12 @@ var _ = Describe("DatabaseHandler", func() {
 		mockDb = &fakes.Db{}
 		mockMigrateAdapter = &fakes.MigrateAdapter{}
 
-		dbName := fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
-		dbConnectionInfo := testsupport.GetDBConnectionInfo()
-		testDatabase = dbConnectionInfo.CreateDatabase(dbName)
+		dbConfig = testsupport.GetDBConfig()
+		dbConfig.DatabaseName = fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
+		testsupport.CreateDatabase(dbConfig)
 
 		var err error
-		realDb, err = db.GetConnectionPool(testDatabase.DBConfig())
+		realDb, err = db.GetConnectionPool(dbConfig)
 		Expect(err).NotTo(HaveOccurred())
 
 		realMigrateAdapter = &database.MigrateAdapter{}
@@ -61,9 +61,7 @@ var _ = Describe("DatabaseHandler", func() {
 		if realDb != nil {
 			Expect(realDb.Close()).To(Succeed())
 		}
-		if testDatabase != nil {
-			testDatabase.Destroy()
-		}
+		Expect(testsupport.RemoveDatabase(dbConfig)).To(Succeed())
 	})
 
 	Describe("Migrate", func() {
@@ -404,7 +402,7 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 
 			AfterEach(func() {
-				rows.Close()
+				Expect(rows.Close()).To(Succeed())
 			})
 
 			It("returns an error", func() {
@@ -483,7 +481,7 @@ var _ = Describe("DatabaseHandler", func() {
 			})
 
 			AfterEach(func() {
-				rows.Close()
+				Expect(rows.Close()).To(Succeed())
 			})
 
 			It("returns an error", func() {
