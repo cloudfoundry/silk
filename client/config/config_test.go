@@ -46,6 +46,18 @@ var _ = Describe("Config.LoadConfig", func() {
 		}
 	})
 
+	It("does not error on a valid config", func() {
+		cfg := cloneMap(requiredFields)
+
+		file, err := ioutil.TempFile(os.TempDir(), "config-")
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(json.NewEncoder(file).Encode(cfg)).To(Succeed())
+
+		_, err = config.LoadConfig(file.Name())
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("errors if a required field is not set", func() {
 		for fieldName, _ := range requiredFields {
 			cfg := cloneMap(requiredFields)

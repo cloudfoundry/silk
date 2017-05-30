@@ -27,17 +27,37 @@ var _ = Describe("Config.ReadFromFile", func() {
 
 	BeforeEach(func() {
 		requiredFields = map[string]interface{}{
-			"debug_server_port":     234,
-			"listen_host":           "0.0.0.0",
-			"listen_port":           678,
-			"ca_cert_file":          "/some/cert/file",
-			"server_cert_file":      "/some/other/cert/file",
-			"server_key_file":       "/some/key/file",
-			"network":               "10.255.0.0/16",
-			"subnet_prefix_length":  24,
-			"database":              db.Config{},
-			"lease_expiration_time": 12,
+			"debug_server_port":    234,
+			"listen_host":          "0.0.0.0",
+			"listen_port":          678,
+			"ca_cert_file":         "/some/cert/file",
+			"server_cert_file":     "/some/other/cert/file",
+			"server_key_file":      "/some/key/file",
+			"network":              "10.255.0.0/16",
+			"subnet_prefix_length": 24,
+			"database": db.Config{
+				Type:         "mysql",
+				User:         "user",
+				Password:     "password",
+				Host:         "127.0.0.1",
+				Port:         uint16(234),
+				Timeout:      1234,
+				DatabaseName: "database",
+			},
+			"lease_expiration_seconds": 12,
 		}
+	})
+
+	It("does not error on a valid config", func() {
+		cfg := cloneMap(requiredFields)
+
+		file, err := ioutil.TempFile(os.TempDir(), "config-")
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(json.NewEncoder(file).Encode(cfg)).To(Succeed())
+
+		_, err = config.ReadFromFile(file.Name())
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("errors if a required field is not set", func() {
