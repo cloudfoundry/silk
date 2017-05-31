@@ -45,6 +45,7 @@ var _ = Describe("Config.ReadFromFile", func() {
 				DatabaseName: "database",
 			},
 			"lease_expiration_seconds": 12,
+			"metron_port":              12,
 		}
 	})
 

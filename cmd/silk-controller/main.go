@@ -8,17 +8,18 @@ import (
 	"os"
 	"time"
 
-	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/cf-networking-helpers/httperror"
 	"code.cloudfoundry.org/cf-networking-helpers/marshal"
 	"code.cloudfoundry.org/cf-networking-helpers/metrics"
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
+	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller/config"
 	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/handlers"
 	"code.cloudfoundry.org/silk/controller/leaser"
+	"github.com/cloudfoundry/dropsonde"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -136,11 +137,20 @@ func mainWithError() error {
 		return fmt.Errorf("creating router: %s", err)
 	}
 
+	metronAddress := fmt.Sprintf("127.0.0.1:%d", conf.MetronPort)
+	err = dropsonde.Initialize(metronAddress, "silk-controller")
+	if err != nil {
+		return fmt.Errorf("initializing dropsonde: %s", err)
+	}
+
 	logger.Info("starting-servers")
 	httpServer := http_server.NewTLSServer(mainServerAddress, router, tlsConfig)
+	uptimeSource := metrics.NewUptimeSource()
+	metricsEmitter := metrics.NewMetricsEmitter(logger, 30*time.Second, uptimeSource)
 	members := grouper.Members{
 		{"http_server", httpServer},
 		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},
+		{"metrics-emitter", metricsEmitter},
 	}
 
 	group := grouper.NewOrdered(os.Interrupt, members)

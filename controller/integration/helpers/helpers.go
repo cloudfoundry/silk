@@ -33,6 +33,7 @@ func DefaultTestConfig(dbConf db.Config, fixturesPath string) config.Config {
 		SubnetPrefixLength:     24,
 		Database:               dbConf,
 		LeaseExpirationSeconds: 60,
+		MetronPort:             5432,
 	}
 }
 

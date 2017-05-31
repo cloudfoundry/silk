@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
+	"code.cloudfoundry.org/cf-networking-helpers/metrics"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"
@@ -17,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/types"
 )
 
 var (
@@ -26,14 +28,17 @@ var (
 	testClient     *controller.Client
 	configFilePath string
 	baseURL        string
+	fakeMetron     metrics.FakeMetron
 )
 
 var _ = BeforeEach(func() {
+	fakeMetron = metrics.NewFakeMetron()
 	dbConfig = testsupport.GetDBConfig()
 	dbConfig.DatabaseName = fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
 	testsupport.CreateDatabase(dbConfig)
 
 	conf = helpers.DefaultTestConfig(dbConfig, "fixtures")
+	conf.MetronPort = fakeMetron.Port()
 	testClient = helpers.TestClient(conf, "fixtures")
 	session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 })
@@ -359,4 +364,13 @@ var _ = Describe("Silk Controller", func() {
 		Expect(len(leaseSubnets)).To(Equal(nHosts))
 	})
 
+	withName := func(name string) types.GomegaMatcher {
+		return WithTransform(func(ev metrics.Event) string {
+			return ev.Name
+		}, Equal(name))
+	}
+
+	It("emits an uptime metric", func() {
+		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
+	})
 })

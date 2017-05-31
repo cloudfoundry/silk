@@ -22,6 +22,7 @@ type Config struct {
 	SubnetPrefixLength     int       `json:"subnet_prefix_length" validate:"nonzero"`
 	Database               db.Config `json:"database" validate:"nonzero"`
 	LeaseExpirationSeconds int       `json:"lease_expiration_seconds" validate:"min=1"`
+	MetronPort             int       `json:"metron_port" validate:"min=1"`
 }
 
 func (c *Config) WriteToFile(configFilePath string) error {
