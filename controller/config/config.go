@@ -12,17 +12,19 @@ import (
 )
 
 type Config struct {
-	DebugServerPort        int       `json:"debug_server_port" validate:"nonzero"`
-	ListenHost             string    `json:"listen_host" validate:"nonzero"`
-	ListenPort             int       `json:"listen_port" validate:"nonzero"`
-	CACertFile             string    `json:"ca_cert_file" validate:"nonzero"`
-	ServerCertFile         string    `json:"server_cert_file" validate:"nonzero"`
-	ServerKeyFile          string    `json:"server_key_file" validate:"nonzero"`
-	Network                string    `json:"network" validate:"nonzero"`
-	SubnetPrefixLength     int       `json:"subnet_prefix_length" validate:"nonzero"`
-	Database               db.Config `json:"database" validate:"nonzero"`
-	LeaseExpirationSeconds int       `json:"lease_expiration_seconds" validate:"min=1"`
-	MetronPort             int       `json:"metron_port" validate:"min=1"`
+	DebugServerPort           int       `json:"debug_server_port" validate:"nonzero"`
+	ListenHost                string    `json:"listen_host" validate:"nonzero"`
+	ListenPort                int       `json:"listen_port" validate:"nonzero"`
+	CACertFile                string    `json:"ca_cert_file" validate:"nonzero"`
+	ServerCertFile            string    `json:"server_cert_file" validate:"nonzero"`
+	ServerKeyFile             string    `json:"server_key_file" validate:"nonzero"`
+	Network                   string    `json:"network" validate:"nonzero"`
+	SubnetPrefixLength        int       `json:"subnet_prefix_length" validate:"nonzero"`
+	Database                  db.Config `json:"database" validate:"nonzero"`
+	LeaseExpirationSeconds    int       `json:"lease_expiration_seconds" validate:"min=1"`
+	MetronPort                int       `json:"metron_port" validate:"min=1"`
+	MetricsEmitSeconds        int       `json:"metrics_emit_seconds" validate:"min=1"`
+	StalenessThresholdSeconds int       `json:"staleness_threshold_seconds" validate:"min=1"`
 }
 
 func (c *Config) WriteToFile(configFilePath string) error {

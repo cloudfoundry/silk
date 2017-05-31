@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/handlers"
 	"code.cloudfoundry.org/silk/controller/leaser"
+	"code.cloudfoundry.org/silk/controller/server_metrics"
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -65,12 +66,13 @@ func mainWithError() error {
 	logger.Info("db-connection-established")
 
 	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
+	cidrPool := leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength)
 	leaseController := &leaser.LeaseController{
 		DatabaseHandler:            databaseHandler,
 		HardwareAddressGenerator:   &leaser.HardwareAddressGenerator{},
 		LeaseValidator:             &leaser.LeaseValidator{},
 		AcquireSubnetLeaseAttempts: 10,
-		CIDRPool:                   leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength),
+		CIDRPool:                   cidrPool,
 		LeaseExpirationSeconds:     conf.LeaseExpirationSeconds,
 		Logger:                     logger,
 	}
@@ -145,8 +147,14 @@ func mainWithError() error {
 
 	logger.Info("starting-servers")
 	httpServer := http_server.NewTLSServer(mainServerAddress, router, tlsConfig)
+
+	// Metrics sources
 	uptimeSource := metrics.NewUptimeSource()
-	metricsEmitter := metrics.NewMetricsEmitter(logger, 30*time.Second, uptimeSource)
+	totalLeasesSource := server_metrics.NewTotalLeasesSource(databaseHandler)
+	freeLeasesSource := server_metrics.NewFreeLeasesSource(databaseHandler, cidrPool)
+	staleLeasesSource := server_metrics.NewStaleLeasesSource(databaseHandler, conf.StalenessThresholdSeconds)
+
+	metricsEmitter := metrics.NewMetricsEmitter(logger, time.Duration(conf.MetricsEmitSeconds)*time.Second, uptimeSource, totalLeasesSource, freeLeasesSource, staleLeasesSource)
 	members := grouper.Members{
 		{"http_server", httpServer},
 		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},

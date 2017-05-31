@@ -370,7 +370,39 @@ var _ = Describe("Silk Controller", func() {
 		}, Equal(name))
 	}
 
-	It("emits an uptime metric", func() {
-		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
+	withValue := func(value interface{}) types.GomegaMatcher {
+		return WithTransform(func(ev metrics.Event) float64 {
+			return ev.Value
+		}, BeEquivalentTo(value))
+	}
+
+	hasMetricWithValue := func(name string, value interface{}) types.GomegaMatcher {
+		return SatisfyAll(withName(name), withValue(value))
+	}
+
+	Describe("metrics", func() {
+		It("emits an uptime metric", func() {
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
+		})
+		Context("when some leases have been claimed", func() {
+			BeforeEach(func() {
+				_, err := testClient.AcquireSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+				_, err = testClient.AcquireSubnetLease("10.244.4.6")
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("emits number of total leases", func() {
+				Eventually(fakeMetron.AllEvents, "10s").Should(ContainElement(hasMetricWithValue("totalLeases", 2)))
+			})
+			It("emits number of free leases", func() {
+				Eventually(fakeMetron.AllEvents, "10s").Should(ContainElement(hasMetricWithValue("freeLeases", 253)))
+			})
+			It("emits number of stale leases", func() {
+				Eventually(fakeMetron.AllEvents, "2s").Should(ContainElement(hasMetricWithValue("staleLeases", 0)))
+				Consistently(fakeMetron.AllEvents, "2s").Should(ContainElement(hasMetricWithValue("staleLeases", 0)))
+				Eventually(fakeMetron.AllEvents, "10s").Should(ContainElement(hasMetricWithValue("staleLeases", 2)))
+			})
+		})
+
 	})
 })

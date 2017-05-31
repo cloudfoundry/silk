@@ -23,17 +23,19 @@ const DEFAULT_TIMEOUT = "5s"
 
 func DefaultTestConfig(dbConf db.Config, fixturesPath string) config.Config {
 	return config.Config{
-		ListenHost:             "127.0.0.1",
-		ListenPort:             50000 + GinkgoParallelNode(),
-		DebugServerPort:        60000 + GinkgoParallelNode(),
-		CACertFile:             filepath.Join(fixturesPath, "ca.crt"),
-		ServerCertFile:         filepath.Join(fixturesPath, "server.crt"),
-		ServerKeyFile:          filepath.Join(fixturesPath, "server.key"),
-		Network:                "10.255.0.0/16",
-		SubnetPrefixLength:     24,
-		Database:               dbConf,
-		LeaseExpirationSeconds: 60,
-		MetronPort:             5432,
+		ListenHost:                "127.0.0.1",
+		ListenPort:                50000 + GinkgoParallelNode(),
+		DebugServerPort:           60000 + GinkgoParallelNode(),
+		CACertFile:                filepath.Join(fixturesPath, "ca.crt"),
+		ServerCertFile:            filepath.Join(fixturesPath, "server.crt"),
+		ServerKeyFile:             filepath.Join(fixturesPath, "server.key"),
+		Network:                   "10.255.0.0/16",
+		SubnetPrefixLength:        24,
+		Database:                  dbConf,
+		LeaseExpirationSeconds:    60,
+		StalenessThresholdSeconds: 5,
+		MetronPort:                5432,
+		MetricsEmitSeconds:        1,
 	}
 }
 

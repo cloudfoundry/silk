@@ -44,8 +44,10 @@ var _ = Describe("Config.ReadFromFile", func() {
 				Timeout:      1234,
 				DatabaseName: "database",
 			},
-			"lease_expiration_seconds": 12,
-			"metron_port":              12,
+			"lease_expiration_seconds":    12,
+			"metron_port":                 12,
+			"metrics_emit_seconds":        5,
+			"staleness_threshold_seconds": 5,
 		}
 	})
 
