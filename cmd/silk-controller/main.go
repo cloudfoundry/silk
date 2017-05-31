@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
+	helpershandlers "code.cloudfoundry.org/cf-networking-helpers/handlers"
 	"code.cloudfoundry.org/cf-networking-helpers/httperror"
 	"code.cloudfoundry.org/cf-networking-helpers/marshal"
 	"code.cloudfoundry.org/cf-networking-helpers/metrics"
@@ -86,6 +88,10 @@ func mainWithError() error {
 		return fmt.Errorf("migrating database: %s", err)
 	}
 
+	metricsSender := &metrics.MetricsSender{
+		Logger: logger.Session("time-metric-emitter"),
+	}
+
 	errorResponse := &httperror.ErrorResponse{
 		Logger:        logger,
 		MetricsSender: &metrics.NoOpMetricsSender{},
@@ -121,6 +127,14 @@ func mainWithError() error {
 		ErrorResponse: errorResponse,
 	}
 
+	metricsWrap := func(name string, handle http.Handler) http.Handler {
+		metricsWrapper := helpershandlers.MetricWrapper{
+			Name:          name,
+			MetricsSender: metricsSender,
+		}
+		return metricsWrapper.Wrap(handle)
+	}
+
 	router, err := rata.NewRouter(
 		rata.Routes{
 			{Name: "leases-index", Method: "GET", Path: "/leases"},
@@ -129,10 +143,10 @@ func mainWithError() error {
 			{Name: "leases-renew", Method: "PUT", Path: "/leases/renew"},
 		},
 		rata.Handlers{
-			"leases-index":   leasesIndex,
-			"leases-acquire": leasesAcquire,
-			"leases-release": leasesRelease,
-			"leases-renew":   leasesRenew,
+			"leases-index":   metricsWrap("LeasesIndex", leasesIndex),
+			"leases-acquire": metricsWrap("LeasesAcquire", leasesAcquire),
+			"leases-release": metricsWrap("LeasesRelease", leasesRelease),
+			"leases-renew":   metricsWrap("LeasesRenew", leasesRenew),
 		},
 	)
 	if err != nil {

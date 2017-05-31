@@ -78,6 +78,9 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(lease.OverlayHardwareAddr).To(Equal(expectedHardwareAddr.String()))
 
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(
+				HaveName("LeasesAcquireRequestTime"),
+			))
 		})
 
 		Context("when there is an existing lease for the underlay IP", func() {
@@ -134,6 +137,10 @@ var _ = Describe("Silk Controller", func() {
 			leases, err = testClient.GetRoutableLeases()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(leases)).To(Equal(0))
+
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(
+				HaveName("LeasesReleaseRequestTime"),
+			))
 		})
 
 		Context("when lease is not present in database", func() {
@@ -184,6 +191,10 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(leases)).To(Equal(1))
 			Expect(leases[0]).To(Equal(lease))
+
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(
+				HaveName("LeasesRenewRequestTime"),
+			))
 		})
 
 		Context("when the lease is not valid for some reason", func() {
@@ -270,6 +281,10 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(leases)).To(Equal(1))
 			Expect(leases[0]).To(Equal(lease))
+
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(
+				HaveName("LeasesIndexRequestTime"),
+			))
 		})
 
 		Context("when a lease expires", func() {

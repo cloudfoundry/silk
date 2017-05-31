@@ -3,10 +3,13 @@ package integration_test
 import (
 	"math/rand"
 
+	"code.cloudfoundry.org/cf-networking-helpers/metrics"
+
 	. "github.com/onsi/ginkgo"
 	ginkgoConfig "github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/types"
 
 	"testing"
 )
@@ -16,6 +19,12 @@ var controllerBinaryPath string
 func TestIntegration(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Integration Suite")
+}
+
+var HaveName = func(name string) types.GomegaMatcher {
+	return WithTransform(func(ev metrics.Event) string {
+		return ev.Name
+	}, Equal(name))
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
