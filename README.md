@@ -3,8 +3,8 @@
 > Note: This repository should be imported as `code.cloudfoundry.org/silk`.
 
 Silk is an open-source, [CNI](https://github.com/containernetworking/cni/)-compatible container networking fabric.
-It was inspired by [flannel](https://github.com/coreos/flannel) and designed to meet the strict operational
-requirements of [Cloud Foundry](https://cloudfoundry.org/platform/).
+It was inspired by the [flannel](https://github.com/coreos/flannel) VXLAN backend and designed to meet the strict
+operational requirements of [Cloud Foundry](https://cloudfoundry.org/platform/).
 
 To see how Silk is used inside of Cloud Foundry, look at the [CF Networking Release](https://github.com/cloudfoundry-incubator/cf-networking-release).
 
