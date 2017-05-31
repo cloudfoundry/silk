@@ -48,6 +48,7 @@ var _ = Describe("Config.ReadFromFile", func() {
 			"metron_port":                 12,
 			"metrics_emit_seconds":        5,
 			"staleness_threshold_seconds": 5,
+			"health_check_port":           999,
 		}
 	})
 

@@ -56,6 +56,7 @@ func mainWithError() error {
 
 	debugServerAddress := fmt.Sprintf("127.0.0.1:%d", conf.DebugServerPort)
 	mainServerAddress := fmt.Sprintf("%s:%d", conf.ListenHost, conf.ListenPort)
+	healthServerAddress := fmt.Sprintf("127.0.0.1:%d", conf.HealthCheckPort)
 	tlsConfig, err := mutualtls.NewServerTLSConfig(conf.ServerCertFile, conf.ServerKeyFile, conf.CACertFile)
 	if err != nil {
 		return fmt.Errorf("mutual tls config: %s", err)
@@ -153,6 +154,23 @@ func mainWithError() error {
 		return fmt.Errorf("creating router: %s", err)
 	}
 
+	health := &handlers.Health{
+		DatabaseChecker: databaseHandler,
+		ErrorResponse:   errorResponse,
+	}
+
+	healthRouter, err := rata.NewRouter(
+		rata.Routes{
+			{Name: "health", Method: "GET", Path: "/health"},
+		},
+		rata.Handlers{
+			"health": metricsWrap("Health", health),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("creating health router: %s", err)
+	}
+
 	metronAddress := fmt.Sprintf("127.0.0.1:%d", conf.MetronPort)
 	err = dropsonde.Initialize(metronAddress, "silk-controller")
 	if err != nil {
@@ -161,6 +179,7 @@ func mainWithError() error {
 
 	logger.Info("starting-servers")
 	httpServer := http_server.NewTLSServer(mainServerAddress, router, tlsConfig)
+	healthServer := http_server.New(healthServerAddress, healthRouter)
 
 	// Metrics sources
 	uptimeSource := metrics.NewUptimeSource()
@@ -171,6 +190,7 @@ func mainWithError() error {
 	metricsEmitter := metrics.NewMetricsEmitter(logger, time.Duration(conf.MetricsEmitSeconds)*time.Second, uptimeSource, totalLeasesSource, freeLeasesSource, staleLeasesSource)
 	members := grouper.Members{
 		{"http_server", httpServer},
+		{"health-server", healthServer},
 		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},
 		{"metrics-emitter", metricsEmitter},
 	}

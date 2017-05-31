@@ -26,6 +26,7 @@ func DefaultTestConfig(dbConf db.Config, fixturesPath string) config.Config {
 		ListenHost:                "127.0.0.1",
 		ListenPort:                PickAPort(),
 		DebugServerPort:           PickAPort(),
+		HealthCheckPort:           PickAPort(),
 		CACertFile:                filepath.Join(fixturesPath, "ca.crt"),
 		ServerCertFile:            filepath.Join(fixturesPath, "server.crt"),
 		ServerKeyFile:             filepath.Join(fixturesPath, "server.key"),

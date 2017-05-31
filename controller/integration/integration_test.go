@@ -64,6 +64,15 @@ var _ = Describe("Silk Controller", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	})
 
+	It("runs the health check server on the configured port", func() {
+		resp, err := http.Get(
+			fmt.Sprintf("http://127.0.0.1:%d/health", conf.HealthCheckPort),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+
 	Describe("acquiring", func() {
 		It("provides an endpoint to acquire a subnet leases", func() {
 			lease, err := testClient.AcquireSubnetLease("10.244.4.5")

@@ -51,6 +51,11 @@ func NewDatabaseHandler(migrator migrateAdapter, db Db) *DatabaseHandler {
 	}
 }
 
+func (d *DatabaseHandler) CheckDatabase() error {
+	_, err := d.db.Query("SELECT 1")
+	return err
+}
+
 func (d *DatabaseHandler) All() ([]controller.Lease, error) {
 	leases := []controller.Lease{}
 	rows, err := d.db.Query("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets")

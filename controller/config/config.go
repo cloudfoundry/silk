@@ -12,7 +12,7 @@ import (
 )
 
 type Config struct {
-	DebugServerPort           int       `json:"debug_server_port" validate:"nonzero"`
+	DebugServerPort           int       `json:"debug_server_port" validate:"min=1"`
 	ListenHost                string    `json:"listen_host" validate:"nonzero"`
 	ListenPort                int       `json:"listen_port" validate:"nonzero"`
 	CACertFile                string    `json:"ca_cert_file" validate:"nonzero"`
@@ -23,6 +23,7 @@ type Config struct {
 	Database                  db.Config `json:"database" validate:"nonzero"`
 	LeaseExpirationSeconds    int       `json:"lease_expiration_seconds" validate:"min=1"`
 	MetronPort                int       `json:"metron_port" validate:"min=1"`
+	HealthCheckPort           int       `json:"health_check_port" validate:"min=1"`
 	MetricsEmitSeconds        int       `json:"metrics_emit_seconds" validate:"min=1"`
 	StalenessThresholdSeconds int       `json:"staleness_threshold_seconds" validate:"min=1"`
 }

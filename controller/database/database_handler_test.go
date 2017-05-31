@@ -61,7 +61,7 @@ var _ = Describe("DatabaseHandler", func() {
 		if realDb != nil {
 			Expect(realDb.Close()).To(Succeed())
 		}
-		Expect(testsupport.RemoveDatabase(dbConfig)).To(Succeed())
+		testsupport.RemoveDatabase(dbConfig)
 	})
 
 	Describe("Migrate", func() {
@@ -487,6 +487,32 @@ var _ = Describe("DatabaseHandler", func() {
 			It("returns an error", func() {
 				_, err := databaseHandler.AllActive(100)
 				Expect(err.Error()).To(ContainSubstring("parsing result for all active subnets"))
+			})
+		})
+	})
+
+	Describe("CheckDatabase", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("checks the database", func() {
+			err := databaseHandler.CheckDatabase()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("when the connection to the database is closed", func() {
+			BeforeEach(func() {
+				if realDb != nil {
+					Expect(realDb.Close()).To(Succeed())
+				}
+			})
+
+			It("returns an error", func() {
+				err := databaseHandler.CheckDatabase()
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
