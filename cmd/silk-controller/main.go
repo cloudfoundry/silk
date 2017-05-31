@@ -94,7 +94,7 @@ func mainWithError() error {
 
 	errorResponse := &httperror.ErrorResponse{
 		Logger:        logger,
-		MetricsSender: &metrics.NoOpMetricsSender{},
+		MetricsSender: metricsSender,
 	}
 
 	leasesIndex := &handlers.LeasesIndex{
