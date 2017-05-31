@@ -24,8 +24,8 @@ const DEFAULT_TIMEOUT = "5s"
 func DefaultTestConfig(dbConf db.Config, fixturesPath string) config.Config {
 	return config.Config{
 		ListenHost:                "127.0.0.1",
-		ListenPort:                50000 + GinkgoParallelNode(),
-		DebugServerPort:           60000 + GinkgoParallelNode(),
+		ListenPort:                PickAPort(),
+		DebugServerPort:           PickAPort(),
 		CACertFile:                filepath.Join(fixturesPath, "ca.crt"),
 		ServerCertFile:            filepath.Join(fixturesPath, "server.crt"),
 		ServerKeyFile:             filepath.Join(fixturesPath, "server.key"),

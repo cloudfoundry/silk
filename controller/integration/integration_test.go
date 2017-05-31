@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"time"
@@ -34,7 +33,7 @@ var (
 var _ = BeforeEach(func() {
 	fakeMetron = metrics.NewFakeMetron()
 	dbConfig = testsupport.GetDBConfig()
-	dbConfig.DatabaseName = fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
+	dbConfig.DatabaseName = fmt.Sprintf("test_%d", helpers.PickAPort())
 	testsupport.CreateDatabase(dbConfig)
 
 	conf = helpers.DefaultTestConfig(dbConfig, "fixtures")
