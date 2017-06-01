@@ -52,8 +52,8 @@ func NewDatabaseHandler(migrator migrateAdapter, db Db) *DatabaseHandler {
 }
 
 func (d *DatabaseHandler) CheckDatabase() error {
-	_, err := d.db.Query("SELECT 1")
-	return err
+	var result int
+	return d.db.QueryRow("SELECT 1").Scan(&result)
 }
 
 func (d *DatabaseHandler) All() ([]controller.Lease, error) {
