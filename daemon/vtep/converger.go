@@ -7,7 +7,6 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller"
-	"github.com/containernetworking/cni/pkg/utils/hwaddr"
 	"github.com/vishvananda/netlink"
 )
 
@@ -49,7 +48,17 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 		}
 		currentRoutes = append(currentRoutes, route)
 
-		neighs, err := c.addNeighs(net.ParseIP(lease.UnderlayIP), destAddr)
+		underlayIP := net.ParseIP(lease.UnderlayIP)
+		if underlayIP == nil {
+			return fmt.Errorf("invalid underlay ip: %s", lease.UnderlayIP)
+		}
+
+		remoteMac, err := net.ParseMAC(lease.OverlayHardwareAddr)
+		if err != nil {
+			return fmt.Errorf("invalid hardware addr: %s", lease.OverlayHardwareAddr)
+		}
+
+		neighs, err := c.addNeighs(underlayIP, destAddr, remoteMac)
 		if err != nil {
 			return err
 		}
@@ -163,23 +172,14 @@ func (c *Converger) addRoute(destNet *net.IPNet, destAddr net.IP) (netlink.Route
 	return route, nil
 }
 
-func (c *Converger) addNeighs(underlayIP, destAddr net.IP) ([]netlink.Neigh, error) {
-	if underlayIP == nil {
-		return nil, fmt.Errorf("invalid underlay ip")
-	}
-
-	remoteVTEPMac, err := hwaddr.GenerateHardwareAddr4(destAddr, []byte{0xee, 0xee})
-	if err != nil {
-		return nil, fmt.Errorf("generate remote vtep mac: %s", err) // untested, should be impossible
-	}
-
+func (c *Converger) addNeighs(underlayIP, destAddr net.IP, remoteMac net.HardwareAddr) ([]netlink.Neigh, error) {
 	neighs := []*netlink.Neigh{
 		{ // ARP
 			LinkIndex:    c.LocalVTEP.Index,
 			State:        netlink.NUD_PERMANENT,
 			Type:         syscall.RTN_UNICAST,
 			IP:           destAddr,
-			HardwareAddr: remoteVTEPMac,
+			HardwareAddr: remoteMac,
 		},
 		{ // FDB
 			LinkIndex:    c.LocalVTEP.Index,
@@ -187,13 +187,13 @@ func (c *Converger) addNeighs(underlayIP, destAddr net.IP) ([]netlink.Neigh, err
 			Family:       syscall.AF_BRIDGE,
 			Flags:        netlink.NTF_SELF,
 			IP:           underlayIP,
-			HardwareAddr: remoteVTEPMac,
+			HardwareAddr: remoteMac,
 		},
 	}
 
 	var currentNeighs []netlink.Neigh
 	for _, neigh := range neighs {
-		err = c.NetlinkAdapter.NeighSet(neigh)
+		err := c.NetlinkAdapter.NeighSet(neigh)
 		if err != nil {
 			return nil, fmt.Errorf("set neigh: %s", err)
 		}

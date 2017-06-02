@@ -22,7 +22,10 @@ var _ = Describe("Converger", func() {
 		leases      []controller.Lease
 		overlayNet  *net.IPNet
 		logger      *lagertest.TestLogger
+		localMac    net.HardwareAddr
+		remoteMac   net.HardwareAddr
 	)
+
 	Describe("Converge", func() {
 		BeforeEach(func() {
 			fakeNetlink = &fakes.NetlinkAdapter{}
@@ -40,14 +43,18 @@ var _ = Describe("Converger", func() {
 				NetlinkAdapter: fakeNetlink,
 				Logger:         logger,
 			}
+			localMac, _ = net.ParseMAC("ee:ee:aa:bb:cc:dd")
+			remoteMac, _ = net.ParseMAC("ee:ee:aa:aa:aa:ff")
 			leases = []controller.Lease{
 				controller.Lease{
-					UnderlayIP:    "10.10.0.4",
-					OverlaySubnet: "10.255.32.0/24",
+					UnderlayIP:          "10.10.0.4",
+					OverlaySubnet:       "10.255.32.0/24",
+					OverlayHardwareAddr: localMac.String(),
 				},
 				controller.Lease{
-					UnderlayIP:    "10.10.0.5",
-					OverlaySubnet: "10.255.19.0/24",
+					UnderlayIP:          "10.10.0.5",
+					OverlaySubnet:       "10.255.19.0/24",
+					OverlayHardwareAddr: remoteMac.String(),
 				},
 			}
 		})
@@ -77,14 +84,13 @@ var _ = Describe("Converger", func() {
 				fakeNetlink.NeighSetArgsForCall(0),
 				fakeNetlink.NeighSetArgsForCall(1),
 			}
-			destMac, _ := net.ParseMAC("ee:ee:0a:ff:13:00")
 			Expect(neighs).To(ConsistOf(
 				&netlink.Neigh{
 					LinkIndex:    42,
 					State:        netlink.NUD_PERMANENT,
 					Type:         syscall.RTN_UNICAST,
 					IP:           net.ParseIP("10.255.19.0"),
-					HardwareAddr: destMac,
+					HardwareAddr: remoteMac,
 				},
 				&netlink.Neigh{
 					LinkIndex:    42,
@@ -92,7 +98,7 @@ var _ = Describe("Converger", func() {
 					Family:       syscall.AF_BRIDGE,
 					Flags:        netlink.NTF_SELF,
 					IP:           net.ParseIP("10.10.0.5"),
-					HardwareAddr: destMac,
+					HardwareAddr: remoteMac,
 				},
 			))
 		})
@@ -105,12 +111,14 @@ var _ = Describe("Converger", func() {
 		})
 
 		Context("when the a remote lease is removed", func() {
-			var neighs []netlink.Neigh
+			var (
+				deletedNeighs []netlink.Neigh
+				oldDestMac    net.HardwareAddr
+			)
 			BeforeEach(func() {
-				destMac, _ := net.ParseMAC("ee:ee:0a:ff:13:00")
 				destGW, destNet, _ := net.ParseCIDR("10.255.19.0/24")
 
-				oldDestMac, _ := net.ParseMAC("ee:ee:0a:ff:14:00")
+				oldDestMac, _ = net.ParseMAC("ee:ee:0a:ff:14:00")
 				oldDestGW, oldDestNet, _ := net.ParseCIDR("10.255.20.0/24")
 
 				fakeNetlink.FDBListReturns([]netlink.Neigh{
@@ -120,7 +128,7 @@ var _ = Describe("Converger", func() {
 						Family:       syscall.AF_BRIDGE,
 						Flags:        netlink.NTF_SELF,
 						IP:           net.ParseIP("10.10.0.5"),
-						HardwareAddr: destMac,
+						HardwareAddr: remoteMac,
 					},
 					netlink.Neigh{
 						LinkIndex:    42,
@@ -138,7 +146,7 @@ var _ = Describe("Converger", func() {
 						State:        netlink.NUD_PERMANENT,
 						Type:         syscall.RTN_UNICAST,
 						IP:           net.ParseIP("10.255.19.0"),
-						HardwareAddr: destMac,
+						HardwareAddr: remoteMac,
 					},
 					netlink.Neigh{
 						LinkIndex:    42,
@@ -173,9 +181,9 @@ var _ = Describe("Converger", func() {
 					},
 				}, nil)
 
-				neighs = []netlink.Neigh{}
+				deletedNeighs = []netlink.Neigh{}
 				fakeNetlink.NeighDelStub = func(neigh *netlink.Neigh) error {
-					neighs = append(neighs, *neigh)
+					deletedNeighs = append(deletedNeighs, *neigh)
 					return nil
 				}
 			})
@@ -199,22 +207,23 @@ var _ = Describe("Converger", func() {
 				By("checking that the ARP and FDB rules is deleted")
 				Expect(fakeNetlink.NeighDelCallCount()).To(Equal(2))
 
-				destMac, _ := net.ParseMAC("ee:ee:0a:ff:14:00")
-				Expect(neighs).To(ConsistOf(
+				Expect(deletedNeighs).To(ConsistOf(
+					// ARP
 					netlink.Neigh{
 						LinkIndex:    42,
 						State:        netlink.NUD_PERMANENT,
 						Type:         syscall.RTN_UNICAST,
 						IP:           net.ParseIP("10.255.20.0"),
-						HardwareAddr: destMac,
+						HardwareAddr: oldDestMac,
 					},
+					// FDB
 					netlink.Neigh{
 						LinkIndex:    42,
 						State:        netlink.NUD_PERMANENT,
 						Family:       syscall.AF_BRIDGE,
 						Flags:        netlink.NTF_SELF,
 						IP:           net.ParseIP("10.10.0.6"),
-						HardwareAddr: destMac,
+						HardwareAddr: oldDestMac,
 					},
 				))
 			})
@@ -302,7 +311,7 @@ var _ = Describe("Converger", func() {
 			})
 			It("breaks early and returns a meaningful error", func() {
 				err := converger.Converge(leases)
-				Expect(err).To(MatchError("invalid underlay ip"))
+				Expect(err).To(MatchError("invalid underlay ip: kumquat"))
 			})
 		})
 
@@ -351,14 +360,13 @@ var _ = Describe("Converger", func() {
 			BeforeEach(func() {
 				fakeNetlink.NeighDelReturns(errors.New("mango"))
 
-				destMac, _ := net.ParseMAC("ee:ee:0a:ff:14:00")
 				fakeNetlink.ARPListReturns([]netlink.Neigh{
 					netlink.Neigh{
 						LinkIndex:    42,
 						State:        netlink.NUD_PERMANENT,
 						Type:         syscall.RTN_UNICAST,
 						IP:           net.ParseIP("10.255.19.0"),
-						HardwareAddr: destMac,
+						HardwareAddr: remoteMac,
 					},
 				}, nil)
 			})
@@ -371,21 +379,25 @@ var _ = Describe("Converger", func() {
 		Context("when there are remote leases that are not in the overlay network", func() {
 			BeforeEach(func() {
 				leases = []controller.Lease{
-					controller.Lease{ // local, skipped
-						UnderlayIP:    "10.10.0.2",
-						OverlaySubnet: "10.255.32.0/24",
+					{ // local, skipped
+						UnderlayIP:          "10.10.0.2",
+						OverlaySubnet:       "10.255.32.0/24",
+						OverlayHardwareAddr: "aa:aa:00:00:00:00",
 					},
-					controller.Lease{ // not in overlay, skipped
-						UnderlayIP:    "10.10.0.3",
-						OverlaySubnet: "10.254.11.0/24",
+					{ // not in overlay, skipped
+						UnderlayIP:          "10.10.0.3",
+						OverlaySubnet:       "10.254.11.0/24",
+						OverlayHardwareAddr: "aa:aa:00:00:00:01",
 					},
-					controller.Lease{ // not in overlay, skipped
-						UnderlayIP:    "10.10.0.4",
-						OverlaySubnet: "10.254.12.0/24",
+					{ // not in overlay, skipped
+						UnderlayIP:          "10.10.0.4",
+						OverlaySubnet:       "10.254.12.0/24",
+						OverlayHardwareAddr: "aa:aa:00:00:00:02",
 					},
-					controller.Lease{ // in overlay
-						UnderlayIP:    "10.10.0.5",
-						OverlaySubnet: "10.255.19.0/24",
+					{ // in overlay
+						UnderlayIP:          "10.10.0.5",
+						OverlaySubnet:       "10.255.19.0/24",
+						OverlayHardwareAddr: "aa:aa:00:00:00:03",
 					},
 				}
 			})
@@ -405,6 +417,22 @@ var _ = Describe("Converger", func() {
 				Expect(logger.Logs()).To(HaveLen(1))
 				Expect(logger.Logs()[0].LogLevel).To(Equal(lager.INFO))
 				Expect(logger.Logs()[0].ToJSON()).To(MatchRegexp("converger.*non-routable-lease-count.*2"))
+			})
+		})
+
+		Context("when a lease has an invalid MAC", func() {
+			BeforeEach(func() {
+				leases = []controller.Lease{
+					{
+						UnderlayIP:          "10.10.0.5",
+						OverlaySubnet:       "10.255.19.0/24",
+						OverlayHardwareAddr: "banana",
+					},
+				}
+			})
+			It("returns an error", func() {
+				err := converger.Converge(leases)
+				Expect(err).To(MatchError("invalid hardware addr: banana"))
 			})
 		})
 	})
