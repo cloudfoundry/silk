@@ -33,7 +33,7 @@ var (
 var _ = BeforeEach(func() {
 	fakeMetron = metrics.NewFakeMetron()
 	dbConfig = testsupport.GetDBConfig()
-	dbConfig.DatabaseName = fmt.Sprintf("test_%d", helpers.PickAPort())
+	dbConfig.DatabaseName = fmt.Sprintf("test_%d", testsupport.PickAPort())
 	testsupport.CreateDatabase(dbConfig)
 
 	conf = helpers.DefaultTestConfig(dbConfig, "fixtures")

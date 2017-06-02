@@ -13,6 +13,7 @@ import (
 
 	"code.cloudfoundry.org/cf-networking-helpers/metrics"
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
+	cftestsupport "code.cloudfoundry.org/cf-networking-helpers/testsupport"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon"
@@ -76,11 +77,11 @@ var _ = BeforeEach(func() {
 	}
 	vni = GinkgoParallelNode()
 	vtepName = fmt.Sprintf("silk-vtep-%d", GinkgoParallelNode())
-	daemonHealthCheckPort := 4000 + GinkgoParallelNode()
+	daemonHealthCheckPort := cftestsupport.PickAPort()
 	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
-	daemonDebugServerPort = 20000 + GinkgoParallelNode()
-	serverListenPort = 30000 + GinkgoParallelNode()
-	vtepPort = 40000 + GinkgoParallelNode()
+	daemonDebugServerPort = cftestsupport.PickAPort()
+	serverListenPort = cftestsupport.PickAPort()
+	vtepPort = cftestsupport.PickAPort()
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", serverListenPort)
 	datastoreDir, err := ioutil.TempDir("", "")
 	Expect(err).NotTo(HaveOccurred())
