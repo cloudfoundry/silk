@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
@@ -569,6 +570,51 @@ var _ = Describe("DatabaseHandler", func() {
 				_, err := databaseHandler.OldestExpired(23)
 				Expect(err).To(MatchError(ContainSubstring("scan result:")))
 			})
+		})
+	})
+
+	Describe("concurrent add and delete requests", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("remains consistent", func() {
+			nLeases := 1000
+			leases := []interface{}{}
+			for i := 0; i < nLeases; i++ {
+				leases = append(leases, controller.Lease{
+					UnderlayIP:          fmt.Sprintf("underlay-%d", i),
+					OverlaySubnet:       fmt.Sprintf("subnet-%d", i),
+					OverlayHardwareAddr: fmt.Sprintf("hardware-%x", i),
+				})
+			}
+			parallelRunner := &testsupport.ParallelRunner{
+				NumWorkers: 4,
+			}
+			toDelete := make(chan (interface{}), nLeases)
+			go func() {
+				parallelRunner.RunOnSlice(leases, func(lease interface{}) {
+					l := lease.(controller.Lease)
+					Expect(databaseHandler.AddEntry(l)).To(Succeed())
+					toDelete <- l
+				})
+				close(toDelete)
+			}()
+
+			var nDeleted int32
+			parallelRunner.RunOnChannel(toDelete, func(lease interface{}) {
+				l := lease.(controller.Lease)
+				Expect(databaseHandler.DeleteEntry(l.UnderlayIP)).To(Succeed())
+				atomic.AddInt32(&nDeleted, 1)
+			})
+
+			Expect(nDeleted).To(Equal(int32(nLeases)))
+
+			allLeases, err := databaseHandler.All()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(allLeases).To(BeEmpty())
 		})
 	})
 })
