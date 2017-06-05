@@ -42,7 +42,6 @@ var _ = Describe("ReleaseLease", func() {
 		fakeErrorResponse = &fakes.ErrorResponse{}
 
 		handler = &handlers.ReleaseLease{
-			Logger:        logger,
 			Marshaler:     marshaler,
 			Unmarshaler:   unmarshaler,
 			LeaseReleaser: leaseReleaser,
@@ -57,25 +56,13 @@ var _ = Describe("ReleaseLease", func() {
 		request.RemoteAddr = "some-host:some-port"
 	})
 
-	AfterEach(func() {
-		By("checking that the last log line is for 'done'")
-		last := len(logger.Logs()) - 1
-		Expect(logger.Logs()[last].LogLevel).To(Equal(lager.DEBUG))
-		Expect(logger.Logs()[last].ToJSON()).To(MatchRegexp("leases-release.*done"))
-	})
-
 	It("releases a lease for subnet", func() {
-		handler.ServeHTTP(resp, request)
+		handler.ServeHTTP(logger, resp, request)
 		Expect(leaseReleaser.ReleaseSubnetLeaseCallCount()).To(Equal(1))
 		Expect(leaseReleaser.ReleaseSubnetLeaseArgsForCall(0)).To(Equal("10.244.16.11"))
 
 		Expect(resp.Code).To(Equal(http.StatusOK))
 		Expect(resp.Body.String()).To(MatchJSON(`{}`))
-
-		Expect(logger.Logs()).To(HaveLen(2))
-		Expect(logger.Logs()[0].LogLevel).To(Equal(lager.DEBUG))
-		Expect(logger.Logs()[0].ToJSON()).To(MatchRegexp("leases-release.*RemoteAddr.*some-host:some-port.*URL.*/leases/release"))
-		Expect(logger.Logs()[1].Message).To(Equal("test.leases-release.done"))
 	})
 
 	Context("when there are errors reading the body bytes", func() {
@@ -84,7 +71,7 @@ var _ = Describe("ReleaseLease", func() {
 		})
 
 		It("logs the error and returns a 400", func() {
-			handler.ServeHTTP(resp, request)
+			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.BadRequestCallCount()).To(Equal(1))
 			w, err, message, description := fakeErrorResponse.BadRequestArgsForCall(0)
@@ -92,6 +79,17 @@ var _ = Describe("ReleaseLease", func() {
 			Expect(err).To(MatchError("banana"))
 			Expect(message).To(Equal("read-body"))
 			Expect(description).To(Equal("banana"))
+
+			By("logging the error")
+			Expect(logger.Logs()).To(HaveLen(1))
+			Expect(logger.Logs()[0]).To(SatisfyAll(
+				LogsWith(lager.ERROR, "test.leases-release.failed-reading-request-body"),
+				HaveLogData(SatisfyAll(
+					HaveLen(2),
+					HaveKeyWithValue("error", "banana"),
+					HaveKeyWithValue("session", "1"),
+				)),
+			))
 		})
 	})
 
@@ -101,7 +99,7 @@ var _ = Describe("ReleaseLease", func() {
 		})
 
 		It("returns a BadRequest error", func() {
-			handler.ServeHTTP(resp, request)
+			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.BadRequestCallCount()).To(Equal(1))
 			w, err, message, description := fakeErrorResponse.BadRequestArgsForCall(0)
@@ -109,6 +107,17 @@ var _ = Describe("ReleaseLease", func() {
 			Expect(err).To(MatchError("fig"))
 			Expect(message).To(Equal("unmarshal-request"))
 			Expect(description).To(Equal("fig"))
+
+			By("logging the error")
+			Expect(logger.Logs()).To(HaveLen(1))
+			Expect(logger.Logs()[0]).To(SatisfyAll(
+				LogsWith(lager.ERROR, "test.leases-release.failed-unmarshalling-payload"),
+				HaveLogData(SatisfyAll(
+					HaveLen(2),
+					HaveKeyWithValue("error", "fig"),
+					HaveKeyWithValue("session", "1"),
+				)),
+			))
 		})
 	})
 
@@ -118,7 +127,7 @@ var _ = Describe("ReleaseLease", func() {
 		})
 
 		It("calls the Error Response InternalServerError() handler", func() {
-			handler.ServeHTTP(resp, request)
+			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
 			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
@@ -126,6 +135,17 @@ var _ = Describe("ReleaseLease", func() {
 			Expect(err).To(MatchError("kiwi"))
 			Expect(message).To(Equal("release-subnet-lease"))
 			Expect(description).To(Equal("kiwi"))
+
+			By("logging the error")
+			Expect(logger.Logs()).To(HaveLen(1))
+			Expect(logger.Logs()[0]).To(SatisfyAll(
+				LogsWith(lager.ERROR, "test.leases-release.failed-releasing-lease"),
+				HaveLogData(SatisfyAll(
+					HaveLen(2),
+					HaveKeyWithValue("error", "kiwi"),
+					HaveKeyWithValue("session", "1"),
+				)),
+			))
 		})
 	})
 

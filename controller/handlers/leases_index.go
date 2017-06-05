@@ -14,18 +14,17 @@ type leaseRepository interface {
 }
 
 type LeasesIndex struct {
-	Logger          lager.Logger
 	Marshaler       marshal.Marshaler
 	LeaseRepository leaseRepository
 	ErrorResponse   errorResponse
 }
 
-func (l *LeasesIndex) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	logger := l.Logger.Session("leases-index")
-	logger.Debug("start", lager.Data{"URL": req.URL, "RemoteAddr": req.RemoteAddr})
+func (l *LeasesIndex) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req *http.Request) {
+	logger = logger.Session("leases-index")
 
 	leases, err := l.LeaseRepository.RoutableLeases()
 	if err != nil {
+		logger.Error("failed-getting-routable-leases", err)
 		l.ErrorResponse.InternalServerError(w, err, "all-routable-leases", err.Error())
 		return
 	}
@@ -35,6 +34,7 @@ func (l *LeasesIndex) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}{leases}
 	bytes, err := l.Marshaler.Marshal(response)
 	if err != nil {
+		logger.Error("failed-marshalling-leases", err)
 		l.ErrorResponse.InternalServerError(w, err, "marshal-response", err.Error())
 		return
 	}

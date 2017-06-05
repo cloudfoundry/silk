@@ -99,14 +99,12 @@ func mainWithError() error {
 	}
 
 	leasesIndex := &handlers.LeasesIndex{
-		Logger:          logger,
 		Marshaler:       marshal.MarshalFunc(json.Marshal),
 		LeaseRepository: leaseController,
 		ErrorResponse:   errorResponse,
 	}
 
 	leasesAcquire := &handlers.LeasesAcquire{
-		Logger:        logger,
 		Marshaler:     marshal.MarshalFunc(json.Marshal),
 		Unmarshaler:   marshal.UnmarshalFunc(json.Unmarshal),
 		LeaseAcquirer: leaseController,
@@ -114,7 +112,6 @@ func mainWithError() error {
 	}
 
 	leasesRelease := &handlers.ReleaseLease{
-		Logger:        logger,
 		Marshaler:     marshal.MarshalFunc(json.Marshal),
 		Unmarshaler:   marshal.UnmarshalFunc(json.Unmarshal),
 		LeaseReleaser: leaseController,
@@ -122,7 +119,6 @@ func mainWithError() error {
 	}
 
 	leasesRenew := &handlers.RenewLease{
-		Logger:        logger,
 		Unmarshaler:   marshal.UnmarshalFunc(json.Unmarshal),
 		LeaseRenewer:  leaseController,
 		ErrorResponse: errorResponse,
@@ -136,6 +132,13 @@ func mainWithError() error {
 		return metricsWrapper.Wrap(handle)
 	}
 
+	type loggableHandler interface {
+		ServeHTTP(logger lager.Logger, w http.ResponseWriter, r *http.Request)
+	}
+	logWrap := func(handler loggableHandler) http.Handler {
+		return middleware.LogWrap(logger, handler.ServeHTTP)
+	}
+
 	router, err := rata.NewRouter(
 		rata.Routes{
 			{Name: "leases-index", Method: "GET", Path: "/leases"},
@@ -144,10 +147,10 @@ func mainWithError() error {
 			{Name: "leases-renew", Method: "PUT", Path: "/leases/renew"},
 		},
 		rata.Handlers{
-			"leases-index":   metricsWrap("LeasesIndex", leasesIndex),
-			"leases-acquire": metricsWrap("LeasesAcquire", leasesAcquire),
-			"leases-release": metricsWrap("LeasesRelease", leasesRelease),
-			"leases-renew":   metricsWrap("LeasesRenew", leasesRenew),
+			"leases-index":   metricsWrap("LeasesIndex", logWrap(leasesIndex)),
+			"leases-acquire": metricsWrap("LeasesAcquire", logWrap(leasesAcquire)),
+			"leases-release": metricsWrap("LeasesRelease", logWrap(leasesRelease)),
+			"leases-renew":   metricsWrap("LeasesRenew", logWrap(leasesRenew)),
 		},
 	)
 	if err != nil {

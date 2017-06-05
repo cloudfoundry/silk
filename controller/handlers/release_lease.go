@@ -14,20 +14,18 @@ type leaseReleaser interface {
 }
 
 type ReleaseLease struct {
-	Logger        lager.Logger
 	Marshaler     marshal.Marshaler
 	Unmarshaler   marshal.Unmarshaler
 	LeaseReleaser leaseReleaser
 	ErrorResponse errorResponse
 }
 
-func (l *ReleaseLease) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	logger := l.Logger.Session("leases-release")
-	logger.Debug("start", lager.Data{"URL": req.URL, "RemoteAddr": req.RemoteAddr})
-	defer logger.Debug("done")
+func (l *ReleaseLease) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req *http.Request) {
+	logger = logger.Session("leases-release")
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
+		logger.Error("failed-reading-request-body", err)
 		l.ErrorResponse.BadRequest(w, err, "read-body", err.Error())
 		return
 	}
@@ -37,12 +35,14 @@ func (l *ReleaseLease) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &payload)
 	if err != nil {
+		logger.Error("failed-unmarshalling-payload", err)
 		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
 		return
 	}
 
 	err = l.LeaseReleaser.ReleaseSubnetLease(payload.UnderlayIP)
 	if err != nil {
+		logger.Error("failed-releasing-lease", err)
 		l.ErrorResponse.InternalServerError(w, err, "release-subnet-lease", err.Error())
 		return
 	}

@@ -22,19 +22,17 @@ type errorResponse interface {
 }
 
 type RenewLease struct {
-	Logger        lager.Logger
 	Unmarshaler   marshal.Unmarshaler
 	LeaseRenewer  leaseRenewer
 	ErrorResponse errorResponse
 }
 
-func (l *RenewLease) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	logger := l.Logger.Session("leases-renew")
-	logger.Debug("start", lager.Data{"URL": req.URL, "RemoteAddr": req.RemoteAddr})
-	defer logger.Debug("done")
+func (l *RenewLease) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req *http.Request) {
+	logger = logger.Session("leases-renew")
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
+		logger.Error("failed-reading-request-body", err)
 		l.ErrorResponse.BadRequest(w, err, "read-body", err.Error())
 		return
 	}
@@ -42,6 +40,7 @@ func (l *RenewLease) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var lease controller.Lease
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &lease)
 	if err != nil {
+		logger.Error("failed-unmarshalling-payload", err)
 		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
 		return
 	}
@@ -49,10 +48,12 @@ func (l *RenewLease) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	err = l.LeaseRenewer.RenewSubnetLease(lease)
 	if err != nil {
 		if _, ok := err.(controller.NonRetriableError); ok {
+			logger.Error("failed-renewing-lease-nonretriable", err)
 			l.ErrorResponse.Conflict(w, err, "renew-subnet-lease", err.Error())
 			return
 		}
 
+		logger.Error("failed-renewing-lease", err)
 		l.ErrorResponse.InternalServerError(w, err, "renew-subnet-lease", err.Error())
 		return
 	}

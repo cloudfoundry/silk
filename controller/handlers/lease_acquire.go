@@ -16,19 +16,18 @@ type leaseAcquirer interface {
 }
 
 type LeasesAcquire struct {
-	Logger        lager.Logger
 	Marshaler     marshal.Marshaler
 	Unmarshaler   marshal.Unmarshaler
 	LeaseAcquirer leaseAcquirer
 	ErrorResponse errorResponse
 }
 
-func (l *LeasesAcquire) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	logger := l.Logger.Session("leases-acquire")
-	logger.Debug("start", lager.Data{"URL": req.URL, "RemoteAddr": req.RemoteAddr})
+func (l *LeasesAcquire) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req *http.Request) {
+	logger = logger.Session("leases-acquire")
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
+		logger.Error("failed-reading-request-body", err)
 		l.ErrorResponse.BadRequest(w, err, "read-body", err.Error())
 		return
 	}
@@ -38,23 +37,27 @@ func (l *LeasesAcquire) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &payload)
 	if err != nil {
+		logger.Error("failed-unmarshalling-payload", err)
 		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
 		return
 	}
 
 	lease, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP)
 	if err != nil {
+		logger.Error("failed-acquiring-lease", err)
 		l.ErrorResponse.InternalServerError(w, err, "acquire-subnet-lease", err.Error())
 		return
 	}
 	if lease == nil {
 		err := errors.New("No lease available")
+		logger.Error("failed-finding-available-lease", err)
 		l.ErrorResponse.Conflict(w, err, "acquire-subnet-lease", err.Error())
 		return
 	}
 
 	bytes, err := l.Marshaler.Marshal(lease)
 	if err != nil {
+		logger.Error("failed-marshalling-lease", err)
 		l.ErrorResponse.InternalServerError(w, err, "marshal-response", err.Error())
 		return
 	}

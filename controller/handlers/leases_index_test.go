@@ -34,7 +34,6 @@ var _ = Describe("LeasesIndex", func() {
 		leaseRepository = &fakes.LeaseRepository{}
 		fakeErrorResponse = &fakes.ErrorResponse{}
 		handler = &handlers.LeasesIndex{
-			Logger:          logger,
 			Marshaler:       marshaler,
 			LeaseRepository: leaseRepository,
 			ErrorResponse:   fakeErrorResponse,
@@ -64,14 +63,10 @@ var _ = Describe("LeasesIndex", func() {
 
 		request.RemoteAddr = "some-host:some-port"
 
-		handler.ServeHTTP(resp, request)
+		handler.ServeHTTP(logger, resp, request)
 		Expect(leaseRepository.RoutableLeasesCallCount()).To(Equal(1))
 		Expect(resp.Code).To(Equal(http.StatusOK))
 		Expect(resp.Body).To(MatchJSON(expectedResponseJSON))
-
-		Expect(logger.Logs()).To(HaveLen(1))
-		Expect(logger.Logs()[0].LogLevel).To(Equal(lager.DEBUG))
-		Expect(logger.Logs()[0].ToJSON()).To(MatchRegexp("RemoteAddr.*some-host:some-port.*URL.*/leases"))
 	})
 
 	Context("when getting the routable leases fails", func() {
@@ -83,7 +78,7 @@ var _ = Describe("LeasesIndex", func() {
 			request, err := http.NewRequest("GET", "/leases", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			handler.ServeHTTP(resp, request)
+			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
 			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
@@ -91,6 +86,16 @@ var _ = Describe("LeasesIndex", func() {
 			Expect(err).To(MatchError("butter"))
 			Expect(message).To(Equal("all-routable-leases"))
 			Expect(description).To(Equal("butter"))
+
+			Expect(logger.Logs()).To(HaveLen(1))
+			Expect(logger.Logs()[0]).To(SatisfyAll(
+				LogsWith(lager.ERROR, "test.leases-index.failed-getting-routable-leases"),
+				HaveLogData(SatisfyAll(
+					HaveLen(2),
+					HaveKeyWithValue("error", "butter"),
+					HaveKeyWithValue("session", "1"),
+				)),
+			))
 		})
 	})
 
@@ -105,7 +110,7 @@ var _ = Describe("LeasesIndex", func() {
 			request, err := http.NewRequest("GET", "/leases", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			handler.ServeHTTP(resp, request)
+			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
 			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
@@ -113,6 +118,16 @@ var _ = Describe("LeasesIndex", func() {
 			Expect(err).To(MatchError("grapes"))
 			Expect(message).To(Equal("marshal-response"))
 			Expect(description).To(Equal("grapes"))
+
+			Expect(logger.Logs()).To(HaveLen(1))
+			Expect(logger.Logs()[0]).To(SatisfyAll(
+				LogsWith(lager.ERROR, "test.leases-index.failed-marshalling-leases"),
+				HaveLogData(SatisfyAll(
+					HaveLen(2),
+					HaveKeyWithValue("error", "grapes"),
+					HaveKeyWithValue("session", "1"),
+				)),
+			))
 		})
 	})
 })
