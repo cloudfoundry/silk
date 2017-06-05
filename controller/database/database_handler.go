@@ -62,6 +62,7 @@ func (d *DatabaseHandler) All() ([]controller.Lease, error) {
 	if err != nil {
 		return nil, fmt.Errorf("selecting all subnets: %s", err)
 	}
+	defer rows.Close() // untested
 	for rows.Next() {
 		var underlayIP, overlaySubnet, overlayHWAddr string
 		err := rows.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
@@ -73,6 +74,10 @@ func (d *DatabaseHandler) All() ([]controller.Lease, error) {
 			OverlaySubnet:       overlaySubnet,
 			OverlayHardwareAddr: overlayHWAddr,
 		})
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("getting next row: %s", err) // untested
 	}
 
 	return leases, nil
@@ -88,6 +93,7 @@ func (d *DatabaseHandler) AllActive(duration int) ([]controller.Lease, error) {
 	if err != nil {
 		return nil, fmt.Errorf("selecting all active subnets: %s", err)
 	}
+	defer rows.Close() // untested
 	for rows.Next() {
 		var underlayIP, overlaySubnet, overlayHWAddr string
 		err := rows.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
@@ -99,6 +105,10 @@ func (d *DatabaseHandler) AllActive(duration int) ([]controller.Lease, error) {
 			OverlaySubnet:       overlaySubnet,
 			OverlayHardwareAddr: overlayHWAddr,
 		})
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("getting next row: %s", err) // untested
 	}
 
 	return leases, nil

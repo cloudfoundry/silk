@@ -361,7 +361,7 @@ var _ = Describe("DatabaseHandler", func() {
 			err = databaseHandler.AddEntry(lease2)
 			Expect(err).NotTo(HaveOccurred())
 		})
-		It("all the saved subnets", func() {
+		It("returns all the saved subnets", func() {
 			leases, err := databaseHandler.All()
 			Expect(err).NotTo(HaveOccurred())
 
