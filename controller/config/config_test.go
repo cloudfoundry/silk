@@ -49,6 +49,7 @@ var _ = Describe("Config.ReadFromFile", func() {
 			"metrics_emit_seconds":        5,
 			"staleness_threshold_seconds": 5,
 			"health_check_port":           999,
+			"log_prefix":                  "potato",
 		}
 	})
 

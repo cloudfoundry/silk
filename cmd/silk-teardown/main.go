@@ -24,16 +24,18 @@ func main() {
 }
 
 func mainWithError() error {
-	logger := lager.NewLogger("silk-teardown")
-	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
-	logger.RegisterSink(sink)
-
 	configFilePath := flag.String("config", "", "path to config file")
 	flag.Parse()
 	cfg, err := config.LoadConfig(*configFilePath)
 	if err != nil {
 		return fmt.Errorf("load config file: %s", err)
 	}
+
+	logger := lager.NewLogger(fmt.Sprintf("%s.%s", cfg.LogPrefix, "silk-teardown"))
+	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
+	logger.RegisterSink(sink)
+
+	logger.Info("starting")
 
 	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
 	if err != nil {
@@ -57,6 +59,8 @@ func mainWithError() error {
 		errList = multierror.Append(errList, fmt.Errorf("delete vtep: %s", err))
 		logger.Error("delete-vtep", err, lager.Data{"vtep_name": cfg.VTEPName})
 	}
+
+	logger.Info("complete")
 
 	return errList
 }

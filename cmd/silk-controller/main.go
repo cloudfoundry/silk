@@ -37,13 +37,6 @@ func main() {
 }
 
 func mainWithError() error {
-	logger := lager.NewLogger("silk-controller")
-	reconfigurableSink := lager.NewReconfigurableSink(
-		lager.NewWriterSink(os.Stdout, lager.DEBUG),
-		lager.INFO)
-	logger.RegisterSink(reconfigurableSink)
-	logger.Info("starting")
-
 	var configFilePath string
 	flag.StringVar(&configFilePath, "config", "", "path to config file")
 	flag.Parse()
@@ -52,6 +45,14 @@ func mainWithError() error {
 	if err != nil {
 		return fmt.Errorf("loading config: %s", err)
 	}
+
+	logger := lager.NewLogger(fmt.Sprintf("%s.%s", conf.LogPrefix, "silk-controller"))
+	reconfigurableSink := lager.NewReconfigurableSink(
+		lager.NewWriterSink(os.Stdout, lager.DEBUG),
+		lager.INFO)
+	logger.RegisterSink(reconfigurableSink)
+	logger.Info("starting")
+
 	logger.Info("parsed-config")
 
 	debugServerAddress := fmt.Sprintf("127.0.0.1:%d", conf.DebugServerPort)

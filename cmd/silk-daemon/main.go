@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
-	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/cf-networking-helpers/metrics"
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
+	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
@@ -42,14 +42,6 @@ func main() {
 }
 
 func mainWithError() error {
-	logger := lager.NewLogger("silk-daemon")
-
-	reconfigurableSink := lager.NewReconfigurableSink(
-		lager.NewWriterSink(os.Stdout, lager.DEBUG),
-		lager.INFO)
-	logger.RegisterSink(reconfigurableSink)
-	logger.Info("starting")
-
 	configFilePath := flag.String("config", "", "path to config file")
 	flag.Parse()
 
@@ -57,6 +49,14 @@ func mainWithError() error {
 	if err != nil {
 		return fmt.Errorf("load config file: %s", err)
 	}
+
+	reconfigurableSink := lager.NewReconfigurableSink(
+		lager.NewWriterSink(os.Stdout, lager.DEBUG),
+		lager.INFO)
+
+	logger := lager.NewLogger(fmt.Sprintf("%s.%s", cfg.LogPrefix, "silk-daemon"))
+	logger.RegisterSink(reconfigurableSink)
+	logger.Info("starting")
 
 	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
 	if err != nil {

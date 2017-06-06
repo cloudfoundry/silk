@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/types"
 )
@@ -50,9 +51,13 @@ var _ = AfterEach(func() {
 var _ = Describe("Silk Controller", func() {
 	It("gracefully terminates when sent an interrupt signal", func() {
 		Consistently(session).ShouldNot(gexec.Exit())
+		Expect(session.Out).To(gbytes.Say(`potato-prefix\.silk-controller\.starting-servers`))
+		Expect(session.Out).To(gbytes.Say(`potato-prefix\.silk-controller\.running`))
 
 		session.Interrupt()
+
 		Eventually(session, "5s").Should(gexec.Exit(0))
+		Expect(session.Out).To(gbytes.Say(`potato-prefix\.silk-controller\.exited`))
 	})
 
 	It("runs the cf debug server on the configured port", func() {

@@ -26,6 +26,7 @@ type Config struct {
 	PartitionToleranceSeconds int    `json:"partition_tolerance_seconds" validate:"nonzero"`
 	ClientTimeoutSeconds      int    `json:"client_timeout_seconds" validate:"nonzero"`
 	MetronPort                int    `json:"metron_port" validate:"min=1"`
+	LogPrefix                 string `json:"log_prefix" validate:"nonzero"`
 }
 
 func LoadConfig(filePath string) (Config, error) {

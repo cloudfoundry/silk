@@ -104,6 +104,7 @@ var _ = BeforeEach(func() {
 		ClientTimeoutSeconds:      5,
 		MetronPort:                fakeMetron.Port(),
 		VTEPPort:                  vtepPort,
+		LogPrefix:                 "potato-prefix",
 	}
 
 	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}
@@ -199,7 +200,7 @@ var _ = Describe("Daemon Integration", func() {
 		doHealthCheck()
 
 		By("inspecting the daemon's log to see that it acquired a new lease")
-		Expect(session.Out).To(gbytes.Say(`acquired-lease.*overlay_subnet.*` + overlaySubnet + `.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
+		Expect(session.Out).To(gbytes.Say(`potato-prefix\.silk-daemon.*acquired-lease.*overlay_subnet.*` + overlaySubnet + `.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`))
 
 		By("stopping the daemon")
 		stopDaemon()

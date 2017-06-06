@@ -26,6 +26,7 @@ type Config struct {
 	HealthCheckPort           int       `json:"health_check_port" validate:"min=1"`
 	MetricsEmitSeconds        int       `json:"metrics_emit_seconds" validate:"min=1"`
 	StalenessThresholdSeconds int       `json:"staleness_threshold_seconds" validate:"min=1"`
+	LogPrefix                 string    `json:"log_prefix" validate:"nonzero"`
 }
 
 func (c *Config) WriteToFile(configFilePath string) error {

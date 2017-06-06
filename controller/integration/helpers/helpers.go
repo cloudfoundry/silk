@@ -38,6 +38,7 @@ func DefaultTestConfig(dbConf db.Config, fixturesPath string) config.Config {
 		StalenessThresholdSeconds: 5,
 		MetronPort:                5432,
 		MetricsEmitSeconds:        1,
+		LogPrefix:                 "potato-prefix",
 	}
 }
 

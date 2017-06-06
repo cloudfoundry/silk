@@ -43,6 +43,7 @@ var _ = Describe("Config.LoadConfig", func() {
 			"client_timeout_seconds":      5,
 			"metron_port":                 5435,
 			"vtep_port":                   1234,
+			"log_prefix":                  "some-prefix",
 		}
 	})
 

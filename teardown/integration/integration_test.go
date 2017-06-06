@@ -62,6 +62,7 @@ var _ = BeforeEach(func() {
 		ClientTimeoutSeconds:      5,     // unused by teardown
 		MetronPort:                1234,  // unused by teardown
 		VTEPPort:                  12345, // unused by teardown
+		LogPrefix:                 "potato-prefix",
 	}
 
 	serverTLSConfig, err := mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
@@ -100,6 +101,8 @@ var _ = Describe("Teardown", func() {
 		By("verifying that the vtep is no longer present")
 		_, _, _, err := vtepFactory.GetVTEPState(clientConf.VTEPName)
 		Expect(err).To(MatchError("find link: Link not found"))
+
+		Expect(session.Out.Contents()).To(ContainSubstring("potato-prefix.silk-teardown.complete"))
 	})
 })
 
