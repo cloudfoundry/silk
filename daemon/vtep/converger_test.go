@@ -372,7 +372,7 @@ var _ = Describe("Converger", func() {
 			})
 			It("returns a meaningful error", func() {
 				err := converger.Converge([]controller.Lease{})
-				Expect(err).To(MatchError("del neigh: mango"))
+				Expect(err).To(MatchError("del neigh with ip/hwaddr 10.255.19.0 ee:ee:aa:aa:aa:ff: mango"))
 			})
 		})
 

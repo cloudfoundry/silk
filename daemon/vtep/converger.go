@@ -80,7 +80,7 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 		if neigh.LinkIndex == c.LocalVTEP.Index {
 			err = c.NetlinkAdapter.NeighDel(&neigh)
 			if err != nil {
-				return fmt.Errorf("del neigh: %s", err)
+				return fmt.Errorf("del neigh with ip/hwaddr %s: %s", &neigh, err)
 			}
 		}
 	}
