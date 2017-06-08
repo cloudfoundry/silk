@@ -22,7 +22,7 @@ import (
 	"code.cloudfoundry.org/silk/lib/datastore"
 	"code.cloudfoundry.org/silk/lib/filelock"
 	"code.cloudfoundry.org/silk/lib/serial"
-	"github.com/containernetworking/cni/pkg/ipam"
+	"github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
@@ -159,7 +159,7 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 	ipamConfig := generator.GenerateConfig(networkInfo.OverlaySubnet, netConf.Name, netConf.DataDir)
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
-	result, err := ipam.ExecAdd("host-local", ipamConfigBytes)
+	result, err := invoke.DelegateAdd("host-local", ipamConfigBytes)
 	if err != nil {
 		return typedError("run ipam plugin", err)
 	}
@@ -214,7 +214,7 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 	ipamConfig := generator.GenerateConfig(networkInfo.OverlaySubnet, netConf.Name, netConf.DataDir)
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
-	err = ipam.ExecDel("host-local", ipamConfigBytes)
+	err = invoke.DelegateDel("host-local", ipamConfigBytes)
 	if err != nil {
 		p.Logger.Error("host-local-ipam", err)
 		// continue, keep trying to cleanup
