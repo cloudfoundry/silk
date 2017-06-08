@@ -1,4 +1,4 @@
-package acceptance_test
+package integration_test
 
 import (
 	"encoding/json"
@@ -15,9 +15,9 @@ import (
 	"testing"
 )
 
-func TestAcceptance(t *testing.T) {
+func TestIntegration(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CNI Acceptance Suite")
+	RunSpecs(t, "CNI Integration Suite")
 }
 
 var (
@@ -43,7 +43,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	pathToIPAM, err := gexec.Build("code.cloudfoundry.org/silk/vendor/github.com/containernetworking/plugins/plugins/ipam/host-local", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToFakeDaemon, err := gexec.Build("code.cloudfoundry.org/silk/cni/acceptance/fake_daemon", "-race")
+	pathToFakeDaemon, err := gexec.Build("code.cloudfoundry.org/silk/cni/integration/fake_daemon", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	paths = testPaths{

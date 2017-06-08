@@ -1,4 +1,4 @@
-package acceptance_test
+package integration_test
 
 import (
 	"encoding/json"
@@ -101,7 +101,7 @@ var _ = AfterEach(func() {
 	Expect(os.RemoveAll(datastorePath)).To(Succeed())
 })
 
-var _ = Describe("Silk CNI Acceptance", func() {
+var _ = Describe("Silk CNI Integration", func() {
 	Describe("veth devices", func() {
 		BeforeEach(func() {
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
