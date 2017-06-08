@@ -30,9 +30,13 @@ import (
 	"github.com/tedsuo/rata"
 )
 
+var (
+	logPrefix = "cfnetworking"
+)
+
 func main() {
 	if err := mainWithError(); err != nil {
-		log.Fatalf("silk-controller error: %s", err)
+		log.Fatalf("%s.silk-controller error: %s", logPrefix, err)
 	}
 }
 
@@ -43,10 +47,14 @@ func mainWithError() error {
 
 	conf, err := config.ReadFromFile(configFilePath)
 	if err != nil {
-		return fmt.Errorf("loading config: %s", err)
+		return fmt.Errorf("load config: %s", err)
 	}
 
-	logger := lager.NewLogger(fmt.Sprintf("%s.%s", conf.LogPrefix, "silk-controller"))
+	if conf.LogPrefix != "" {
+		logPrefix = conf.LogPrefix
+	}
+
+	logger := lager.NewLogger(fmt.Sprintf("%s.%s", logPrefix, "silk-controller"))
 	reconfigurableSink := lager.NewReconfigurableSink(
 		lager.NewWriterSink(os.Stdout, lager.DEBUG),
 		lager.INFO)

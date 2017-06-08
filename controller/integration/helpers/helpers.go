@@ -43,13 +43,9 @@ func DefaultTestConfig(dbConf db.Config, fixturesPath string) config.Config {
 }
 
 func StartAndWaitForServer(controllerBinaryPath string, conf config.Config, client *controller.Client) *gexec.Session {
-	configFile, err := ioutil.TempFile("", "config-")
-	Expect(err).NotTo(HaveOccurred())
-	configFilePath := configFile.Name()
-	Expect(configFile.Close()).To(Succeed())
-	Expect(conf.WriteToFile(configFilePath)).To(Succeed())
+	configFilePath := WriteConfigFile(conf)
 
-	session := startServer(controllerBinaryPath, configFilePath)
+	session := StartServer(controllerBinaryPath, configFilePath)
 
 	By("waiting for the http server to boot")
 	serverIsUp := func() error {
@@ -60,7 +56,16 @@ func StartAndWaitForServer(controllerBinaryPath string, conf config.Config, clie
 	return session
 }
 
-func startServer(controllerBinaryPath, configFilePath string) *gexec.Session {
+func WriteConfigFile(conf config.Config) string {
+	configFile, err := ioutil.TempFile("", "config-")
+	Expect(err).NotTo(HaveOccurred())
+	configFilePath := configFile.Name()
+	Expect(configFile.Close()).To(Succeed())
+	Expect(conf.WriteToFile(configFilePath)).To(Succeed())
+	return configFilePath
+}
+
+func StartServer(controllerBinaryPath, configFilePath string) *gexec.Session {
 	cmd := exec.Command(controllerBinaryPath, "-config", configFilePath)
 	s, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())

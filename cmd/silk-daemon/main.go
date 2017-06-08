@@ -35,9 +35,11 @@ import (
 	"github.com/tedsuo/ifrit/sigmon"
 )
 
+var logPrefix = "cfnetworking"
+
 func main() {
 	if err := mainWithError(); err != nil {
-		log.Fatalf("silk-daemon error: %s", err)
+		log.Fatalf("%s.silk-daemon error: %s", logPrefix, err)
 	}
 }
 
@@ -50,11 +52,15 @@ func mainWithError() error {
 		return fmt.Errorf("load config file: %s", err)
 	}
 
+	if cfg.LogPrefix != "" {
+		logPrefix = cfg.LogPrefix
+	}
+
 	reconfigurableSink := lager.NewReconfigurableSink(
 		lager.NewWriterSink(os.Stdout, lager.DEBUG),
 		lager.INFO)
 
-	logger := lager.NewLogger(fmt.Sprintf("%s.%s", cfg.LogPrefix, "silk-daemon"))
+	logger := lager.NewLogger(fmt.Sprintf("%s.%s", logPrefix, "silk-daemon"))
 	logger.RegisterSink(reconfigurableSink)
 	logger.Info("starting")
 

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/silk/testsupport"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -33,7 +32,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session = startDaemon("/some/bad/path")
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("load config file: reading file /some/bad/path"))
+			Expect(session.Err.Contents()).To(ContainSubstring("cfnetworking.silk-daemon error: load config file: reading file /some/bad/path"))
 		})
 	})
 
@@ -60,7 +59,7 @@ var _ = Describe("error cases", func() {
 		It("exits with status 1", func() {
 			session = startDaemon(configFilePath)
 			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-			Expect(session.Err.Contents()).To(ContainSubstring("load config file: unmarshaling contents"))
+			Expect(session.Err.Contents()).To(ContainSubstring("cfnetworking.silk-daemon error: load config file: unmarshaling contents"))
 		})
 	})
 
@@ -76,7 +75,7 @@ var _ = Describe("error cases", func() {
 			It("exits with status 1", func() {
 				session = startDaemon(configFilePath)
 				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-				Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: http status 500"))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("potato-prefix.silk-daemon error: acquire subnet lease: http status 500"))
 			})
 		})
 
@@ -149,7 +148,7 @@ var _ = Describe("error cases", func() {
 					configFilePath := writeConfigFile(daemonConf)
 					startDaemon(configFilePath)
 					Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-					Expect(string(session.Err.Contents())).To(ContainSubstring("read datastore"))
+					Expect(string(session.Err.Contents())).To(ContainSubstring("potato-prefix.silk-daemon error: read datastore"))
 				})
 			})
 
@@ -166,7 +165,7 @@ var _ = Describe("error cases", func() {
 						configFilePath := writeConfigFile(daemonConf)
 						startDaemon(configFilePath)
 						Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-						Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: http status 500"))
+						Expect(string(session.Err.Contents())).To(ContainSubstring("potato-prefix.silk-daemon error: acquire subnet lease: http status 500"))
 					})
 				})
 			})
@@ -228,7 +227,7 @@ var _ = Describe("error cases", func() {
 			configFilePath := writeConfigFile(daemonConf)
 			startDaemon(configFilePath)
 			Eventually(session, 3*time.Second).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: acquire subnet lease: http client do:.*request canceled while waiting for connection`))
+			Expect(string(session.Err.Contents())).To(MatchRegexp(`potato-prefix.silk-daemon error: acquire subnet lease: http client do:.*request canceled while waiting for connection`))
 		})
 	})
 
@@ -263,7 +262,7 @@ var _ = Describe("error cases", func() {
 
 			It("exits with status 1", func() {
 				Eventually(session, 3*time.Second).Should(gexec.Exit(1))
-				Expect(string(session.Err.Contents())).To(MatchRegexp(`silk-daemon error: discovered lease is not in overlay network and has containers: 1`))
+				Expect(string(session.Err.Contents())).To(MatchRegexp(`potato-prefix.silk-daemon error: discovered lease is not in overlay network and has containers: 1`))
 			})
 		})
 

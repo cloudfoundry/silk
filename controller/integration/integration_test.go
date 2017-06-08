@@ -40,15 +40,17 @@ var _ = BeforeEach(func() {
 	conf = helpers.DefaultTestConfig(dbConfig, "fixtures")
 	conf.MetronPort = fakeMetron.Port()
 	testClient = helpers.TestClient(conf, "fixtures")
-	session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
-})
-
-var _ = AfterEach(func() {
-	helpers.StopServer(session)
-	Expect(testsupport.RemoveDatabase(dbConfig)).To(Succeed())
 })
 
 var _ = Describe("Silk Controller", func() {
+	BeforeEach(func() {
+		session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
+	})
+	AfterEach(func() {
+		helpers.StopServer(session)
+		Expect(testsupport.RemoveDatabase(dbConfig)).To(Succeed())
+
+	})
 	It("gracefully terminates when sent an interrupt signal", func() {
 		Consistently(session).ShouldNot(gexec.Exit())
 		Expect(session.Out).To(gbytes.Say(`potato-prefix\.silk-controller\.starting-servers`))
