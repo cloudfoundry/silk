@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/plugins/pkg/ns"
 )
 
 type NamespaceAdapter struct {

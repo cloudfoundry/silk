@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"path"
 
-	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/plugins/pkg/ns"
 	. "github.com/onsi/ginkgo"
 	ginkgoConfig "github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -40,7 +40,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	pathToSilkCNI, err := gexec.Build("code.cloudfoundry.org/silk/cmd/silk-cni", `-ldflags="-extldflags=-Wl,--allow-multiple-definition"`, "-race")
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToIPAM, err := gexec.Build("code.cloudfoundry.org/silk/vendor/github.com/containernetworking/cni/plugins/ipam/host-local", "-race")
+	pathToIPAM, err := gexec.Build("code.cloudfoundry.org/silk/vendor/github.com/containernetworking/plugins/plugins/ipam/host-local", "-race")
 	Expect(err).NotTo(HaveOccurred())
 
 	pathToFakeDaemon, err := gexec.Build("code.cloudfoundry.org/silk/cni/acceptance/fake_daemon", "-race")

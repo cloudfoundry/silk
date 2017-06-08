@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/types/current"
+	"github.com/containernetworking/plugins/pkg/ns"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -117,6 +117,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 
 			expectedCNIStdout := fmt.Sprintf(`
 			{
+				"cniVersion": "0.3.1",
 				"interfaces": [
 						{
 								"name": "%s",
@@ -420,7 +421,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 			It("sets the MTU based on the input", func() {
 				By("calling ADD")
 				cniStdin = fmt.Sprintf(`{
-					"cniVersion": "0.3.0",
+					"cniVersion": "0.3.1",
 					"name": "my-silk-network",
 					"type": "silk",
 					"mtu": 1350,
@@ -459,12 +460,12 @@ var _ = Describe("Silk CNI Acceptance", func() {
 	})
 
 	Describe("CNI version support", func() {
-		It("only claims to support CNI spec version 0.3.0", func() {
+		It("only claims to support CNI spec version 0.3.1", func() {
 			sess := startCommandInHost("VERSION", "{}")
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
-          "cniVersion": "0.3.0",
-          "supportedVersions": [ "0.3.0" ]
+          "cniVersion": "0.3.1",
+          "supportedVersions": [ "0.3.1" ]
         }`))
 		})
 	})
@@ -604,6 +605,7 @@ var _ = Describe("Silk CNI Acceptance", func() {
 
 			expectedCNIStdout := fmt.Sprintf(`
 			{
+				"cniVersion": "0.3.1",
 				"interfaces": [
 						{
 								"name": "%s",
@@ -649,7 +651,7 @@ FLANNEL_IPMASQ=false  # we'll ignore this field
 
 func cniConfig(dataDir, datastore string, daemonPort int) string {
 	return fmt.Sprintf(`{
-	"cniVersion": "0.3.0",
+	"cniVersion": "0.3.1",
 	"name": "my-silk-network",
 	"type": "silk",
 	"dataDir": "%s",
@@ -660,7 +662,7 @@ func cniConfig(dataDir, datastore string, daemonPort int) string {
 
 func cniConfigWithSubnetEnv(dataDir, datastore, subnetFile string) string {
 	return fmt.Sprintf(`{
-	"cniVersion": "0.3.0",
+	"cniVersion": "0.3.1",
 	"name": "my-silk-network",
 	"type": "silk",
 	"dataDir": "%s",

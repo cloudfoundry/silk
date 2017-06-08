@@ -23,11 +23,11 @@ import (
 	"code.cloudfoundry.org/silk/lib/filelock"
 	"code.cloudfoundry.org/silk/lib/serial"
 	"github.com/containernetworking/cni/pkg/invoke"
-	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/containernetworking/plugins/pkg/ns"
 )
 
 type CNIPlugin struct {
@@ -89,7 +89,7 @@ func main() {
 		Store:  store,
 	}
 
-	skel.PluginMain(plugin.cmdAdd, plugin.cmdDel, version.PluginSupports("0.3.0"))
+	skel.PluginMain(plugin.cmdAdd, plugin.cmdDel, version.PluginSupports("0.3.1"))
 }
 
 type NetConf struct {

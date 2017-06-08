@@ -1,7 +1,7 @@
 package adapter
 
 import (
-	"github.com/containernetworking/cni/pkg/ip"
+	"github.com/containernetworking/plugins/pkg/ip"
 )
 
 type IPAdapter struct{}

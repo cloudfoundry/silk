@@ -4,7 +4,7 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/silk/cni/config"
-	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
 )

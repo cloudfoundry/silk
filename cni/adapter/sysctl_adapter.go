@@ -1,7 +1,7 @@
 package adapter
 
 import (
-	"github.com/containernetworking/cni/pkg/utils/sysctl"
+	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 )
 
 type SysctlAdapter struct{}

@@ -1,6 +1,6 @@
 package adapter
 
-import "github.com/containernetworking/cni/pkg/ns"
+import "github.com/containernetworking/plugins/pkg/ns"
 
 type NamespaceAdapter struct{}
 

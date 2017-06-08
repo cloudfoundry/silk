@@ -3,7 +3,7 @@ package config
 import (
 	"net"
 
-	"github.com/containernetworking/cni/pkg/utils/hwaddr"
+	"github.com/containernetworking/plugins/pkg/utils/hwaddr"
 )
 
 type HardwareAddressGenerator struct{}
