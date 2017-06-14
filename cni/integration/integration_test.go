@@ -256,6 +256,91 @@ var _ = Describe("Silk CNI Integration", func() {
 			mustSucceedInContainer("ping", "-c", "1", "169.254.0.1")
 		})
 
+		Context("when bandwidth limits are set", func() {
+			var rateInBits int
+			var burstInBits int
+			var packetInBytes int
+			var (
+				containerNSList []ns.NetNS
+			)
+			BeforeEach(func() {
+				rateInBytes := 50000
+				rateInBits = rateInBytes * 8
+				burstInBits = rateInBits * 2
+				packetInBytes = rateInBytes * 20
+
+				for i := 0; i < 2; i++ {
+					containerNS, err := ns.NewNS()
+					Expect(err).NotTo(HaveOccurred())
+					containerNSList = append(containerNSList, containerNS)
+				}
+
+				By("creating a container without bandwidth limits", func() {
+					cniEnv["CNI_NETNS"] = containerNSList[0].Path()
+					sess := startCommandInHost("ADD", cniStdin)
+					Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+				})
+
+				By("creating a container with bandwidth limits", func() {
+					cniStdin := cniConfigWithExtras(dataDir, datastorePath, daemonPort, map[string]interface{}{
+						"bandwidthLimits": map[string]interface{}{
+							"rate":  rateInBits,
+							"burst": burstInBits,
+						},
+					})
+					cniEnv["CNI_NETNS"] = containerNSList[1].Path()
+					sess := startCommandInHost("ADD", cniStdin)
+					Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+				})
+			})
+
+			AfterEach(func() {
+				for _, containerNS := range containerNSList {
+					containerNS.Close()
+				}
+			})
+
+			Measure("limits ingress bandwidth to the container", func(b Benchmarker) {
+				mustStart("ip", "netns", "exec", filepath.Base(containerNSList[0].Path()),
+					"bash", "-c", "while true; do nc -l -p 9000 > /dev/null; done")
+
+				mustStart("ip", "netns", "exec", filepath.Base(containerNSList[1].Path()),
+					"bash", "-c", "while true; do nc -l -p 9000 > /dev/null; done")
+
+				Expect(mustSucceedInFakeHost("tc", "qdisc", "list")).ToNot(ContainSubstring(
+					"qdisc tbf 1: dev s-010255030001 root"))
+
+				Expect(mustSucceedInFakeHost("tc", "qdisc", "list")).To(ContainSubstring(
+					"qdisc tbf 1: dev s-010255030002 root refcnt 2 rate 400Kbit burst 800000b limit 5000b"))
+
+				runtimeWithoutLimit := b.Time("without limits", func() {
+					mustSucceedInFakeHost("bash", "-c", fmt.Sprintf("head -c %d /dev/urandom | nc -w 1 10.255.30.1 9000", packetInBytes))
+				})
+
+				runtimeWithLimit := b.Time("with limits", func() {
+					mustSucceedInFakeHost("bash", "-c", fmt.Sprintf("head -c %d /dev/urandom | nc -w 1 10.255.30.2 9000", packetInBytes))
+				})
+
+				Expect(runtimeWithLimit).To(BeNumerically(">", runtimeWithoutLimit+2*time.Second))
+			}, 1)
+
+			It("deletes the qdisc tbf upon container deletion", func() {
+				cniEnv["CNI_NETNS"] = containerNSList[1].Path()
+				sess := startCommandInHost("DEL", cniStdin)
+				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+				Expect(mustSucceedInFakeHost("tc", "qdisc", "list")).NotTo(ContainSubstring("s-010255030002"))
+
+			})
+
+			PIt("limits egress bandwidth from the container", func() {
+				startTime := time.Now()
+				mustSucceedInContainer("ping", "-c", "1", "-s", "1000", "169.254.0.1")
+				Expect(time.Now()).To(BeTemporally(">", startTime.Add(time.Second)))
+			})
+
+		})
+
 		It("turns off ARP for veth devices", func() {
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 
@@ -649,15 +734,24 @@ FLANNEL_IPMASQ=false  # we'll ignore this field
 	return tempFile.Name()
 }
 
+func cniConfigWithExtras(dataDir, datastore string, daemonPort int, extras map[string]interface{}) string {
+	conf := map[string]interface{}{
+		"cniVersion": "0.3.1",
+		"name":       "my-silk-network",
+		"type":       "silk",
+		"dataDir":    dataDir,
+		"daemonPort": daemonPort,
+		"datastore":  datastore,
+	}
+	for k, v := range extras {
+		conf[k] = v
+	}
+	confBytes, _ := json.Marshal(conf)
+	return string(confBytes)
+}
+
 func cniConfig(dataDir, datastore string, daemonPort int) string {
-	return fmt.Sprintf(`{
-	"cniVersion": "0.3.1",
-	"name": "my-silk-network",
-	"type": "silk",
-	"dataDir": "%s",
-	"daemonPort": %d,
-	"datastore": "%s"
-}`, dataDir, daemonPort, datastore)
+	return cniConfigWithExtras(dataDir, datastore, daemonPort, nil)
 }
 
 func cniConfigWithSubnetEnv(dataDir, datastore, subnetFile string) string {
@@ -765,10 +859,15 @@ func cniResultForCurrentVersion(output []byte) *current.Result {
 	return result
 }
 
-func mustSucceed(binary string, args ...string) string {
+func mustStart(binary string, args ...string) *gexec.Session {
 	cmd := exec.Command(binary, args...)
 	sess, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).NotTo(HaveOccurred())
+	return sess
+}
+
+func mustSucceed(binary string, args ...string) string {
+	sess := mustStart(binary, args...)
 	Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 	return string(sess.Out.Contents())
 }
@@ -778,6 +877,12 @@ func mustFailWith(expectedErrorSubstring string, binary string, args ...string) 
 	allOutput, err := cmd.CombinedOutput()
 	Expect(err).To(HaveOccurred())
 	Expect(allOutput).To(ContainSubstring(expectedErrorSubstring))
+}
+
+func mustStartInContainer(binary string, args ...string) *gexec.Session {
+	cmdArgs := []string{"netns", "exec", containerNSName, binary}
+	cmdArgs = append(cmdArgs, args...)
+	return mustStart("ip", cmdArgs...)
 }
 
 func mustSucceedInContainer(binary string, args ...string) string {

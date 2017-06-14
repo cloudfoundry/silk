@@ -99,3 +99,7 @@ func (*NetlinkAdapter) RouteList(link netlink.Link, family int) ([]netlink.Route
 func (*NetlinkAdapter) RouteDel(route *netlink.Route) error {
 	return netlink.RouteDel(route)
 }
+
+func (*NetlinkAdapter) QdiscAdd(qdisc netlink.Qdisc) error {
+	return netlink.QdiscAdd(qdisc)
+}

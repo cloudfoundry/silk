@@ -3,9 +3,9 @@ package config
 import (
 	"net"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
+	"github.com/containernetworking/plugins/pkg/ns"
 )
 
 //go:generate counterfeiter -o fakes/netNS.go --fake-name NetNS . netNS

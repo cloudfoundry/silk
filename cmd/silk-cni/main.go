@@ -31,14 +31,15 @@ import (
 )
 
 type CNIPlugin struct {
-	HostNSPath      string
-	HostNS          ns.NetNS
-	ConfigCreator   *config.ConfigCreator
-	VethPairCreator *lib.VethPairCreator
-	Host            *lib.Host
-	Container       *lib.Container
-	Store           *datastore.Store
-	Logger          lager.Logger
+	HostNSPath        string
+	HostNS            ns.NetNS
+	ConfigCreator     *config.ConfigCreator
+	VethPairCreator   *lib.VethPairCreator
+	Host              *lib.Host
+	Container         *lib.Container
+	TokenBucketFilter *lib.TokenBucketFilter
+	Store             *datastore.Store
+	Logger            lager.Logger
 }
 
 func main() {
@@ -85,6 +86,9 @@ func main() {
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
 		},
+		TokenBucketFilter: &lib.TokenBucketFilter{
+			NetlinkAdapter: netlinkAdapter,
+		},
 		Logger: logger,
 		Store:  store,
 	}
@@ -94,11 +98,17 @@ func main() {
 
 type NetConf struct {
 	types.NetConf
-	DataDir    string `json:"dataDir"`
-	SubnetFile string `json:"subnetFile"`
-	MTU        int    `json:"mtu" validate:"min=0"`
-	Datastore  string `json:"datastore"`
-	DaemonPort int    `json:"daemonPort"`
+	DataDir         string          `json:"dataDir"`
+	SubnetFile      string          `json:"subnetFile"`
+	MTU             int             `json:"mtu" validate:"min=0"`
+	Datastore       string          `json:"datastore"`
+	DaemonPort      int             `json:"daemonPort"`
+	BandwidthLimits BandwidthLimits `json:"bandwidthLimits"`
+}
+
+type BandwidthLimits struct {
+	Rate  int `json:"rate"`
+	Burst int `json:"burst"`
 }
 
 type HostLocalIPAM struct {
@@ -182,6 +192,13 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 	err = p.Host.Setup(cfg)
 	if err != nil {
 		return typedError("set up host", err)
+	}
+
+	if netConf.BandwidthLimits.Rate > 0 && netConf.BandwidthLimits.Burst > 0 {
+		err = p.TokenBucketFilter.Setup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
+		if err != nil {
+			return typedError("set up tbf", err) // not tested
+		}
 	}
 
 	err = p.Container.Setup(cfg)
