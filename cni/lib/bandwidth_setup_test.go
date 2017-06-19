@@ -11,13 +11,11 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-var _ = Describe("TokenBucketFilter", func() {
-	// TODO rename this from TokenBucketFilter. maybe make two different structs for outbound and inbound
-
+var _ = Describe("Bandwidth", func() {
 	var (
 		cfg                *config.Config
 		fakeNetlinkAdapter *fakes.NetlinkAdapter
-		tbf                TokenBucketFilter
+		bandwidth          Bandwidth
 		fakeHostDevice     netlink.Link
 		fakeIFBDevice      netlink.Link
 	)
@@ -44,7 +42,7 @@ var _ = Describe("TokenBucketFilter", func() {
 			}
 			return &netlink.Bridge{}, errors.New("invalid")
 		}
-		tbf = TokenBucketFilter{
+		bandwidth = Bandwidth{
 			NetlinkAdapter: fakeNetlinkAdapter,
 		}
 		cfg = &config.Config{}
@@ -52,9 +50,9 @@ var _ = Describe("TokenBucketFilter", func() {
 		cfg.IFB.DeviceName = "ifb-device"
 	})
 
-	Describe("Setup", func() {
+	Describe("InboundSetup", func() {
 		It("creates a qdisc tbf", func() {
-			Expect(tbf.Setup(1400, 1400, cfg)).To(Succeed())
+			Expect(bandwidth.InboundSetup(1400, 1400, cfg)).To(Succeed())
 
 			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(1))
 			Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal("host-device"))
@@ -78,7 +76,7 @@ var _ = Describe("TokenBucketFilter", func() {
 				fakeNetlinkAdapter.LinkByNameReturns(nil, errors.New("banana"))
 			})
 			It("returns a sensible error", func() {
-				err := tbf.Setup(1400, 1400, cfg)
+				err := bandwidth.InboundSetup(1400, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("get host device: banana"))
@@ -90,7 +88,7 @@ var _ = Describe("TokenBucketFilter", func() {
 				fakeNetlinkAdapter.QdiscAddReturns(errors.New("banana"))
 			})
 			It("returns a sensible error", func() {
-				err := tbf.Setup(1400, 1400, cfg)
+				err := bandwidth.InboundSetup(1400, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("create qdisc: banana"))
@@ -99,12 +97,12 @@ var _ = Describe("TokenBucketFilter", func() {
 
 		Context("when the burst is invalid", func() {
 			BeforeEach(func() {
-				tbf = TokenBucketFilter{
+				bandwidth = Bandwidth{
 					NetlinkAdapter: fakeNetlinkAdapter,
 				}
 			})
 			It("returns a sensible error", func() {
-				err := tbf.Setup(1400, 0, cfg)
+				err := bandwidth.InboundSetup(1400, 0, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("invalid burst: 0"))
@@ -113,12 +111,12 @@ var _ = Describe("TokenBucketFilter", func() {
 
 		Context("when the rate is invalid", func() {
 			BeforeEach(func() {
-				tbf = TokenBucketFilter{
+				bandwidth = Bandwidth{
 					NetlinkAdapter: fakeNetlinkAdapter,
 				}
 			})
 			It("returns a sensible error", func() {
-				err := tbf.Setup(0, 1400, cfg)
+				err := bandwidth.InboundSetup(0, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("invalid rate: 0"))
@@ -128,7 +126,7 @@ var _ = Describe("TokenBucketFilter", func() {
 
 	Describe("OutboundSetup", func() {
 		It("attaches the ifb device to the host interface then creates a qdisc tbf", func() {
-			Expect(tbf.OutboundSetup(1400, 1400, cfg)).To(Succeed())
+			Expect(bandwidth.OutboundSetup(1400, 1400, cfg)).To(Succeed())
 
 			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(2))
 			Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal("ifb-device"))
@@ -186,7 +184,7 @@ var _ = Describe("TokenBucketFilter", func() {
 				}
 			})
 			It("returns a sensible error", func() {
-				err := tbf.OutboundSetup(1400, 1400, cfg)
+				err := bandwidth.OutboundSetup(1400, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("get ifb device: banana"))
@@ -205,7 +203,7 @@ var _ = Describe("TokenBucketFilter", func() {
 				}
 			})
 			It("returns a sensible error", func() {
-				err := tbf.OutboundSetup(1400, 1400, cfg)
+				err := bandwidth.OutboundSetup(1400, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("get host device: banana"))
@@ -222,7 +220,7 @@ var _ = Describe("TokenBucketFilter", func() {
 				}
 			})
 			It("returns a sensible error", func() {
-				err := tbf.OutboundSetup(1400, 1400, cfg)
+				err := bandwidth.OutboundSetup(1400, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("create ingress qdisc: banana"))
@@ -235,7 +233,7 @@ var _ = Describe("TokenBucketFilter", func() {
 			})
 
 			It("returns a sensible error", func() {
-				err := tbf.OutboundSetup(1400, 1400, cfg)
+				err := bandwidth.OutboundSetup(1400, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("add filter: filter-fail"))
@@ -244,7 +242,7 @@ var _ = Describe("TokenBucketFilter", func() {
 
 		Context("when the burst is invalid", func() {
 			It("returns a sensible error", func() {
-				err := tbf.OutboundSetup(1400, 0, cfg)
+				err := bandwidth.OutboundSetup(1400, 0, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("create ifb qdisc: invalid burst: 0"))
@@ -253,7 +251,7 @@ var _ = Describe("TokenBucketFilter", func() {
 
 		Context("when the rate is invalid", func() {
 			It("returns a sensible error", func() {
-				err := tbf.OutboundSetup(0, 1400, cfg)
+				err := bandwidth.OutboundSetup(0, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("create ifb qdisc: invalid rate: 0"))
@@ -270,7 +268,7 @@ var _ = Describe("TokenBucketFilter", func() {
 				}
 			})
 			It("returns a sensible error", func() {
-				err := tbf.OutboundSetup(1400, 1400, cfg)
+				err := bandwidth.OutboundSetup(1400, 1400, cfg)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("create ifb qdisc: create qdisc: banana"))

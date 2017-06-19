@@ -38,8 +38,7 @@ type CNIPlugin struct {
 	Host            *lib.Host
 	IFBCreator      *lib.IFBCreator
 	Container       *lib.Container
-	InboundTBF      *lib.TokenBucketFilter
-	OutboundTBF     *lib.TokenBucketFilter
+	Bandwidth       *lib.Bandwidth
 	Store           *datastore.Store
 	Logger          lager.Logger
 }
@@ -92,10 +91,7 @@ func main() {
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
 		},
-		InboundTBF: &lib.TokenBucketFilter{
-			NetlinkAdapter: netlinkAdapter,
-		},
-		OutboundTBF: &lib.TokenBucketFilter{
+		Bandwidth: &lib.Bandwidth{
 			NetlinkAdapter: netlinkAdapter,
 		},
 		Logger: logger,
@@ -208,13 +204,13 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 		if err != nil {
 			return typedError("set up ifb", err) // not tested
 		}
-		err = p.InboundTBF.Setup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
+		err = p.Bandwidth.InboundSetup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
 		if err != nil {
-			return typedError("set up tbf", err) // not tested
+			return typedError("set up inbound bandwidth limiting", err) // not tested
 		}
-		err = p.OutboundTBF.OutboundSetup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
+		err = p.Bandwidth.OutboundSetup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
 		if err != nil {
-			return typedError("set up outbound tbf", err) // not tested
+			return typedError("set up outbound bandwidth limiting", err) // not tested
 		}
 	}
 

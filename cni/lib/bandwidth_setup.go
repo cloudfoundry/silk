@@ -9,13 +9,13 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-type TokenBucketFilter struct {
+type Bandwidth struct {
 	NetlinkAdapter netlinkAdapter
 }
 
-func (tbf *TokenBucketFilter) setup(rateInBits, burstInBits, linkIndex int) error {
+func (b *Bandwidth) createTBF(rateInBits, burstInBits, linkIndex int) error {
 	// Equivalent to
-	// tc qdisc add dev cfg.Host.DeviceName root tbf
+	// tc qdisc add dev link root tbf
 	//		rate netConf.BandwidthLimits.Rate
 	//		burst netConf.BandwidthLimits.Burst
 	if rateInBits <= 0 {
@@ -38,27 +38,27 @@ func (tbf *TokenBucketFilter) setup(rateInBits, burstInBits, linkIndex int) erro
 		Rate:   uint64(rateInBytes),
 		Buffer: uint32(bufferInBytes),
 	}
-	err := tbf.NetlinkAdapter.QdiscAdd(qdisc)
+	err := b.NetlinkAdapter.QdiscAdd(qdisc)
 	if err != nil {
 		return fmt.Errorf("create qdisc: %s", err)
 	}
 	return nil
 }
 
-func (tbf *TokenBucketFilter) Setup(rateInBits, burstInBits int, cfg *config.Config) error {
-	hostDevice, err := tbf.NetlinkAdapter.LinkByName(cfg.Host.DeviceName)
+func (b *Bandwidth) InboundSetup(rateInBits, burstInBits int, cfg *config.Config) error {
+	hostDevice, err := b.NetlinkAdapter.LinkByName(cfg.Host.DeviceName)
 	if err != nil {
 		return fmt.Errorf("get host device: %s", err)
 	}
-	return tbf.setup(rateInBits, burstInBits, hostDevice.Attrs().Index)
+	return b.createTBF(rateInBits, burstInBits, hostDevice.Attrs().Index)
 }
 
-func (tbf *TokenBucketFilter) OutboundSetup(rateInBits, burstInBits int, cfg *config.Config) error {
-	ifbDevice, err := tbf.NetlinkAdapter.LinkByName(cfg.IFB.DeviceName)
+func (b *Bandwidth) OutboundSetup(rateInBits, burstInBits int, cfg *config.Config) error {
+	ifbDevice, err := b.NetlinkAdapter.LinkByName(cfg.IFB.DeviceName)
 	if err != nil {
 		return fmt.Errorf("get ifb device: %s", err)
 	}
-	hostDevice, err := tbf.NetlinkAdapter.LinkByName(cfg.Host.DeviceName)
+	hostDevice, err := b.NetlinkAdapter.LinkByName(cfg.Host.DeviceName)
 	if err != nil {
 		return fmt.Errorf("get host device: %s", err)
 	}
@@ -72,7 +72,7 @@ func (tbf *TokenBucketFilter) OutboundSetup(rateInBits, burstInBits int, cfg *co
 		},
 	}
 
-	err = tbf.NetlinkAdapter.QdiscAdd(ingress)
+	err = b.NetlinkAdapter.QdiscAdd(ingress)
 	if err != nil {
 		return fmt.Errorf("create ingress qdisc: %s", err)
 	}
@@ -95,13 +95,13 @@ func (tbf *TokenBucketFilter) OutboundSetup(rateInBits, burstInBits int, cfg *co
 			},
 		},
 	}
-	err = tbf.NetlinkAdapter.FilterAdd(filter)
+	err = b.NetlinkAdapter.FilterAdd(filter)
 	if err != nil {
 		return fmt.Errorf("add filter: %s", err)
 	}
 
 	// throttle traffic on ifb device
-	err = tbf.setup(rateInBits, burstInBits, ifbDevice.Attrs().Index)
+	err = b.createTBF(rateInBits, burstInBits, ifbDevice.Attrs().Index)
 	if err != nil {
 		return fmt.Errorf("create ifb qdisc: %s", err)
 	}
