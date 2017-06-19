@@ -32,6 +32,11 @@ type Config struct {
 		Namespace  netNS
 		Address    DualAddress
 	}
+	IFB struct {
+		DeviceName string
+		Namespace  netNS
+		MTU        int
+	}
 }
 
 func (c *Config) AsCNIResult() *current.Result {

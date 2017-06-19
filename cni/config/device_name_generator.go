@@ -23,3 +23,7 @@ func (g *DeviceNameGenerator) GenerateForHost(containerIP net.IP) (string, error
 func (g *DeviceNameGenerator) GenerateTemporaryForContainer(containerIP net.IP) (string, error) {
 	return g.generate("c", containerIP)
 }
+
+func (g *DeviceNameGenerator) GenerateForHostIFB(containerIP net.IP) (string, error) {
+	return g.generate("i", containerIP)
+}

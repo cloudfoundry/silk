@@ -44,4 +44,6 @@ bootDB $DB
 
 ginkgo -r -p --race -randomizeAllSpecs -randomizeSuites \
   -ldflags="-extldflags=-Wl,--allow-multiple-definition" \
-  ${@}
+  cni/integration
+  
+  # ${@}

@@ -47,6 +47,8 @@ type netlinkAdapter interface {
 	LinkSetNsFd(netlink.Link, int) error
 	RouteAdd(route *netlink.Route) error
 	QdiscAdd(qdisc netlink.Qdisc) error
+	FilterAdd(netlink.Filter) error
+	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 }
 
 //go:generate counterfeiter -o fakes/netNS.go --fake-name NetNS . netNS
@@ -61,4 +63,9 @@ func NetNsDoStub(f func(h ns.NetNS) error) error {
 //go:generate counterfeiter -o fakes/sysctlAdapter.go --fake-name SysctlAdapter . sysctlAdapter
 type sysctlAdapter interface {
 	Sysctl(name string, params ...string) (string, error)
+}
+
+//go:generate counterfeiter -o fakes/deviceNameGenerator.go --fake-name DeviceNameGenerator . deviceNameGenerator
+type deviceNameGenerator interface {
+	GenerateForHostIFB(containerIP net.IP) (string, error)
 }

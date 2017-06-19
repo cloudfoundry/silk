@@ -31,15 +31,17 @@ import (
 )
 
 type CNIPlugin struct {
-	HostNSPath        string
-	HostNS            ns.NetNS
-	ConfigCreator     *config.ConfigCreator
-	VethPairCreator   *lib.VethPairCreator
-	Host              *lib.Host
-	Container         *lib.Container
-	TokenBucketFilter *lib.TokenBucketFilter
-	Store             *datastore.Store
-	Logger            lager.Logger
+	HostNSPath      string
+	HostNS          ns.NetNS
+	ConfigCreator   *config.ConfigCreator
+	VethPairCreator *lib.VethPairCreator
+	Host            *lib.Host
+	IFBCreator      *lib.IFBCreator
+	Container       *lib.Container
+	InboundTBF      *lib.TokenBucketFilter
+	OutboundTBF     *lib.TokenBucketFilter
+	Store           *datastore.Store
+	Logger          lager.Logger
 }
 
 func main() {
@@ -82,11 +84,18 @@ func main() {
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
 		},
+		IFBCreator: &lib.IFBCreator{
+			NetlinkAdapter:      netlinkAdapter,
+			DeviceNameGenerator: &config.DeviceNameGenerator{},
+		},
 		Container: &lib.Container{
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
 		},
-		TokenBucketFilter: &lib.TokenBucketFilter{
+		InboundTBF: &lib.TokenBucketFilter{
+			NetlinkAdapter: netlinkAdapter,
+		},
+		OutboundTBF: &lib.TokenBucketFilter{
 			NetlinkAdapter: netlinkAdapter,
 		},
 		Logger: logger,
@@ -195,9 +204,17 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	if netConf.BandwidthLimits.Rate > 0 && netConf.BandwidthLimits.Burst > 0 {
-		err = p.TokenBucketFilter.Setup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
+		err = p.IFBCreator.Create(cfg)
+		if err != nil {
+			return typedError("set up ifb", err) // not tested
+		}
+		err = p.InboundTBF.Setup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
 		if err != nil {
 			return typedError("set up tbf", err) // not tested
+		}
+		err = p.OutboundTBF.OutboundSetup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
+		if err != nil {
+			return typedError("set up outbound tbf", err) // not tested
 		}
 	}
 
@@ -241,6 +258,12 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		p.Logger.Error("open-netns", err)
 		return nil // can't do teardown if no netns
+	}
+
+	err = p.IFBCreator.Teardown(containerNS, args.IfName)
+	if err != nil {
+		p.Logger.Error("delete-ifb", err)
+		// continue, keep trying to cleanup
 	}
 
 	err = p.Container.Teardown(containerNS, args.IfName)

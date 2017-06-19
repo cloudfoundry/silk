@@ -103,3 +103,7 @@ func (*NetlinkAdapter) RouteDel(route *netlink.Route) error {
 func (*NetlinkAdapter) QdiscAdd(qdisc netlink.Qdisc) error {
 	return netlink.QdiscAdd(qdisc)
 }
+
+func (*NetlinkAdapter) FilterAdd(filter netlink.Filter) error {
+	return netlink.FilterAdd(filter)
+}

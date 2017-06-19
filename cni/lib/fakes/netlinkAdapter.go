@@ -162,6 +162,31 @@ type NetlinkAdapter struct {
 	qdiscAddReturnsOnCall map[int]struct {
 		result1 error
 	}
+	FilterAddStub        func(netlink.Filter) error
+	filterAddMutex       sync.RWMutex
+	filterAddArgsForCall []struct {
+		arg1 netlink.Filter
+	}
+	filterAddReturns struct {
+		result1 error
+	}
+	filterAddReturnsOnCall map[int]struct {
+		result1 error
+	}
+	AddrListStub        func(link netlink.Link, family int) ([]netlink.Addr, error)
+	addrListMutex       sync.RWMutex
+	addrListArgsForCall []struct {
+		link   netlink.Link
+		family int
+	}
+	addrListReturns struct {
+		result1 []netlink.Addr
+		result2 error
+	}
+	addrListReturnsOnCall map[int]struct {
+		result1 []netlink.Addr
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -802,6 +827,106 @@ func (fake *NetlinkAdapter) QdiscAddReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *NetlinkAdapter) FilterAdd(arg1 netlink.Filter) error {
+	fake.filterAddMutex.Lock()
+	ret, specificReturn := fake.filterAddReturnsOnCall[len(fake.filterAddArgsForCall)]
+	fake.filterAddArgsForCall = append(fake.filterAddArgsForCall, struct {
+		arg1 netlink.Filter
+	}{arg1})
+	fake.recordInvocation("FilterAdd", []interface{}{arg1})
+	fake.filterAddMutex.Unlock()
+	if fake.FilterAddStub != nil {
+		return fake.FilterAddStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.filterAddReturns.result1
+}
+
+func (fake *NetlinkAdapter) FilterAddCallCount() int {
+	fake.filterAddMutex.RLock()
+	defer fake.filterAddMutex.RUnlock()
+	return len(fake.filterAddArgsForCall)
+}
+
+func (fake *NetlinkAdapter) FilterAddArgsForCall(i int) netlink.Filter {
+	fake.filterAddMutex.RLock()
+	defer fake.filterAddMutex.RUnlock()
+	return fake.filterAddArgsForCall[i].arg1
+}
+
+func (fake *NetlinkAdapter) FilterAddReturns(result1 error) {
+	fake.FilterAddStub = nil
+	fake.filterAddReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) FilterAddReturnsOnCall(i int, result1 error) {
+	fake.FilterAddStub = nil
+	if fake.filterAddReturnsOnCall == nil {
+		fake.filterAddReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.filterAddReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	fake.addrListMutex.Lock()
+	ret, specificReturn := fake.addrListReturnsOnCall[len(fake.addrListArgsForCall)]
+	fake.addrListArgsForCall = append(fake.addrListArgsForCall, struct {
+		link   netlink.Link
+		family int
+	}{link, family})
+	fake.recordInvocation("AddrList", []interface{}{link, family})
+	fake.addrListMutex.Unlock()
+	if fake.AddrListStub != nil {
+		return fake.AddrListStub(link, family)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.addrListReturns.result1, fake.addrListReturns.result2
+}
+
+func (fake *NetlinkAdapter) AddrListCallCount() int {
+	fake.addrListMutex.RLock()
+	defer fake.addrListMutex.RUnlock()
+	return len(fake.addrListArgsForCall)
+}
+
+func (fake *NetlinkAdapter) AddrListArgsForCall(i int) (netlink.Link, int) {
+	fake.addrListMutex.RLock()
+	defer fake.addrListMutex.RUnlock()
+	return fake.addrListArgsForCall[i].link, fake.addrListArgsForCall[i].family
+}
+
+func (fake *NetlinkAdapter) AddrListReturns(result1 []netlink.Addr, result2 error) {
+	fake.AddrListStub = nil
+	fake.addrListReturns = struct {
+		result1 []netlink.Addr
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NetlinkAdapter) AddrListReturnsOnCall(i int, result1 []netlink.Addr, result2 error) {
+	fake.AddrListStub = nil
+	if fake.addrListReturnsOnCall == nil {
+		fake.addrListReturnsOnCall = make(map[int]struct {
+			result1 []netlink.Addr
+			result2 error
+		})
+	}
+	fake.addrListReturnsOnCall[i] = struct {
+		result1 []netlink.Addr
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -831,6 +956,10 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.routeAddMutex.RUnlock()
 	fake.qdiscAddMutex.RLock()
 	defer fake.qdiscAddMutex.RUnlock()
+	fake.filterAddMutex.RLock()
+	defer fake.filterAddMutex.RUnlock()
+	fake.addrListMutex.RLock()
+	defer fake.addrListMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

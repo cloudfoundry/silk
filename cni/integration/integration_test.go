@@ -324,20 +324,43 @@ var _ = Describe("Silk CNI Integration", func() {
 				Expect(runtimeWithLimit).To(BeNumerically(">", runtimeWithoutLimit+2*time.Second))
 			}, 1)
 
-			It("deletes the qdisc tbf upon container deletion", func() {
+			It("deletes the qdisc tbf, ingress tbf, and ifb upon container deletion", func() {
 				cniEnv["CNI_NETNS"] = containerNSList[1].Path()
 				sess := startCommandInHost("DEL", cniStdin)
 				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 				Expect(mustSucceedInFakeHost("tc", "qdisc", "list")).NotTo(ContainSubstring("s-010255030002"))
-
+				Expect(mustSucceedInFakeHost("ip", "link", "list")).NotTo(ContainSubstring("i-010255030002"))
 			})
 
-			PIt("limits egress bandwidth from the container", func() {
-				startTime := time.Now()
-				mustSucceedInContainer("ping", "-c", "1", "-s", "1000", "169.254.0.1")
-				Expect(time.Now()).To(BeTemporally(">", startTime.Add(time.Second)))
-			})
+			Measure("limits egress bandwidth out of the container", func(b Benchmarker) {
+
+				mustStartInFakeHost("bash", "-c", "while true; do nc -l -p 9000 > /dev/null; done")
+
+				By("creating an IFB device for the bandwidth-limited container", func() {
+					ifbDeviceOutput := mustSucceedInFakeHost("ip", "link", "list", "i-010255030002")
+					Expect(ifbDeviceOutput).To(MatchRegexp(".*UP.*mtu.*1472.*"))
+				})
+
+				By("creating an ingress qdisc and tbf qdisc for the bandwidth-limited container", func() {
+					qdiscOutput := mustSucceedInFakeHost("tc", "qdisc", "show")
+					Expect(qdiscOutput).To(MatchRegexp("qdisc.*: dev s-010255030002.*"))
+					Expect(qdiscOutput).To(ContainSubstring("qdisc ingress ffff: dev s-010255030002 parent ffff:fff1 ----------------"))
+					Expect(qdiscOutput).To(ContainSubstring("qdisc tbf 1: dev i-010255030002 root refcnt 2 rate 400Kbit burst 800000b limit 5000b"))
+				})
+
+				runtimeWithoutLimit := b.Time("without limits", func() {
+					mustSucceed("ip", "netns", "exec", filepath.Base(containerNSList[0].Path()),
+						"bash", "-c", fmt.Sprintf("head -c %d /dev/urandom | nc -w 1 169.254.0.1 9000", packetInBytes))
+				})
+
+				runtimeWithLimit := b.Time("with limits", func() {
+					mustSucceed("ip", "netns", "exec", filepath.Base(containerNSList[1].Path()),
+						"bash", "-c", fmt.Sprintf("head -c %d /dev/urandom | nc -w 1 169.254.0.1 9000", packetInBytes))
+				})
+
+				Expect(runtimeWithLimit).To(BeNumerically(">", runtimeWithoutLimit+2*time.Second))
+			}, 1)
 
 		})
 
@@ -889,6 +912,12 @@ func mustSucceedInContainer(binary string, args ...string) string {
 	cmdArgs := []string{"netns", "exec", containerNSName, binary}
 	cmdArgs = append(cmdArgs, args...)
 	return mustSucceed("ip", cmdArgs...)
+}
+
+func mustStartInFakeHost(binary string, args ...string) *gexec.Session {
+	cmdArgs := []string{"netns", "exec", fakeHostNSName, binary}
+	cmdArgs = append(cmdArgs, args...)
+	return mustStart("ip", cmdArgs...)
 }
 
 func mustSucceedInFakeHost(binary string, args ...string) string {
