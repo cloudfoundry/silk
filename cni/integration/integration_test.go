@@ -263,6 +263,18 @@ var _ = Describe("Silk CNI Integration", func() {
 			var (
 				containerNSList []ns.NetNS
 			)
+
+			BeforeEach(func() {
+				cmd := exec.Command("lsmod")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+
+				session.Wait(5 * time.Second)
+				if !strings.Contains(string(session.Out.Contents()), "ifb") {
+					Skip("Docker for Mac does not contain IFB kernel module")
+				}
+			})
+
 			BeforeEach(func() {
 				rateInBytes := 50000
 				rateInBits = rateInBytes * 8
