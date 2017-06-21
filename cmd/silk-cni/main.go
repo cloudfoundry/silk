@@ -254,7 +254,15 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 		return nil // can't do teardown if no netns
 	}
 
-	err = p.IFBCreator.Teardown(containerNS, args.IfName)
+	containers, err := p.Store.ReadAll(netConf.Datastore)
+	if err != nil {
+		p.Logger.Error("find container metadata: %s", err)
+	}
+
+	handle := filepath.Base(args.Netns)
+	container := containers[handle]
+
+	err = p.IFBCreator.Teardown(container.IP)
 	if err != nil {
 		p.Logger.Error("delete-ifb", err)
 		// continue, keep trying to cleanup
@@ -265,7 +273,7 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 		return typedError("teardown failed", err)
 	}
 
-	_, err = p.Store.Delete(netConf.Datastore, filepath.Base(args.Netns))
+	_, err = p.Store.Delete(netConf.Datastore, handle)
 	if err != nil {
 		p.Logger.Error("write-container-metadata", err)
 	}

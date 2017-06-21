@@ -5,8 +5,6 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/silk/cni/config"
-	"github.com/containernetworking/plugins/pkg/ns"
-	multierror "github.com/hashicorp/go-multierror"
 	"github.com/vishvananda/netlink"
 )
 
@@ -31,46 +29,20 @@ func (ifbCreator *IFBCreator) Create(cfg *config.Config) error {
 	return nil
 }
 
-func (ifb *IFBCreator) Teardown(namespace ns.NetNS, deviceName string) error {
-	var addrs []netlink.Addr
-	err := namespace.Do(func(_ ns.NetNS) error {
-		var err error
-		var link netlink.Link
-		link, err = ifb.NetlinkAdapter.LinkByName(deviceName)
-		if err != nil {
-			return fmt.Errorf("find link: %s", err)
-		}
+func (ifb *IFBCreator) Teardown(ipAddr string) error {
+	ifbDeviceName, err := ifb.DeviceNameGenerator.GenerateForHostIFB(net.ParseIP(ipAddr))
+	if err != nil {
+		return fmt.Errorf("generate ifb device name: %s", err)
+	}
 
-		addrs, err = ifb.NetlinkAdapter.AddrList(link, netlink.FAMILY_V4)
-		if err != nil {
-			return fmt.Errorf("list addresses: %s", err)
-		}
-		return nil
+	err = ifb.NetlinkAdapter.LinkDel(&netlink.Ifb{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: ifbDeviceName,
+		},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("delete link: %s", err)
 	}
 
-	var ifbDeviceName string
-	var result *multierror.Error
-
-	for _, addr := range addrs {
-		ifbDeviceName, err = ifb.DeviceNameGenerator.GenerateForHostIFB(addr.IPNet.IP)
-
-		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("generate ifb device name: %s", err))
-			continue
-		}
-		err = ifb.NetlinkAdapter.LinkDel(&netlink.Ifb{
-			LinkAttrs: netlink.LinkAttrs{
-				Name: ifbDeviceName,
-			},
-		})
-
-		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("delete link: %s", err))
-		}
-	}
-
-	return result.ErrorOrNil()
+	return nil
 }
