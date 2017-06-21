@@ -165,20 +165,6 @@ var _ = Describe("errors", func() {
 	})
 
 	Describe("errors on DEL", func() {
-		Context("when the ipam plugin errors on del", func() {
-			BeforeEach(func() {
-				cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
-				fakeServer = startFakeDaemonInHost(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/33", "mtu": 1350}`)
-			})
-
-			It("exits with zero status but logs the error", func() {
-				session := startCommandInHost("DEL", cniStdin)
-				Eventually(session, cmdTimeout).Should(gexec.Exit(0))
-
-				Expect(string(session.Err.Contents())).To(ContainSubstring(`invalid CIDR address: 10.255.30.0/33`))
-			})
-		})
-
 		Context("when the network namespace doesn't exist", func() {
 			BeforeEach(func() {
 				cniEnv["CNI_NETNS"] = "/tmp/not/there"
@@ -197,41 +183,6 @@ var _ = Describe("errors", func() {
 				session := startCommandInHost("DEL", cniStdin)
 				Eventually(session, cmdTimeout).Should(gexec.Exit(0))
 				Expect(string(session.Err.Contents())).To(ContainSubstring(`"deviceName":"not-there","message":"Link not found"`))
-			})
-		})
-
-		Context("when the subnet file is missing", func() {
-			BeforeEach(func() {
-				cniStdin = cniConfigWithSubnetEnv(dataDir, datastorePath, "/path/does/not/exist")
-			})
-
-			It("exits with nonzero status and prints a CNI error result as JSON to stdout", func() {
-				session := startCommandInHost("DEL", cniStdin)
-				Eventually(session, cmdTimeout).Should(gexec.Exit(1))
-
-				Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
-				"msg": "discover network info",
-				"details": "get netinfo: open /path/does/not/exist: no such file or directory"
-			}`))
-			})
-		})
-
-		Context("when the subnet file is corrupt", func() {
-			BeforeEach(func() {
-				subnetEnvFile = writeSubnetEnvFile("bad-subnet", fullNetwork.String())
-				cniStdin = cniConfigWithSubnetEnv(dataDir, datastorePath, subnetEnvFile)
-			})
-
-			It("exits with nonzero status and prints a CNI error result as JSON to stdout", func() {
-				session := startCommandInHost("DEL", cniStdin)
-				Eventually(session, cmdTimeout).Should(gexec.Exit(1))
-
-				Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
-				"msg": "discover network info",
-				"details": "get netinfo: unable to parse flannel subnet file"
-			}`))
 			})
 		})
 

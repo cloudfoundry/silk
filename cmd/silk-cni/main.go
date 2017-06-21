@@ -235,13 +235,11 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 		return err // impossible, skel package asserts JSON is valid
 	}
 
-	networkInfo, err := getNetworkInfo(netConf)
-	if err != nil {
-		return typedError("discover network info", err)
-	}
-
 	generator := config.IPAMConfigGenerator{}
-	ipamConfig := generator.GenerateConfig(networkInfo.OverlaySubnet, netConf.Name, netConf.DataDir)
+	// use 0.0.0.0/0 for the IPAM subnet during delete so we don't need to discover the subnet.
+	// this way, silk-daemon does not need to be up during deletes, and cleanup that takes place
+	// on startup, after the subnet may have changed, will succeed.
+	ipamConfig := generator.GenerateConfig("0.0.0.0/0", netConf.Name, netConf.DataDir)
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	err = invoke.DelegateDel("host-local", ipamConfigBytes)

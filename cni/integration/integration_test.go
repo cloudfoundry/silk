@@ -185,6 +185,20 @@ var _ = Describe("Silk CNI Integration", func() {
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 		})
 
+		It("can be deleted when silk daemon is not running", func() {
+			sess := startCommandInHost("ADD", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			fakeServer.Interrupt()
+			Eventually(fakeServer, "5s").Should(gexec.Exit())
+
+			sess = startCommandInHost("DEL", cniStdin)
+			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+			By("checking that the ip reserved is freed")
+			Expect(filepath.Join(dataDir, "ipam/my-silk-network/10.255.30.1")).NotTo(BeAnExistingFile())
+		})
+
 		hostLinkFromResult := func(cniResult []byte) netlink.Link {
 			result := cniResultForCurrentVersion(cniResult)
 			Expect(result.Interfaces).To(HaveLen(2))
@@ -343,6 +357,21 @@ var _ = Describe("Silk CNI Integration", func() {
 
 				Expect(mustSucceedInFakeHost("tc", "qdisc", "list")).NotTo(ContainSubstring("s-010255030002"))
 				Expect(mustSucceedInFakeHost("ip", "link", "list")).NotTo(ContainSubstring("i-010255030002"))
+			})
+
+			Context("when silk daemon is not running", func() {
+				BeforeEach(func() {
+					fakeServer.Interrupt()
+					Eventually(fakeServer, "5s").Should(gexec.Exit())
+				})
+				It("cni del still cleans up properly", func() {
+					cniEnv["CNI_NETNS"] = containerNSList[1].Path()
+					sess := startCommandInHost("DEL", cniStdin)
+					Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
+
+					Expect(mustSucceedInFakeHost("tc", "qdisc", "list")).NotTo(ContainSubstring("s-010255030002"))
+					Expect(mustSucceedInFakeHost("ip", "link", "list")).NotTo(ContainSubstring("i-010255030002"))
+				})
 			})
 
 			Measure("limits egress bandwidth out of the container", func(b Benchmarker) {
