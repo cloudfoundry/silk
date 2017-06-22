@@ -49,6 +49,7 @@ type netlinkAdapter interface {
 	QdiscAdd(qdisc netlink.Qdisc) error
 	FilterAdd(netlink.Filter) error
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
+	TickInUsec() float64
 }
 
 //go:generate counterfeiter -o fakes/netNS.go --fake-name NetNS . netNS

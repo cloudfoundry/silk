@@ -187,6 +187,15 @@ type NetlinkAdapter struct {
 		result1 []netlink.Addr
 		result2 error
 	}
+	TickInUsecStub        func() float64
+	tickInUsecMutex       sync.RWMutex
+	tickInUsecArgsForCall []struct{}
+	tickInUsecReturns     struct {
+		result1 float64
+	}
+	tickInUsecReturnsOnCall map[int]struct {
+		result1 float64
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -927,6 +936,46 @@ func (fake *NetlinkAdapter) AddrListReturnsOnCall(i int, result1 []netlink.Addr,
 	}{result1, result2}
 }
 
+func (fake *NetlinkAdapter) TickInUsec() float64 {
+	fake.tickInUsecMutex.Lock()
+	ret, specificReturn := fake.tickInUsecReturnsOnCall[len(fake.tickInUsecArgsForCall)]
+	fake.tickInUsecArgsForCall = append(fake.tickInUsecArgsForCall, struct{}{})
+	fake.recordInvocation("TickInUsec", []interface{}{})
+	fake.tickInUsecMutex.Unlock()
+	if fake.TickInUsecStub != nil {
+		return fake.TickInUsecStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.tickInUsecReturns.result1
+}
+
+func (fake *NetlinkAdapter) TickInUsecCallCount() int {
+	fake.tickInUsecMutex.RLock()
+	defer fake.tickInUsecMutex.RUnlock()
+	return len(fake.tickInUsecArgsForCall)
+}
+
+func (fake *NetlinkAdapter) TickInUsecReturns(result1 float64) {
+	fake.TickInUsecStub = nil
+	fake.tickInUsecReturns = struct {
+		result1 float64
+	}{result1}
+}
+
+func (fake *NetlinkAdapter) TickInUsecReturnsOnCall(i int, result1 float64) {
+	fake.TickInUsecStub = nil
+	if fake.tickInUsecReturnsOnCall == nil {
+		fake.tickInUsecReturnsOnCall = make(map[int]struct {
+			result1 float64
+		})
+	}
+	fake.tickInUsecReturnsOnCall[i] = struct {
+		result1 float64
+	}{result1}
+}
+
 func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -960,6 +1009,8 @@ func (fake *NetlinkAdapter) Invocations() map[string][][]interface{} {
 	defer fake.filterAddMutex.RUnlock()
 	fake.addrListMutex.RLock()
 	defer fake.addrListMutex.RUnlock()
+	fake.tickInUsecMutex.RLock()
+	defer fake.tickInUsecMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -13,6 +13,8 @@ type Bandwidth struct {
 	NetlinkAdapter netlinkAdapter
 }
 
+const latencyInMillis = 25
+
 func (b *Bandwidth) createTBF(rateInBits, burstInBits, linkIndex int) error {
 	// Equivalent to
 	// tc qdisc add dev link root tbf
@@ -25,8 +27,9 @@ func (b *Bandwidth) createTBF(rateInBits, burstInBits, linkIndex int) error {
 		return fmt.Errorf("invalid burst: %d", burstInBits)
 	}
 	rateInBytes := rateInBits / 8
-	bufferInBytes := burstInBits * 1000000000 / rateInBits / 8
-	limitInBytes := rateInBytes / 10
+	bufferInBytes := b.buffer(uint64(rateInBytes), uint32(burstInBits))
+	latency := b.latencyInUsec(latencyInMillis)
+	limitInBytes := b.limit(uint64(rateInBytes), latency, uint32(bufferInBytes))
 
 	qdisc := &netlink.Tbf{
 		QdiscAttrs: netlink.QdiscAttrs{
@@ -106,4 +109,26 @@ func (b *Bandwidth) OutboundSetup(rateInBits, burstInBits int, cfg *config.Confi
 		return fmt.Errorf("create ifb qdisc: %s", err)
 	}
 	return nil
+}
+
+func (b *Bandwidth) tick2Time(tick uint32) uint32 {
+	return uint32(float64(tick) / float64(b.NetlinkAdapter.TickInUsec()))
+}
+
+func (b *Bandwidth) time2Tick(time uint32) uint32 {
+	return uint32(float64(time) * float64(b.NetlinkAdapter.TickInUsec()))
+}
+
+func (b *Bandwidth) buffer(rate uint64, burst uint32) uint32 {
+	// do reverse of netlink.burst calculation
+	return b.time2Tick(uint32(float64(burst) * float64(netlink.TIME_UNITS_PER_SEC) / float64(rate)))
+}
+
+func (b *Bandwidth) limit(rate uint64, latency float64, buffer uint32) uint32 {
+	// do reverse of netlink.latency calculation
+	return uint32(float64(rate) / float64(netlink.TIME_UNITS_PER_SEC) * (latency + float64(b.tick2Time(buffer))))
+}
+
+func (b *Bandwidth) latencyInUsec(latencyInMillis float64) float64 {
+	return float64(netlink.TIME_UNITS_PER_SEC) * (latencyInMillis / 1000.0)
 }

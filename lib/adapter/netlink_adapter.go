@@ -107,3 +107,7 @@ func (*NetlinkAdapter) QdiscAdd(qdisc netlink.Qdisc) error {
 func (*NetlinkAdapter) FilterAdd(filter netlink.Filter) error {
 	return netlink.FilterAdd(filter)
 }
+
+func (*NetlinkAdapter) TickInUsec() float64 {
+	return netlink.TickInUsec()
+}

@@ -45,6 +45,7 @@ var _ = Describe("Bandwidth", func() {
 		bandwidth = Bandwidth{
 			NetlinkAdapter: fakeNetlinkAdapter,
 		}
+		fakeNetlinkAdapter.TickInUsecReturns(15.625)
 		cfg = &config.Config{}
 		cfg.Host.DeviceName = "host-device"
 		cfg.IFB.DeviceName = "ifb-device"
@@ -65,7 +66,7 @@ var _ = Describe("Bandwidth", func() {
 					Parent:    netlink.HANDLE_ROOT,
 				},
 				Rate:   uint64(175),
-				Limit:  uint32(17),
+				Limit:  uint32(1404),
 				Buffer: uint32(125000000),
 			}))
 
@@ -147,7 +148,7 @@ var _ = Describe("Bandwidth", func() {
 					Parent:    netlink.HANDLE_ROOT,
 				},
 				Rate:   uint64(175),
-				Limit:  uint32(17),
+				Limit:  uint32(1404),
 				Buffer: uint32(125000000),
 			}))
 
