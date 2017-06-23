@@ -48,7 +48,7 @@ var _ = Describe("Datastore", func() {
 		locker.OpenReturns(lockedFile, nil)
 	})
 
-	Describe("adding an entry to store", func() {
+	Context("when adding an entry to store", func() {
 		It("deserializes the data from the file", func() {
 			err := store.Add(filePath, handle, ip, metadata)
 			Expect(err).NotTo(HaveOccurred())
@@ -119,7 +119,8 @@ var _ = Describe("Datastore", func() {
 
 	})
 
-	Describe("deleting an entry from store", func() {
+	Context("when deleting an entry from store", func() {
+
 		It("deserializes the data from the file", func() {
 			_, err := store.Delete(filePath, handle)
 			Expect(err).NotTo(HaveOccurred())
@@ -181,6 +182,7 @@ var _ = Describe("Datastore", func() {
 				Expect(err).To(MatchError("encode and overwrite: potato"))
 			})
 		})
+
 	})
 
 	Context("when reading from datastore", func() {

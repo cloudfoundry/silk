@@ -87,8 +87,18 @@ var _ = Describe("IfbCreator", func() {
 	})
 
 	Describe("Teardown", func() {
-		It("removes the ifb device given the container handle", func() {
-			Expect(ifbCreator.Teardown("10.255.30.5")).To(Succeed())
+		It("removes the ifb device in the specified namespace and device name", func() {
+			Expect(ifbCreator.Teardown(containerNS, "device-name")).To(Succeed())
+
+			Expect(containerNS.DoCallCount()).To(Equal(1))
+
+			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(1))
+			Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal("device-name"))
+
+			Expect(fakeNetlinkAdapter.AddrListCallCount()).To(Equal(1))
+			link, family := fakeNetlinkAdapter.AddrListArgsForCall(0)
+			Expect(link).To(Equal(containerLink))
+			Expect(family).To(Equal(netlink.FAMILY_V4))
 
 			Expect(fakeDeviceNameGenerator.GenerateForHostIFBCallCount()).To(Equal(1))
 			Expect(fakeDeviceNameGenerator.GenerateForHostIFBArgsForCall(0)).To(Equal(net.IPv4(10, 255, 30, 5)))
@@ -100,29 +110,116 @@ var _ = Describe("IfbCreator", func() {
 				},
 			}))
 		})
-
-		Context("when generating the device name for ifb fails", func() {
+		Context("when getting the link fails", func() {
 			BeforeEach(func() {
-				fakeDeviceNameGenerator.GenerateForHostIFBReturns("", errors.New("pear"))
+				fakeNetlinkAdapter.LinkByNameReturns(nil, errors.New("banana"))
 			})
-
 			It("returns a sensible error", func() {
-				err := ifbCreator.Teardown("some-container-handle")
-				Expect(err).To(HaveOccurred())
+				err := ifbCreator.Teardown(containerNS, "device-name")
 
-				Expect(err.Error()).To(ContainSubstring("generate ifb device name: pear"))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError("find link: banana"))
 			})
 		})
-
-		Context("when deleting the link fails", func() {
+		Context("when listing the addresses fails", func() {
 			BeforeEach(func() {
-				fakeNetlinkAdapter.LinkDelReturns(errors.New("mango"))
+				fakeNetlinkAdapter.AddrListReturns(nil, errors.New("apple"))
 			})
 			It("returns a sensible error", func() {
-				err := ifbCreator.Teardown("some-container-handle")
-				Expect(err).To(HaveOccurred())
+				err := ifbCreator.Teardown(containerNS, "device-name")
 
-				Expect(err.Error()).To(ContainSubstring("delete link: mango"))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError("list addresses: apple"))
+			})
+		})
+		Context("when there are multiple container ip addresses", func() {
+			BeforeEach(func() {
+				containerAddr2 := netlink.Addr{
+					IPNet: &net.IPNet{
+						IP: net.IPv4(10, 255, 30, 6),
+					},
+				}
+				fakeNetlinkAdapter.AddrListReturns([]netlink.Addr{containerAddr, containerAddr2}, nil)
+				fakeDeviceNameGenerator.GenerateForHostIFBStub = func(ip net.IP) (string, error) {
+
+					switch ip.String() {
+					case "10.255.30.5":
+						return "ifb-device-name", nil
+					case "10.255.30.6":
+						return "ifb-device-name-1", nil
+					default:
+						return "", nil
+					}
+				}
+
+			})
+
+			It("removes every ifb associated with every container address", func() {
+				Expect(ifbCreator.Teardown(containerNS, "device-name")).To(Succeed())
+
+				Expect(containerNS.DoCallCount()).To(Equal(1))
+
+				Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(1))
+				Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal("device-name"))
+
+				Expect(fakeNetlinkAdapter.AddrListCallCount()).To(Equal(1))
+				link, family := fakeNetlinkAdapter.AddrListArgsForCall(0)
+				Expect(link).To(Equal(containerLink))
+				Expect(family).To(Equal(netlink.FAMILY_V4))
+
+				Expect(fakeDeviceNameGenerator.GenerateForHostIFBCallCount()).To(Equal(2))
+				Expect(fakeDeviceNameGenerator.GenerateForHostIFBArgsForCall(0)).To(Equal(net.IPv4(10, 255, 30, 5)))
+				Expect(fakeDeviceNameGenerator.GenerateForHostIFBArgsForCall(1)).To(Equal(net.IPv4(10, 255, 30, 6)))
+
+				Expect(fakeNetlinkAdapter.LinkDelCallCount()).To(Equal(2))
+				Expect(fakeNetlinkAdapter.LinkDelArgsForCall(0)).To(Equal(&netlink.Ifb{
+					LinkAttrs: netlink.LinkAttrs{
+						Name: "ifb-device-name",
+					},
+				}))
+				Expect(fakeNetlinkAdapter.LinkDelArgsForCall(1)).To(Equal(&netlink.Ifb{
+					LinkAttrs: netlink.LinkAttrs{
+						Name: "ifb-device-name-1",
+					},
+				}))
+			})
+
+			Context("when generating the device name for ifb fails", func() {
+				BeforeEach(func() {
+					fakeDeviceNameGenerator.GenerateForHostIFBStub = func(ip net.IP) (string, error) {
+						switch ip.String() {
+						case "10.255.30.5":
+							return "", errors.New("pear")
+						case "10.255.30.6":
+							return "ifb-device-name-1", nil
+						default:
+							return "", nil
+						}
+					}
+				})
+
+				It("returns a sensible error", func() {
+					err := ifbCreator.Teardown(containerNS, "device-name")
+					Expect(err).To(HaveOccurred())
+
+					Expect(err.Error()).To(ContainSubstring("generate ifb device name: pear"))
+				})
+			})
+			Context("when deleting the link fails", func() {
+				BeforeEach(func() {
+					fakeNetlinkAdapter.LinkDelStub = func(link netlink.Link) error {
+						if link.Attrs().Name == "ifb-device-name" {
+							return errors.New("mango")
+						}
+						return nil
+					}
+				})
+				It("returns a sensible error", func() {
+					err := ifbCreator.Teardown(containerNS, "device-name")
+					Expect(err).To(HaveOccurred())
+
+					Expect(err.Error()).To(ContainSubstring("delete link: mango"))
+				})
 			})
 		})
 	})
