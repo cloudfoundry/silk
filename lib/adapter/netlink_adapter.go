@@ -72,6 +72,10 @@ func (*NetlinkAdapter) LinkSetUp(link netlink.Link) error {
 	return netlink.LinkSetUp(link)
 }
 
+func (*NetlinkAdapter) LinkList() ([]netlink.Link, error) {
+	return netlink.LinkList()
+}
+
 func (*NetlinkAdapter) LinkDel(link netlink.Link) error {
 	return netlink.LinkDel(link)
 }
