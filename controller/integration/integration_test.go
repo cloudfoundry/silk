@@ -22,13 +22,11 @@ import (
 )
 
 var (
-	dbConfig       db.Config
-	session        *gexec.Session
-	conf           config.Config
-	testClient     *controller.Client
-	configFilePath string
-	baseURL        string
-	fakeMetron     metrics.FakeMetron
+	dbConfig   db.Config
+	session    *gexec.Session
+	conf       config.Config
+	testClient *controller.Client
+	fakeMetron metrics.FakeMetron
 )
 
 var _ = BeforeEach(func() {
@@ -46,11 +44,12 @@ var _ = Describe("Silk Controller", func() {
 	BeforeEach(func() {
 		session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 	})
+
 	AfterEach(func() {
 		helpers.StopServer(session)
-		Expect(testsupport.RemoveDatabase(dbConfig)).To(Succeed())
-
+		testsupport.RemoveDatabase(dbConfig)
 	})
+
 	It("gracefully terminates when sent an interrupt signal", func() {
 		Consistently(session).ShouldNot(gexec.Exit())
 		Expect(session.Out).To(gbytes.Say(`potato-prefix\.silk-controller\.starting-servers`))

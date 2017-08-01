@@ -23,3 +23,12 @@ jobs:
   - task: test-mysql
     file: silk/ci/test-mysql.yml
     privileged: true
+
+- name: silk-test-mysql-5.6
+  plan:
+  - aggregate:
+    - get: silk
+      trigger: true
+  - task: test-mysql
+    file: silk/ci/test-mysql-5.6.yml
+    privileged: true
