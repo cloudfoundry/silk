@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"code.cloudfoundry.org/cf-networking-helpers/metrics"
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	cftestsupport "code.cloudfoundry.org/cf-networking-helpers/testsupport"
 	"code.cloudfoundry.org/silk/client/config"
@@ -50,7 +49,7 @@ var (
 	vtepName              string
 	vtepPort              int
 	vni                   int
-	fakeMetron            metrics.FakeMetron
+	fakeMetron            cftestsupport.FakeMetron
 	overlaySubnet         string
 	overlayVtepIP         net.IP
 	remoteOverlaySubnet   string
@@ -58,7 +57,7 @@ var (
 )
 
 var _ = BeforeEach(func() {
-	fakeMetron = metrics.NewFakeMetron()
+	fakeMetron = cftestsupport.NewFakeMetron()
 
 	externalIface, err := locateInterface(net.ParseIP(localIP))
 	Expect(err).NotTo(HaveOccurred())
@@ -158,13 +157,13 @@ var _ = Describe("Daemon Integration", func() {
 	})
 
 	withName := func(name string) types.GomegaMatcher {
-		return WithTransform(func(ev metrics.Event) string {
+		return WithTransform(func(ev cftestsupport.Event) string {
 			return ev.Name
 		}, Equal(name))
 	}
 
 	withValue := func(value interface{}) types.GomegaMatcher {
-		return WithTransform(func(ev metrics.Event) float64 {
+		return WithTransform(func(ev cftestsupport.Event) float64 {
 			return ev.Value
 		}, BeEquivalentTo(value))
 	}
