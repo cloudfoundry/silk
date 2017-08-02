@@ -8,7 +8,7 @@ import (
 )
 
 type ControllerClient struct {
-	GetRoutableLeasesStub        func() ([]controller.Lease, error)
+	GetActiveLeasesStub          func() ([]controller.Lease, error)
 	getRoutableLeasesMutex       sync.RWMutex
 	getRoutableLeasesArgsForCall []struct{}
 	getRoutableLeasesReturns     struct {
@@ -34,14 +34,14 @@ type ControllerClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ControllerClient) GetRoutableLeases() ([]controller.Lease, error) {
+func (fake *ControllerClient) GetActiveLeases() ([]controller.Lease, error) {
 	fake.getRoutableLeasesMutex.Lock()
 	ret, specificReturn := fake.getRoutableLeasesReturnsOnCall[len(fake.getRoutableLeasesArgsForCall)]
 	fake.getRoutableLeasesArgsForCall = append(fake.getRoutableLeasesArgsForCall, struct{}{})
-	fake.recordInvocation("GetRoutableLeases", []interface{}{})
+	fake.recordInvocation("GetActiveLeases", []interface{}{})
 	fake.getRoutableLeasesMutex.Unlock()
-	if fake.GetRoutableLeasesStub != nil {
-		return fake.GetRoutableLeasesStub()
+	if fake.GetActiveLeasesStub != nil {
+		return fake.GetActiveLeasesStub()
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -49,22 +49,22 @@ func (fake *ControllerClient) GetRoutableLeases() ([]controller.Lease, error) {
 	return fake.getRoutableLeasesReturns.result1, fake.getRoutableLeasesReturns.result2
 }
 
-func (fake *ControllerClient) GetRoutableLeasesCallCount() int {
+func (fake *ControllerClient) GetActiveLeasesCallCount() int {
 	fake.getRoutableLeasesMutex.RLock()
 	defer fake.getRoutableLeasesMutex.RUnlock()
 	return len(fake.getRoutableLeasesArgsForCall)
 }
 
-func (fake *ControllerClient) GetRoutableLeasesReturns(result1 []controller.Lease, result2 error) {
-	fake.GetRoutableLeasesStub = nil
+func (fake *ControllerClient) GetActiveLeasesReturns(result1 []controller.Lease, result2 error) {
+	fake.GetActiveLeasesStub = nil
 	fake.getRoutableLeasesReturns = struct {
 		result1 []controller.Lease
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *ControllerClient) GetRoutableLeasesReturnsOnCall(i int, result1 []controller.Lease, result2 error) {
-	fake.GetRoutableLeasesStub = nil
+func (fake *ControllerClient) GetActiveLeasesReturnsOnCall(i int, result1 []controller.Lease, result2 error) {
+	fake.GetActiveLeasesStub = nil
 	if fake.getRoutableLeasesReturnsOnCall == nil {
 		fake.getRoutableLeasesReturnsOnCall = make(map[int]struct {
 			result1 []controller.Lease

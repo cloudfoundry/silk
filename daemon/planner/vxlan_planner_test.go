@@ -75,7 +75,7 @@ var _ = Describe("VxlanPlanner", func() {
 				OverlaySubnet:       "10.244.16.0/24",
 				OverlayHardwareAddr: "ee:ee:0a:f4:10:00",
 			}}
-			controllerClient.GetRoutableLeasesReturns(leases, nil)
+			controllerClient.GetActiveLeasesReturns(leases, nil)
 		})
 
 		It("calls the controller to renew its lease", func() {
@@ -124,7 +124,7 @@ var _ = Describe("VxlanPlanner", func() {
 				OverlaySubnet:       "10.244.17.0/24",
 				OverlayHardwareAddr: "ee:ee:0a:f6:10:00",
 			})
-			controllerClient.GetRoutableLeasesReturns(leases, nil)
+			controllerClient.GetActiveLeasesReturns(leases, nil)
 
 			err = vxlanPlanner.DoCycle()
 			name, value, unit = metricSender.SendValueArgsForCall(1)
@@ -207,7 +207,7 @@ var _ = Describe("VxlanPlanner", func() {
 
 		Context("when getting the routable releases fails", func() {
 			BeforeEach(func() {
-				controllerClient.GetRoutableLeasesReturns(nil, errors.New("guava"))
+				controllerClient.GetActiveLeasesReturns(nil, errors.New("guava"))
 			})
 			It("returns the error", func() {
 				err := vxlanPlanner.DoCycle()

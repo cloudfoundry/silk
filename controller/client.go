@@ -38,7 +38,7 @@ func NewClient(logger lager.Logger, httpClient json_client.HttpClient, baseURL s
 	}
 }
 
-func (c *Client) GetRoutableLeases() ([]Lease, error) {
+func (c *Client) GetActiveLeases() ([]Lease, error) {
 	var response struct {
 		Leases []Lease
 	}

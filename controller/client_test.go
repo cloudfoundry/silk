@@ -25,7 +25,7 @@ var _ = Describe("Client", func() {
 		}
 	})
 
-	Describe("GetRoutableLeases", func() {
+	Describe("GetActiveLeases", func() {
 		BeforeEach(func() {
 			jsonClient.DoStub = func(method, route string, reqData, respData interface{}, token string) error {
 				respBytes := []byte(`
@@ -42,7 +42,7 @@ var _ = Describe("Client", func() {
 		})
 
 		It("does all the right things", func() {
-			leases, err := client.GetRoutableLeases()
+			leases, err := client.GetActiveLeases()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(jsonClient.DoCallCount()).To(Equal(1))
@@ -74,7 +74,7 @@ var _ = Describe("Client", func() {
 				jsonClient.DoReturns(errors.New("banana"))
 			})
 			It("returns the error", func() {
-				_, err := client.GetRoutableLeases()
+				_, err := client.GetActiveLeases()
 				Expect(err).To(MatchError("banana"))
 			})
 		})

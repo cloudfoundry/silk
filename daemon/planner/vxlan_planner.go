@@ -10,7 +10,7 @@ import (
 
 //go:generate counterfeiter -o fakes/controller_client.go --fake-name ControllerClient . controllerClient
 type controllerClient interface {
-	GetRoutableLeases() ([]controller.Lease, error)
+	GetActiveLeases() ([]controller.Lease, error)
 	RenewSubnetLease(controller.Lease) error
 }
 
@@ -48,7 +48,7 @@ func (v *VXLANPlanner) DoCycle() error {
 
 	v.MetricSender.IncrementCounter("renewSuccess")
 
-	leases, err := v.ControllerClient.GetRoutableLeases()
+	leases, err := v.ControllerClient.GetActiveLeases()
 	if err != nil {
 		return fmt.Errorf("get routable leases: %s", err)
 	}

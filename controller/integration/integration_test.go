@@ -137,7 +137,7 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("checking that the lease is present in the list of routable leases")
-			leases, err := testClient.GetRoutableLeases()
+			leases, err := testClient.GetActiveLeases()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(leases)).To(Equal(1))
 			Expect(leases[0]).To(Equal(lease))
@@ -147,7 +147,7 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("checking that the lease is not present in the list of routable leases")
-			leases, err = testClient.GetRoutableLeases()
+			leases, err = testClient.GetActiveLeases()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(leases)).To(Equal(0))
 
@@ -200,7 +200,7 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("checking that the lease is present in the list of routable leases")
-			leases, err := testClient.GetRoutableLeases()
+			leases, err := testClient.GetActiveLeases()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(leases)).To(Equal(1))
 			Expect(leases[0]).To(Equal(lease))
@@ -230,7 +230,7 @@ var _ = Describe("Silk Controller", func() {
 				Expect(typedError.Error()).To(Equal("non-retriable: renew-subnet-lease: lease mismatch"))
 
 				By("checking that the corrupted lease is not present in the list of routable leases")
-				leases, err := testClient.GetRoutableLeases()
+				leases, err := testClient.GetActiveLeases()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(leases)).To(Equal(1))
 				Expect(leases[0]).To(Equal(validLease))
@@ -256,7 +256,7 @@ var _ = Describe("Silk Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					By("checking that the lease is present in the list of routable leases")
-					leases, err := testClient.GetRoutableLeases()
+					leases, err := testClient.GetActiveLeases()
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(leases)).To(Equal(1))
 					Expect(leases[0]).To(Equal(existingLease))
@@ -277,7 +277,7 @@ var _ = Describe("Silk Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("checking that the lease is present in the list of routable leases")
-				leases, err := testClient.GetRoutableLeases()
+				leases, err := testClient.GetActiveLeases()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(leases)).To(Equal(1))
 				Expect(leases[0]).To(Equal(lease))
@@ -290,7 +290,7 @@ var _ = Describe("Silk Controller", func() {
 			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
 			Expect(err).NotTo(HaveOccurred())
 
-			leases, err := testClient.GetRoutableLeases()
+			leases, err := testClient.GetActiveLeases()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(leases)).To(Equal(1))
 			Expect(leases[0]).To(Equal(lease))
@@ -313,14 +313,14 @@ var _ = Describe("Silk Controller", func() {
 				lease2, err := testClient.AcquireSubnetLease("10.244.4.6")
 				Expect(err).NotTo(HaveOccurred())
 
-				leases, err := testClient.GetRoutableLeases()
+				leases, err := testClient.GetActiveLeases()
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(leases).To(ConsistOf(lease1, lease2))
 
 				renewAndCheck := func() []controller.Lease {
 					Expect(testClient.RenewSubnetLease(lease2)).To(Succeed())
-					leases, err := testClient.GetRoutableLeases()
+					leases, err := testClient.GetActiveLeases()
 					Expect(err).NotTo(HaveOccurred())
 					return leases
 				}
@@ -347,7 +347,7 @@ var _ = Describe("Silk Controller", func() {
 			})
 
 			It("returns all the leases", func() {
-				leases, err := testClient.GetRoutableLeases()
+				leases, err := testClient.GetActiveLeases()
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(leases).To(ConsistOf(oldNetworkLease, newNetworkLease))

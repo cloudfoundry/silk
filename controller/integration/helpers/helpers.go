@@ -49,7 +49,7 @@ func StartAndWaitForServer(controllerBinaryPath string, conf config.Config, clie
 
 	By("waiting for the http server to boot")
 	serverIsUp := func() error {
-		_, err := client.GetRoutableLeases()
+		_, err := client.GetActiveLeases()
 		return err
 	}
 	Eventually(serverIsUp, DEFAULT_TIMEOUT).Should(Succeed())
