@@ -27,20 +27,19 @@ const cmdTimeout = 15 * time.Second
 var (
 	fakeServer *gexec.Session
 
-	cniEnv           map[string]string
-	containerNS      ns.NetNS
-	fakeHostNS       ns.NetNS
-	cniStdin         string
-	dataDir          string
-	flannelSubnet    *net.IPNet
-	fullNetwork      *net.IPNet
-	subnetEnvFile    string
-	serverListenAddr string
-	datastorePath    string
-	fakeHostNSName   string
-	containerNSName  string
-	containerID      string
-	daemonPort       int
+	cniEnv          map[string]string
+	containerNS     ns.NetNS
+	fakeHostNS      ns.NetNS
+	cniStdin        string
+	dataDir         string
+	flannelSubnet   *net.IPNet
+	fullNetwork     *net.IPNet
+	subnetEnvFile   string
+	datastorePath   string
+	fakeHostNSName  string
+	containerNSName string
+	containerID     string
+	daemonPort      int
 )
 
 var _ = BeforeEach(func() {
@@ -279,21 +278,12 @@ var _ = Describe("Silk CNI Integration", func() {
 			)
 
 			BeforeEach(func() {
-				cmd := exec.Command("lsmod")
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-
-				session.Wait(5 * time.Second)
-				if !strings.Contains(string(session.Out.Contents()), "ifb") {
-					Skip("Docker for Mac does not contain IFB kernel module")
-				}
-			})
-
-			BeforeEach(func() {
 				rateInBytes := 50000
 				rateInBits = rateInBytes * 8
 				burstInBits = rateInBits * 2
 				packetInBytes = rateInBytes * 25
+
+				containerNSList = []ns.NetNS{}
 
 				for i := 0; i < 2; i++ {
 					containerNS, err := ns.NewNS()
@@ -941,12 +931,6 @@ func mustFailWith(expectedErrorSubstring string, binary string, args ...string) 
 	allOutput, err := cmd.CombinedOutput()
 	Expect(err).To(HaveOccurred())
 	Expect(allOutput).To(ContainSubstring(expectedErrorSubstring))
-}
-
-func mustStartInContainer(binary string, args ...string) *gexec.Session {
-	cmdArgs := []string{"netns", "exec", containerNSName, binary}
-	cmdArgs = append(cmdArgs, args...)
-	return mustStart("ip", cmdArgs...)
 }
 
 func mustSucceedInContainer(binary string, args ...string) string {
