@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-networking-helpers/marshal"
@@ -24,8 +25,7 @@ func (l *LeasesIndex) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req 
 
 	leases, err := l.LeaseRepository.RoutableLeases()
 	if err != nil {
-		logger.Error("failed-getting-routable-leases", err)
-		l.ErrorResponse.InternalServerError(w, err, "all-routable-leases", err.Error())
+		l.ErrorResponse.InternalServerError(logger, w, err, fmt.Sprintf("all-routable-leases: %s", err.Error()))
 		return
 	}
 
@@ -34,8 +34,7 @@ func (l *LeasesIndex) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req 
 	}{leases}
 	bytes, err := l.Marshaler.Marshal(response)
 	if err != nil {
-		logger.Error("failed-marshalling-leases", err)
-		l.ErrorResponse.InternalServerError(w, err, "marshal-response", err.Error())
+		l.ErrorResponse.InternalServerError(logger, w, err, fmt.Sprintf("marshal-response: %s", err.Error()))
 		return
 	}
 

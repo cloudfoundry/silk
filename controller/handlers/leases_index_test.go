@@ -20,6 +20,7 @@ import (
 var _ = Describe("LeasesIndex", func() {
 	var (
 		logger            *lagertest.TestLogger
+		expectedLogger    lager.Logger
 		handler           *handlers.LeasesIndex
 		leaseRepository   *fakes.LeaseRepository
 		resp              *httptest.ResponseRecorder
@@ -28,6 +29,12 @@ var _ = Describe("LeasesIndex", func() {
 	)
 
 	BeforeEach(func() {
+		expectedLogger = lager.NewLogger("test").Session("leases-index")
+
+		testSink := lagertest.NewTestSink()
+		expectedLogger.RegisterSink(testSink)
+		expectedLogger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
+
 		logger = lagertest.NewTestLogger("test")
 		marshaler = &hfakes.Marshaler{}
 		marshaler.MarshalStub = json.Marshal
@@ -81,21 +88,11 @@ var _ = Describe("LeasesIndex", func() {
 			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
-			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			l, w, err, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(l).To(Equal(expectedLogger))
 			Expect(w).To(Equal(resp))
 			Expect(err).To(MatchError("butter"))
-			Expect(message).To(Equal("all-routable-leases"))
-			Expect(description).To(Equal("butter"))
-
-			Expect(logger.Logs()).To(HaveLen(1))
-			Expect(logger.Logs()[0]).To(SatisfyAll(
-				LogsWith(lager.ERROR, "test.leases-index.failed-getting-routable-leases"),
-				HaveLogData(SatisfyAll(
-					HaveLen(2),
-					HaveKeyWithValue("error", "butter"),
-					HaveKeyWithValue("session", "1"),
-				)),
-			))
+			Expect(description).To(Equal("all-routable-leases: butter"))
 		})
 	})
 
@@ -113,21 +110,11 @@ var _ = Describe("LeasesIndex", func() {
 			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
-			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			l, w, err, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(l).To(Equal(expectedLogger))
 			Expect(w).To(Equal(resp))
 			Expect(err).To(MatchError("grapes"))
-			Expect(message).To(Equal("marshal-response"))
-			Expect(description).To(Equal("grapes"))
-
-			Expect(logger.Logs()).To(HaveLen(1))
-			Expect(logger.Logs()[0]).To(SatisfyAll(
-				LogsWith(lager.ERROR, "test.leases-index.failed-marshalling-leases"),
-				HaveLogData(SatisfyAll(
-					HaveLen(2),
-					HaveKeyWithValue("error", "grapes"),
-					HaveKeyWithValue("session", "1"),
-				)),
-			))
+			Expect(description).To(Equal("marshal-response: grapes"))
 		})
 	})
 })

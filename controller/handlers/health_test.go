@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller/handlers"
 	"code.cloudfoundry.org/silk/controller/handlers/fakes"
 
@@ -14,6 +16,8 @@ import (
 
 var _ = Describe("Health handler", func() {
 	var (
+		expectedLogger      lager.Logger
+		logger              *lagertest.TestLogger
 		handler             *handlers.Health
 		request             *http.Request
 		fakeDatabaseChecker *fakes.DatabaseChecker
@@ -22,6 +26,13 @@ var _ = Describe("Health handler", func() {
 	)
 
 	BeforeEach(func() {
+		expectedLogger = lager.NewLogger("test").Session("health")
+
+		testSink := lagertest.NewTestSink()
+		expectedLogger.RegisterSink(testSink)
+		expectedLogger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
+		logger = lagertest.NewTestLogger("test")
+
 		var err error
 		request, err = http.NewRequest("GET", "/health", nil)
 		Expect(err).NotTo(HaveOccurred())
@@ -37,7 +48,7 @@ var _ = Describe("Health handler", func() {
 	})
 
 	It("checks the database is up and returns a 200", func() {
-		handler.ServeHTTP(resp, request)
+		handler.ServeHTTP(logger, resp, request)
 		Expect(fakeDatabaseChecker.CheckDatabaseCallCount()).To(Equal(1))
 		Expect(resp.Code).To(Equal(http.StatusOK))
 	})
@@ -48,14 +59,14 @@ var _ = Describe("Health handler", func() {
 		})
 
 		It("calls the internal server error handler", func() {
-			handler.ServeHTTP(resp, request)
+			handler.ServeHTTP(logger, resp, request)
 			Expect(fakeDatabaseChecker.CheckDatabaseCallCount()).To(Equal(1))
 			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
 
-			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			l, w, err, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(l).To(Equal(expectedLogger))
 			Expect(w).To(Equal(resp))
 			Expect(err).To(MatchError("pineapple"))
-			Expect(message).To(Equal("health"))
 			Expect(description).To(Equal("check database failed"))
 		})
 	})

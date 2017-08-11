@@ -103,7 +103,6 @@ func mainWithError() error {
 	}
 
 	errorResponse := &httperror.ErrorResponse{
-		Logger:        logger,
 		MetricsSender: metricsSender,
 	}
 
@@ -145,7 +144,7 @@ func mainWithError() error {
 		ServeHTTP(logger lager.Logger, w http.ResponseWriter, r *http.Request)
 	}
 	logWrap := func(handler loggableHandler) http.Handler {
-		return middleware.LogWrap(logger, handler.ServeHTTP)
+		return handlers.LogWrap(logger, handler.ServeHTTP)
 	}
 
 	router, err := rata.NewRouter(
@@ -176,7 +175,7 @@ func mainWithError() error {
 			{Name: "health", Method: "GET", Path: "/health"},
 		},
 		rata.Handlers{
-			"health": metricsWrap("Health", health),
+			"health": metricsWrap("Health", logWrap(health)),
 		},
 	)
 	if err != nil {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -16,9 +17,9 @@ type leaseRenewer interface {
 
 //go:generate counterfeiter -o fakes/error_response.go --fake-name ErrorResponse . errorResponse
 type errorResponse interface {
-	InternalServerError(http.ResponseWriter, error, string, string)
-	BadRequest(http.ResponseWriter, error, string, string)
-	Conflict(http.ResponseWriter, error, string, string)
+	InternalServerError(lager.Logger, http.ResponseWriter, error, string)
+	BadRequest(lager.Logger, http.ResponseWriter, error, string)
+	Conflict(lager.Logger, http.ResponseWriter, error, string)
 }
 
 type RenewLease struct {
@@ -32,29 +33,25 @@ func (l *RenewLease) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req *
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		logger.Error("failed-reading-request-body", err)
-		l.ErrorResponse.BadRequest(w, err, "read-body", err.Error())
+		l.ErrorResponse.BadRequest(logger, w, err, fmt.Sprintf("read-body: %s", err.Error()))
 		return
 	}
 
 	var lease controller.Lease
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &lease)
 	if err != nil {
-		logger.Error("failed-unmarshalling-payload", err)
-		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
+		l.ErrorResponse.BadRequest(logger, w, err, fmt.Sprintf("unmarshal-request: %s", err.Error()))
 		return
 	}
 
 	err = l.LeaseRenewer.RenewSubnetLease(lease)
 	if err != nil {
 		if _, ok := err.(controller.NonRetriableError); ok {
-			logger.Error("failed-renewing-lease-nonretriable", err)
-			l.ErrorResponse.Conflict(w, err, "renew-subnet-lease", err.Error())
+			l.ErrorResponse.Conflict(logger, w, err, fmt.Sprintf("renew-subnet-lease: %s", err.Error()))
 			return
 		}
 
-		logger.Error("failed-renewing-lease", err)
-		l.ErrorResponse.InternalServerError(w, err, "renew-subnet-lease", err.Error())
+		l.ErrorResponse.InternalServerError(logger, w, err, fmt.Sprintf("renew-subnet-lease: %s", err.Error()))
 		return
 	}
 

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -27,8 +28,7 @@ func (l *LeasesAcquire) ServeHTTP(logger lager.Logger, w http.ResponseWriter, re
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		logger.Error("failed-reading-request-body", err)
-		l.ErrorResponse.BadRequest(w, err, "read-body", err.Error())
+		l.ErrorResponse.BadRequest(logger, w, err, fmt.Sprintf("read-body: %s", err.Error()))
 		return
 	}
 
@@ -37,28 +37,24 @@ func (l *LeasesAcquire) ServeHTTP(logger lager.Logger, w http.ResponseWriter, re
 	}
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &payload)
 	if err != nil {
-		logger.Error("failed-unmarshalling-payload", err)
-		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
+		l.ErrorResponse.BadRequest(logger, w, err, fmt.Sprintf("unmarshal-request: %s", err.Error()))
 		return
 	}
 
 	lease, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP)
 	if err != nil {
-		logger.Error("failed-acquiring-lease", err)
-		l.ErrorResponse.InternalServerError(w, err, "acquire-subnet-lease", err.Error())
+		l.ErrorResponse.InternalServerError(logger, w, err, err.Error())
 		return
 	}
 	if lease == nil {
 		err := errors.New("No lease available")
-		logger.Error("failed-finding-available-lease", err)
-		l.ErrorResponse.Conflict(w, err, "acquire-subnet-lease", err.Error())
+		l.ErrorResponse.Conflict(logger, w, err, err.Error())
 		return
 	}
 
 	bytes, err := l.Marshaler.Marshal(lease)
 	if err != nil {
-		logger.Error("failed-marshalling-lease", err)
-		l.ErrorResponse.InternalServerError(w, err, "marshal-response", err.Error())
+		l.ErrorResponse.InternalServerError(logger, w, err, fmt.Sprintf("marshal-response: %s", err.Error()))
 		return
 	}
 

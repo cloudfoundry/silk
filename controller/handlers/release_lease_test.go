@@ -22,6 +22,7 @@ import (
 var _ = Describe("ReleaseLease", func() {
 	var (
 		logger            *lagertest.TestLogger
+		expectedLogger    lager.Logger
 		handler           *handlers.ReleaseLease
 		resp              *httptest.ResponseRecorder
 		marshaler         *hfakes.Marshaler
@@ -33,6 +34,11 @@ var _ = Describe("ReleaseLease", func() {
 	)
 
 	BeforeEach(func() {
+		expectedLogger = lager.NewLogger("test").Session("leases-release")
+		testSink := lagertest.NewTestSink()
+		expectedLogger.RegisterSink(testSink)
+		expectedLogger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
+
 		logger = lagertest.NewTestLogger("test")
 		marshaler = &hfakes.Marshaler{}
 		marshaler.MarshalStub = json.Marshal
@@ -74,22 +80,11 @@ var _ = Describe("ReleaseLease", func() {
 			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.BadRequestCallCount()).To(Equal(1))
-			w, err, message, description := fakeErrorResponse.BadRequestArgsForCall(0)
+			l, w, err, description := fakeErrorResponse.BadRequestArgsForCall(0)
+			Expect(l).To(Equal(expectedLogger))
 			Expect(w).To(Equal(resp))
 			Expect(err).To(MatchError("banana"))
-			Expect(message).To(Equal("read-body"))
-			Expect(description).To(Equal("banana"))
-
-			By("logging the error")
-			Expect(logger.Logs()).To(HaveLen(1))
-			Expect(logger.Logs()[0]).To(SatisfyAll(
-				LogsWith(lager.ERROR, "test.leases-release.failed-reading-request-body"),
-				HaveLogData(SatisfyAll(
-					HaveLen(2),
-					HaveKeyWithValue("error", "banana"),
-					HaveKeyWithValue("session", "1"),
-				)),
-			))
+			Expect(description).To(Equal("read-body: banana"))
 		})
 	})
 
@@ -102,22 +97,11 @@ var _ = Describe("ReleaseLease", func() {
 			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.BadRequestCallCount()).To(Equal(1))
-			w, err, message, description := fakeErrorResponse.BadRequestArgsForCall(0)
+			l, w, err, description := fakeErrorResponse.BadRequestArgsForCall(0)
+			Expect(l).To(Equal(expectedLogger))
 			Expect(w).To(Equal(resp))
 			Expect(err).To(MatchError("fig"))
-			Expect(message).To(Equal("unmarshal-request"))
-			Expect(description).To(Equal("fig"))
-
-			By("logging the error")
-			Expect(logger.Logs()).To(HaveLen(1))
-			Expect(logger.Logs()[0]).To(SatisfyAll(
-				LogsWith(lager.ERROR, "test.leases-release.failed-unmarshalling-payload"),
-				HaveLogData(SatisfyAll(
-					HaveLen(2),
-					HaveKeyWithValue("error", "fig"),
-					HaveKeyWithValue("session", "1"),
-				)),
-			))
+			Expect(description).To(Equal("unmarshal-request: fig"))
 		})
 	})
 
@@ -130,23 +114,11 @@ var _ = Describe("ReleaseLease", func() {
 			handler.ServeHTTP(logger, resp, request)
 
 			Expect(fakeErrorResponse.InternalServerErrorCallCount()).To(Equal(1))
-			w, err, message, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			l, w, err, description := fakeErrorResponse.InternalServerErrorArgsForCall(0)
+			Expect(l).To(Equal(expectedLogger))
 			Expect(w).To(Equal(resp))
 			Expect(err).To(MatchError("kiwi"))
-			Expect(message).To(Equal("release-subnet-lease"))
 			Expect(description).To(Equal("kiwi"))
-
-			By("logging the error")
-			Expect(logger.Logs()).To(HaveLen(1))
-			Expect(logger.Logs()[0]).To(SatisfyAll(
-				LogsWith(lager.ERROR, "test.leases-release.failed-releasing-lease"),
-				HaveLogData(SatisfyAll(
-					HaveLen(2),
-					HaveKeyWithValue("error", "kiwi"),
-					HaveKeyWithValue("session", "1"),
-				)),
-			))
 		})
 	})
-
 })

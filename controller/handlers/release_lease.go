@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -25,8 +26,7 @@ func (l *ReleaseLease) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req
 
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		logger.Error("failed-reading-request-body", err)
-		l.ErrorResponse.BadRequest(w, err, "read-body", err.Error())
+		l.ErrorResponse.BadRequest(logger, w, err, fmt.Sprintf("read-body: %s", err.Error()))
 		return
 	}
 
@@ -35,15 +35,13 @@ func (l *ReleaseLease) ServeHTTP(logger lager.Logger, w http.ResponseWriter, req
 	}
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &payload)
 	if err != nil {
-		logger.Error("failed-unmarshalling-payload", err)
-		l.ErrorResponse.BadRequest(w, err, "unmarshal-request", err.Error())
+		l.ErrorResponse.BadRequest(logger, w, err, fmt.Sprintf("unmarshal-request: %s", err.Error()))
 		return
 	}
 
 	err = l.LeaseReleaser.ReleaseSubnetLease(payload.UnderlayIP)
 	if err != nil {
-		logger.Error("failed-releasing-lease", err)
-		l.ErrorResponse.InternalServerError(w, err, "release-subnet-lease", err.Error())
+		l.ErrorResponse.InternalServerError(logger, w, err, err.Error())
 		return
 	}
 
