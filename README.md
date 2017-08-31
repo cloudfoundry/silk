@@ -27,8 +27,15 @@ Silk has three components:
 
 ### Data plane
 
-The Silk dataplane is a single shared [VXLAN](https://tools.ietf.org/html/rfc7348) overlay network where each
-container host is assigned a unique IP subnet, and each container gets a unique IP from that subnet.
+The Silk dataplane is a virtual L3 overlay network.  Each container host is assigned a unique IP address range,
+and each container gets a unique IP from that range.
+
+The virtual network is constructed from three primitives:
+- Every host runs one virtual L3 router (via Linux routing).
+- Each container on a host is connected to the host's virtual router via a dedicated virtual L2 segment, one segment per container (point-to-point over a virtual ethernet pair).
+- A single shared [VXLAN](https://tools.ietf.org/html/rfc7348) segment connects all of the the virtual L3 routers.
+
+Although the shared VXLAN network carries L2 frames, containers are not connected to it directly.  They only access the VXLAN segment via their host's virtual L3 router.  Therefore, from a container's point of view, the container-to-container network carries L3 packets, not L2.
 
 ![](data-plane.png)
 
