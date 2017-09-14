@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/silk/controller/config"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -65,20 +66,53 @@ var _ = Describe("Config.ReadFromFile", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("errors if a required field is not set", func() {
-		for fieldName, _ := range requiredFields {
+	DescribeTable("when config file is missing a member",
+		func(missingFlag, errorString string) {
 			cfg := cloneMap(requiredFields)
-			delete(cfg, fieldName)
+
+			delete(cfg, missingFlag)
 
 			file, err := ioutil.TempFile(os.TempDir(), "config-")
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(json.NewEncoder(file).Encode(cfg)).To(Succeed())
 
-			By(fmt.Sprintf("checking that %s is required", fieldName))
 			_, err = config.ReadFromFile(file.Name())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(HavePrefix("invalid config:"))
-		}
-	})
+			Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("invalid config: %s", errorString))))
+		},
+
+		Entry("missing debug_server_port", "debug_server_port", "DebugServerPort: less than min"),
+		Entry("missing listen_host", "listen_host", "ListenHost: zero value"),
+		Entry("missing listen_port", "listen_port", "ListenPort: zero value"),
+		Entry("missing ca_cert_file", "ca_cert_file", "CACertFile: zero value"),
+		Entry("missing server_cert_file", "server_cert_file", "ServerCertFile: zero value"),
+		Entry("missing server_key_file", "server_key_file", "ServerKeyFile: zero value"),
+		Entry("missing network", "network", "Network: zero value"),
+		Entry("missing subnet_prefix_length", "subnet_prefix_length", "SubnetPrefixLength: zero value"),
+		Entry("missing database", "database", ""),
+		Entry("missing lease_expiration_seconds", "lease_expiration_seconds", "LeaseExpirationSeconds: less than min"),
+		Entry("missing metron_port", "metron_port", "MetronPort: less than min"),
+		Entry("missing metrics_emit_seconds", "metrics_emit_seconds", "MetricsEmitSeconds: less than min"),
+		Entry("missing staleness_threshold_seconds", "staleness_threshold_seconds", "StalenessThresholdSeconds: less than min"),
+		Entry("missing health_check_port", "health_check_port", "HealthCheckPort: less than min"),
+		Entry("missing log_prefix", "log_prefix", "LogPrefix: zero value"),
+	)
+
+	DescribeTable("when config file field is an invalid value",
+		func(invalidField string, value interface{}, errorString string) {
+			cfg := cloneMap(requiredFields)
+			cfg[invalidField] = value
+
+			file, err := ioutil.TempFile(os.TempDir(), "config-")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(json.NewEncoder(file).Encode(cfg)).To(Succeed())
+
+			_, err = config.ReadFromFile(file.Name())
+			Expect(err).To(MatchError(fmt.Sprintf("invalid config: %s", errorString)))
+		},
+
+		Entry("invalid max_open_connections", "max_open_connections", -2, "MaxOpenConnections: less than min"),
+		Entry("invalid max_idle_connections", "max_idle_connections", -2, "MaxIdleConnections: less than min"),
+	)
 })

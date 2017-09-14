@@ -6,9 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"gopkg.in/validator.v2"
-
 	"code.cloudfoundry.org/cf-networking-helpers/db"
+	"gopkg.in/validator.v2"
 )
 
 type Config struct {
@@ -27,6 +26,8 @@ type Config struct {
 	MetricsEmitSeconds        int       `json:"metrics_emit_seconds" validate:"min=1"`
 	StalenessThresholdSeconds int       `json:"staleness_threshold_seconds" validate:"min=1"`
 	LogPrefix                 string    `json:"log_prefix" validate:"nonzero"`
+	MaxIdleConnections        int       `json:"max_idle_connections" validate:"min=0"`
+	MaxOpenConnections        int       `json:"max_open_connections" validate:"min=0"`
 }
 
 func (c *Config) WriteToFile(configFilePath string) error {
