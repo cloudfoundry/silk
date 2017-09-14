@@ -75,6 +75,8 @@ func mainWithError() error {
 	if err != nil {
 		return fmt.Errorf("connecting to database: %s", err)
 	}
+	sqlDB.SetMaxOpenConns(conf.MaxOpenConnections)
+	sqlDB.SetMaxIdleConns(conf.MaxIdleConnections)
 	logger.Info("db-connection-established")
 
 	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
