@@ -2,7 +2,7 @@ resources:
 - name: silk
   type: git
   source:
-    uri: https://github.com/cloudfoundry-incubator/silk
+    uri: https://github.com/cloudfoundry/silk
     branch: master
 
 jobs:
