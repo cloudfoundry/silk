@@ -121,8 +121,8 @@ var _ = Describe("errors", func() {
 
 				Expect(session.Out.Contents()).To(MatchJSON(`{
 				"code": 100,
-				"msg": "run ipam plugin",
-				"details": "invalid CIDR address: 10.255.30.0/33"
+				"msg": "generate ipam config",
+				"details": "invalid subnet: invalid CIDR address: 10.255.30.0/33"
 			}`))
 			})
 		})

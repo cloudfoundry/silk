@@ -58,7 +58,8 @@ var _ = Describe("Config", func() {
 			}))
 
 			Expect(result.IPs).To(HaveLen(1))
-			Expect(result.Interfaces[result.IPs[0].Interface].Name).To(Equal("container-device-name"))
+			index := result.IPs[0].Interface
+			Expect(result.Interfaces[*index].Name).To(Equal("container-device-name"))
 			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.5/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))

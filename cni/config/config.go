@@ -40,6 +40,7 @@ type Config struct {
 }
 
 func (c *Config) AsCNIResult() *current.Result {
+	ipInterface := 1
 	return &current.Result{
 		Interfaces: []*current.Interface{
 			&current.Interface{
@@ -56,7 +57,7 @@ func (c *Config) AsCNIResult() *current.Result {
 		IPs: []*current.IPConfig{
 			&current.IPConfig{
 				Version:   "4",
-				Interface: 1,
+				Interface: &ipInterface,
 				Address: net.IPNet{
 					IP:   c.Container.Address.IP,
 					Mask: []byte{255, 255, 255, 255},

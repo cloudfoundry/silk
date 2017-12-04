@@ -171,7 +171,10 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	generator := config.IPAMConfigGenerator{}
-	ipamConfig := generator.GenerateConfig(networkInfo.OverlaySubnet, netConf.Name, netConf.DataDir)
+	ipamConfig, err := generator.GenerateConfig(networkInfo.OverlaySubnet, netConf.Name, netConf.DataDir)
+	if err != nil {
+		return typedError("generate ipam config", err)
+	}
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	result, err := invoke.DelegateAdd("host-local", ipamConfigBytes)
@@ -239,7 +242,11 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 	// use 0.0.0.0/0 for the IPAM subnet during delete so we don't need to discover the subnet.
 	// this way, silk-daemon does not need to be up during deletes, and cleanup that takes place
 	// on startup, after the subnet may have changed, will succeed.
-	ipamConfig := generator.GenerateConfig("0.0.0.0/0", netConf.Name, netConf.DataDir)
+	ipamConfig, err := generator.GenerateConfig("0.0.0.0/0", netConf.Name, netConf.DataDir)
+	if err != nil {
+		p.Logger.Error("generate-ipam-config", err) // untestable
+		// continue, keep trying to cleanup
+	}
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	err = invoke.DelegateDel("host-local", ipamConfigBytes)
