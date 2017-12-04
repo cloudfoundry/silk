@@ -8,6 +8,8 @@ import (
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport/ports"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"
 	"code.cloudfoundry.org/silk/controller/integration/helpers"
@@ -25,13 +27,13 @@ var (
 	session    *gexec.Session
 	conf       config.Config
 	testClient *controller.Client
-	fakeMetron testsupport.FakeMetron
+	fakeMetron metrics.FakeMetron
 )
 
 var _ = BeforeEach(func() {
-	fakeMetron = testsupport.NewFakeMetron()
+	fakeMetron = metrics.NewFakeMetron()
 	dbConfig = testsupport.GetDBConfig()
-	dbConfig.DatabaseName = fmt.Sprintf("test_%d", testsupport.PickAPort())
+	dbConfig.DatabaseName = fmt.Sprintf("test_%d", ports.PickAPort())
 	testsupport.CreateDatabase(dbConfig)
 
 	conf = helpers.DefaultTestConfig(dbConfig, "fixtures")
@@ -393,13 +395,13 @@ var _ = Describe("Silk Controller", func() {
 	})
 
 	withName := func(name string) types.GomegaMatcher {
-		return WithTransform(func(ev testsupport.Event) string {
+		return WithTransform(func(ev metrics.Event) string {
 			return ev.Name
 		}, Equal(name))
 	}
 
 	withValue := func(value interface{}) types.GomegaMatcher {
-		return WithTransform(func(ev testsupport.Event) float64 {
+		return WithTransform(func(ev metrics.Event) float64 {
 			return ev.Value
 		}, BeEquivalentTo(value))
 	}

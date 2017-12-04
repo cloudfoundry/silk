@@ -3,7 +3,7 @@ package integration_test
 import (
 	"math/rand"
 
-	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics"
 
 	. "github.com/onsi/ginkgo"
 	ginkgoConfig "github.com/onsi/ginkgo/config"
@@ -22,7 +22,7 @@ func TestIntegration(t *testing.T) {
 }
 
 var HaveName = func(name string) types.GomegaMatcher {
-	return WithTransform(func(ev testsupport.Event) string {
+	return WithTransform(func(ev metrics.Event) string {
 		return ev.Name
 	}, Equal(name))
 }

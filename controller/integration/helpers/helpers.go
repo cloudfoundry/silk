@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
-	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport/ports"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/config"
@@ -25,9 +25,9 @@ const DEFAULT_TIMEOUT = "5s"
 func DefaultTestConfig(dbConf db.Config, fixturesPath string) config.Config {
 	return config.Config{
 		ListenHost:                "127.0.0.1",
-		ListenPort:                testsupport.PickAPort(),
-		DebugServerPort:           testsupport.PickAPort(),
-		HealthCheckPort:           testsupport.PickAPort(),
+		ListenPort:                ports.PickAPort(),
+		DebugServerPort:           ports.PickAPort(),
+		HealthCheckPort:           ports.PickAPort(),
 		CACertFile:                filepath.Join(fixturesPath, "ca.crt"),
 		ServerCertFile:            filepath.Join(fixturesPath, "server.crt"),
 		ServerKeyFile:             filepath.Join(fixturesPath, "server.key"),

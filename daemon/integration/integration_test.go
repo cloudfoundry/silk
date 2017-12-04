@@ -13,7 +13,8 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
-	cftestsupport "code.cloudfoundry.org/cf-networking-helpers/testsupport"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics"
+	"code.cloudfoundry.org/cf-networking-helpers/testsupport/ports"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon"
@@ -51,7 +52,7 @@ var (
 	vtepName              string
 	vtepPort              int
 	vni                   int
-	fakeMetron            cftestsupport.FakeMetron
+	fakeMetron            metrics.FakeMetron
 	overlaySubnet         string
 	overlayVtepIP         net.IP
 	remoteOverlaySubnet   string
@@ -59,7 +60,7 @@ var (
 )
 
 var _ = BeforeEach(func() {
-	fakeMetron = cftestsupport.NewFakeMetron()
+	fakeMetron = metrics.NewFakeMetron()
 
 	externalIface, err := locateInterface(net.ParseIP(localIP))
 	Expect(err).NotTo(HaveOccurred())
@@ -78,11 +79,11 @@ var _ = BeforeEach(func() {
 	}
 	vni = GinkgoParallelNode()
 	vtepName = fmt.Sprintf("silk-vtep-%d", GinkgoParallelNode())
-	daemonHealthCheckPort := cftestsupport.PickAPort()
+	daemonHealthCheckPort := ports.PickAPort()
 	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
-	daemonDebugServerPort = cftestsupport.PickAPort()
-	serverListenPort = cftestsupport.PickAPort()
-	vtepPort = cftestsupport.PickAPort()
+	daemonDebugServerPort = ports.PickAPort()
+	serverListenPort = ports.PickAPort()
+	vtepPort = ports.PickAPort()
 	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", serverListenPort)
 	datastoreDir, err := ioutil.TempDir("", "")
 	Expect(err).NotTo(HaveOccurred())
@@ -159,13 +160,13 @@ var _ = Describe("Daemon Integration", func() {
 	})
 
 	withName := func(name string) types.GomegaMatcher {
-		return WithTransform(func(ev cftestsupport.Event) string {
+		return WithTransform(func(ev metrics.Event) string {
 			return ev.Name
 		}, Equal(name))
 	}
 
 	withValue := func(value interface{}) types.GomegaMatcher {
-		return WithTransform(func(ev cftestsupport.Event) float64 {
+		return WithTransform(func(ev metrics.Event) float64 {
 			return ev.Value
 		}, BeEquivalentTo(value))
 	}
