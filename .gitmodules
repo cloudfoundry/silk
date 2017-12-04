@@ -76,3 +76,6 @@
 [submodule "vendor/code.cloudfoundry.org/cf-networking-helpers"]
 	path = vendor/code.cloudfoundry.org/cf-networking-helpers
 	url = https://github.com/cloudfoundry/cf-networking-helpers
+[submodule "vendor/github.com/pivotal-cf-experimental/gomegamatchers"]
+	path = vendor/github.com/pivotal-cf-experimental/gomegamatchers
+	url = https://github.com/pivotal-cf-experimental/gomegamatchers.git
