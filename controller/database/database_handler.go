@@ -7,13 +7,11 @@ import (
 
 	"code.cloudfoundry.org/silk/controller"
 
-	"github.com/rubenv/sql-migrate"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 const postgresTimeNow = "EXTRACT(EPOCH FROM now())::numeric::integer"
 const mysqlTimeNow = "UNIX_TIMESTAMP()"
-const MySQL = "mysql"
-const Postgres = "postgres"
 
 var RecordNotAffectedError = errors.New("record not affected")
 var MultipleRecordsAffectedError = errors.New("multiple records affected")
@@ -21,7 +19,6 @@ var MultipleRecordsAffectedError = errors.New("multiple records affected")
 //go:generate counterfeiter -o fakes/db.go --fake-name Db . Db
 type Db interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
-	Rebind(query string) string
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
 	DriverName() string
@@ -154,7 +151,8 @@ func (d *DatabaseHandler) AddEntry(lease controller.Lease) error {
 		return err
 	}
 
-	_, err = d.db.Exec(d.db.Rebind(fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES (?, ?, ?, %s)", timestamp)), lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr)
+	query := fmt.Sprintf("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('%s', '%s', '%s', %s)", lease.UnderlayIP, lease.OverlaySubnet, lease.OverlayHardwareAddr, timestamp)
+	_, err = d.db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("adding entry: %s", err)
 	}
@@ -162,27 +160,26 @@ func (d *DatabaseHandler) AddEntry(lease controller.Lease) error {
 }
 
 func (d *DatabaseHandler) DeleteEntry(underlayIP string) error {
-	deleteRows, err := d.db.Exec(d.db.Rebind("DELETE FROM subnets WHERE underlay_ip = ?"), underlayIP)
-
+	result, err := d.db.Exec(fmt.Sprintf("DELETE FROM subnets WHERE underlay_ip = '%s'", underlayIP))
 	if err != nil {
 		return fmt.Errorf("deleting entry: %s", err)
 	}
-
-	rowsAffected, err := deleteRows.RowsAffected()
+	nRows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("parse result: %s", err)
 	}
-
-	if rowsAffected == 0 {
+	if nRows == 0 {
 		return RecordNotAffectedError
 	}
-
+	if nRows > 1 {
+		return MultipleRecordsAffectedError
+	}
 	return nil
 }
 
 func (d *DatabaseHandler) LeaseForUnderlayIP(underlayIP string) (*controller.Lease, error) {
 	var overlaySubnet, overlayHWAddr string
-	result := d.db.QueryRow(d.db.Rebind("SELECT overlay_subnet, overlay_hwaddr FROM subnets WHERE underlay_ip = ?"), underlayIP)
+	result := d.db.QueryRow(fmt.Sprintf("SELECT overlay_subnet, overlay_hwaddr FROM subnets WHERE underlay_ip = '%s'", underlayIP))
 	err := result.Scan(&overlaySubnet, &overlayHWAddr)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -203,7 +200,8 @@ func (d *DatabaseHandler) RenewLeaseForUnderlayIP(underlayIP string) error {
 		return err
 	}
 
-	_, err = d.db.Exec(d.db.Rebind(fmt.Sprintf("UPDATE subnets SET last_renewed_at = %s WHERE underlay_ip = ?", timestamp)), underlayIP)
+	query := fmt.Sprintf("UPDATE subnets SET last_renewed_at = %s WHERE underlay_ip = '%s'", timestamp, underlayIP)
+	_, err = d.db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("renewing lease: %s", err)
 	}
@@ -212,7 +210,7 @@ func (d *DatabaseHandler) RenewLeaseForUnderlayIP(underlayIP string) error {
 
 func (d *DatabaseHandler) LastRenewedAtForUnderlayIP(underlayIP string) (int64, error) {
 	var lastRenewedAt int64
-	result := d.db.QueryRow(d.db.Rebind("SELECT last_renewed_at FROM subnets WHERE underlay_ip = ?"), underlayIP)
+	result := d.db.QueryRow(fmt.Sprintf("SELECT last_renewed_at FROM subnets WHERE underlay_ip = '%s'", underlayIP))
 	err := result.Scan(&lastRenewedAt)
 	if err != nil {
 		return 0, err
@@ -222,7 +220,7 @@ func (d *DatabaseHandler) LastRenewedAtForUnderlayIP(underlayIP string) (int64, 
 
 func (d *DatabaseHandler) SubnetForUnderlayIP(underlayIP string) (string, error) {
 	var subnet string
-	result := d.db.QueryRow(d.db.Rebind("SELECT subnet FROM subnets WHERE underlay_ip = ?"), underlayIP)
+	result := d.db.QueryRow(fmt.Sprintf("SELECT subnet FROM subnets WHERE underlay_ip = '%s'", underlayIP))
 	err := result.Scan(&subnet)
 	if err != nil {
 		return "", err
@@ -245,9 +243,9 @@ func createSubnetTable(dbType string) string {
 	psqlId := "id SERIAL PRIMARY KEY"
 
 	switch dbType {
-	case Postgres:
+	case "postgres":
 		return fmt.Sprintf(baseCreateTable, psqlId)
-	case MySQL:
+	case "mysql":
 		return fmt.Sprintf(baseCreateTable, mysqlId)
 	}
 
@@ -256,9 +254,9 @@ func createSubnetTable(dbType string) string {
 
 func timestampForDriver(driverName string) (string, error) {
 	switch driverName {
-	case MySQL:
+	case "mysql":
 		return mysqlTimeNow, nil
-	case Postgres:
+	case "postgres":
 		return postgresTimeNow, nil
 	default:
 		return "", fmt.Errorf("database type %s is not supported", driverName)
