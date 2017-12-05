@@ -52,6 +52,7 @@ func (IPAMConfigGenerator) GenerateConfig(subnet, network, dataDirPath string) (
 					Subnet: types.IPNet(*subnetAsIPNet),
 				}},
 			},
+			Routes: []*types.Route{},
 			DataDir: filepath.Join(dataDirPath, "ipam"),
 		},
 	}, nil

@@ -29,6 +29,7 @@ var _ = Describe("Ipam config generation", func() {
 								Subnet: types.IPNet(*subnetAsIPNet),
 							},
 						}},
+					Routes: []*types.Route{},
 					DataDir: "/some/data/dir/ipam",
 				},
 			}))
