@@ -16,7 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	migrate "github.com/rubenv/sql-migrate"
+	"github.com/rubenv/sql-migrate"
 )
 
 var _ = Describe("DatabaseHandler", func() {
@@ -45,6 +45,7 @@ var _ = Describe("DatabaseHandler", func() {
 		realMigrateAdapter = &database.MigrateAdapter{}
 
 		mockDb.DriverNameReturns(realDb.DriverName())
+
 		lease = controller.Lease{
 			UnderlayIP:          "10.244.11.22",
 			OverlaySubnet:       "10.255.17.0/24",
@@ -119,12 +120,24 @@ var _ = Describe("DatabaseHandler", func() {
 
 	Describe("AddEntry", func() {
 		BeforeEach(func() {
-			databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
-			mockDb.ExecReturns(nil, nil)
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("adds an entry to the DB", func() {
+			err := databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+
+			leases, err := databaseHandler.All()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(leases).To(ContainElement(lease))
 		})
 
 		Context("when the database type is postgres", func() {
 			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.RebindReturns("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ($1, $2, $3, EXTRACT(EPOCH FROM now())::numeric::integer)")
 				mockDb.DriverNameReturns("postgres")
 			})
 			It("adds an entry to the DB", func() {
@@ -132,25 +145,34 @@ var _ = Describe("DatabaseHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(mockDb.ExecCallCount()).To(Equal(1))
-				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00', EXTRACT(EPOCH FROM now())::numeric::integer)"))
+				query, args := mockDb.ExecArgsForCall(0)
+				Expect(mockDb.RebindArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES (?, ?, ?, EXTRACT(EPOCH FROM now())::numeric::integer)"))
+				Expect(query).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ($1, $2, $3, EXTRACT(EPOCH FROM now())::numeric::integer)"))
+				Expect(args).To(Equal([]interface{}{"10.244.11.22", "10.255.17.0/24", "ee:ee:0a:ff:11:00"}))
 			})
 		})
 
 		Context("when the database type is mysql", func() {
 			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockDb.DriverNameReturns("mysql")
+				mockDb.RebindReturns("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES (?, ?, ?, UNIX_TIMESTAMP())")
 			})
 			It("adds an entry to the DB", func() {
 				err := databaseHandler.AddEntry(lease)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(mockDb.ExecCallCount()).To(Equal(1))
-				Expect(mockDb.ExecArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES ('10.244.11.22', '10.255.17.0/24', 'ee:ee:0a:ff:11:00', UNIX_TIMESTAMP())"))
+				query, args := mockDb.ExecArgsForCall(0)
+				Expect(mockDb.RebindArgsForCall(0)).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES (?, ?, ?, UNIX_TIMESTAMP())"))
+				Expect(query).To(Equal("INSERT INTO subnets (underlay_ip, overlay_subnet, overlay_hwaddr, last_renewed_at) VALUES (?, ?, ?, UNIX_TIMESTAMP())"))
+				Expect(args).To(Equal([]interface{}{"10.244.11.22", "10.255.17.0/24", "ee:ee:0a:ff:11:00"}))
 			})
 		})
 
 		Context("when the database type is not supported", func() {
 			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockDb.DriverNameReturns("foo")
 			})
 			It("returns an error", func() {
@@ -161,6 +183,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 		Context("when the database exec returns an error", func() {
 			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockDb.ExecReturns(nil, errors.New("apple"))
 			})
 			It("returns a sensible error", func() {
@@ -168,6 +191,7 @@ var _ = Describe("DatabaseHandler", func() {
 				Expect(err).To(MatchError("adding entry: apple"))
 			})
 		})
+
 	})
 
 	Describe("DeleteEntry", func() {
@@ -188,13 +212,20 @@ var _ = Describe("DatabaseHandler", func() {
 			BeforeEach(func() {
 				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 				mockDb.ExecReturns(nil, errors.New("carrot"))
+				mockDb.RebindReturns("DELETE FROM subnets WHERE underlay_ip = $1")
+				mockDb.DriverNameReturns("postgres")
+
 			})
 			It("returns a sensible error", func() {
 				err := databaseHandler.DeleteEntry("some-underlay")
 				Expect(err).To(MatchError("deleting entry: carrot"))
 
 				Expect(mockDb.ExecCallCount()).To(Equal(1))
-				Expect(mockDb.ExecArgsForCall(0)).To(Equal("DELETE FROM subnets WHERE underlay_ip = 'some-underlay'"))
+
+				query, args := mockDb.ExecArgsForCall(0)
+				Expect(mockDb.RebindArgsForCall(0)).To(Equal("DELETE FROM subnets WHERE underlay_ip = ?"))
+				Expect(query).To(Equal("DELETE FROM subnets WHERE underlay_ip = $1"))
+				Expect(args).To(Equal([]interface{}{"some-underlay"}))
 			})
 		})
 
@@ -227,20 +258,6 @@ var _ = Describe("DatabaseHandler", func() {
 			It("returns a RecordNotAffectedError", func() {
 				err := databaseHandler.DeleteEntry("8.8.8.8")
 				Expect(err).To(Equal(database.RecordNotAffectedError))
-			})
-		})
-
-		Context("when more than one row in result", func() {
-			BeforeEach(func() {
-				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
-				badResult := &fakes.SqlResult{}
-				badResult.RowsAffectedReturns(2, nil)
-				mockDb.ExecReturns(badResult, nil)
-			})
-
-			It("returns a MultipleRecordsAffectedError", func() {
-				err := databaseHandler.DeleteEntry("10.244.11.22")
-				Expect(err).To(Equal(database.MultipleRecordsAffectedError))
 			})
 		})
 	})
@@ -276,26 +293,34 @@ var _ = Describe("DatabaseHandler", func() {
 		Context("when the database is postgres", func() {
 			BeforeEach(func() {
 				mockDb.DriverNameReturns("postgres")
+				mockDb.RebindReturns("UPDATE subnets SET last_renewed_at = EXTRACT(EPOCH FROM now())::numeric::integer WHERE underlay_ip = $1")
 			})
 			It("updates the last renewed at time", func() {
 				err := databaseHandler.RenewLeaseForUnderlayIP("1.2.3.4")
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(mockDb.ExecCallCount()).To(Equal(1))
-				Expect(mockDb.ExecArgsForCall(0)).To(Equal("UPDATE subnets SET last_renewed_at = EXTRACT(EPOCH FROM now())::numeric::integer WHERE underlay_ip = '1.2.3.4'"))
+				query, args := mockDb.ExecArgsForCall(0)
+
+				Expect(mockDb.RebindArgsForCall(0)).To(Equal("UPDATE subnets SET last_renewed_at = EXTRACT(EPOCH FROM now())::numeric::integer WHERE underlay_ip = ?"))
+				Expect(query).To(Equal("UPDATE subnets SET last_renewed_at = EXTRACT(EPOCH FROM now())::numeric::integer WHERE underlay_ip = $1"))
+				Expect(args).To(ContainElement("1.2.3.4"))
 			})
 		})
 
 		Context("when the database is mysql", func() {
 			BeforeEach(func() {
 				mockDb.DriverNameReturns("mysql")
+				mockDb.RebindReturns("UPDATE subnets SET last_renewed_at = UNIX_TIMESTAMP() WHERE underlay_ip = ?")
 			})
 			It("updates the last renewed at time", func() {
 				err := databaseHandler.RenewLeaseForUnderlayIP("1.2.3.4")
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(mockDb.ExecCallCount()).To(Equal(1))
-				Expect(mockDb.ExecArgsForCall(0)).To(Equal("UPDATE subnets SET last_renewed_at = UNIX_TIMESTAMP() WHERE underlay_ip = '1.2.3.4'"))
+				query, args := mockDb.ExecArgsForCall(0)
+				Expect(mockDb.RebindArgsForCall(0)).To(Equal("UPDATE subnets SET last_renewed_at = UNIX_TIMESTAMP() WHERE underlay_ip = ?"))
+				Expect(query).To(Equal("UPDATE subnets SET last_renewed_at = UNIX_TIMESTAMP() WHERE underlay_ip = ?"))
+				Expect(args).To(ContainElement("1.2.3.4"))
 			})
 		})
 
