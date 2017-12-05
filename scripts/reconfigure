@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 
-export PIPELINE=silk
+export PIPELINE=silk-v1.4.x
 export TARGET=c2c
 
 repo_root="$(cd $(dirname $0)/.. && pwd)"

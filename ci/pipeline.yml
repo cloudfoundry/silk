@@ -3,7 +3,7 @@ resources:
   type: git
   source:
     uri: https://github.com/cloudfoundry-incubator/silk
-    branch: master
+    branch: v1.4.x
 
 jobs:
 - name: silk-test-postgres
