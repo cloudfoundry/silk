@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"code.cloudfoundry.org/go-db-helpers/metrics"
 	"code.cloudfoundry.org/go-db-helpers/mutualtls"
@@ -27,7 +26,6 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/types"
-	matchers "github.com/pivotal-cf-experimental/gomegamatchers"
 	"github.com/tedsuo/ifrit"
 	"github.com/vishvananda/netlink"
 )
@@ -250,9 +248,8 @@ var _ = Describe("Daemon Integration", func() {
 
 			By("checking the arp fdb and routing are correct")
 			routes := mustSucceed("ip", "route", "list", "dev", vtepName)
-			routeFields := strings.Fields(routes)
-			Expect(routeFields).To(matchers.ContainSequence([]string{"10.255.0.0/16", "proto", "kernel", "scope", "link", "src", overlayVtepIP.String()}))
-			Expect(routeFields).To(matchers.ContainSequence([]string{remoteOverlaySubnet, "via", remoteOverlayVtepIP.String(), "src", overlayVtepIP.String()}))
+			Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+			Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
 
 			arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
 			Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
@@ -279,9 +276,8 @@ var _ = Describe("Daemon Integration", func() {
 
 				By("checking the arp fdb and routing are correct")
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
-				routeFields := strings.Fields(routes)
-				Expect(routeFields).To(matchers.ContainSequence([]string{"10.255.0.0/16", "proto", "kernel", "scope", "link", "src", overlayVtepIP.String()}))
-				Expect(routeFields).To(matchers.ContainSequence([]string{remoteOverlaySubnet, "via", remoteOverlayVtepIP.String(), "src", overlayVtepIP.String()}))
+				Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+				Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
 
 				arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
 				Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
@@ -308,9 +304,8 @@ var _ = Describe("Daemon Integration", func() {
 
 				By("checking the arp fdb and routing are updated correctly")
 				routes = mustSucceed("ip", "route", "list", "dev", vtepName)
-				routeFields = strings.Fields(routes)
-				Expect(routeFields).To(matchers.ContainSequence([]string{"10.255.0.0/16", "proto", "kernel", "scope", "link", "src", overlayVtepIP.String()}))
-				Expect(routeFields).NotTo(matchers.ContainSequence([]string{remoteOverlaySubnet, "via", remoteOverlayVtepIP.String(), "src", overlayVtepIP.String()}))
+				Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+				Expect(routes).NotTo(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
 
 				arpEntries = mustSucceed("ip", "neigh", "list", "dev", vtepName)
 				Expect(arpEntries).NotTo(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
@@ -358,9 +353,8 @@ var _ = Describe("Daemon Integration", func() {
 
 				By("checking the arp fdb and routing are correct")
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
-				routeFields := strings.Fields(routes)
-				Expect(routeFields).To(matchers.ContainSequence([]string{"10.255.0.0/16", "proto", "kernel", "scope", "link", "src", overlayVtepIP.String()}))
-				Expect(routeFields).To(matchers.ContainSequence([]string{remoteOverlaySubnet, "via", remoteOverlayVtepIP.String(), "src", overlayVtepIP.String()}))
+				Expect(routes).To(ContainSubstring(`10.255.0.0/16  proto kernel  scope link  src 10.255.30.0`))
+				Expect(routes).To(ContainSubstring(`10.255.40.0/24 via 10.255.40.0  src 10.255.30.0`))
 
 				arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
 				Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
@@ -369,8 +363,8 @@ var _ = Describe("Daemon Integration", func() {
 				Expect(fdbEntries).To(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
 
 				By("checking that routes do not exist for the nonroutable lease")
-				Expect(routeFields).NotTo(matchers.ContainSequence([]string{"10.123.40.0/24", "via", "10.123.40.0", "src", overlayVtepIP.String()}))
-				Expect(arpEntries).NotTo(ContainSubstring("10.123.40.0 lladdr ee:ee:0a:fe:28:00 PERMANENT"))
+				Expect(routes).NotTo(ContainSubstring(`10.254.40.0/24 via 10.254.40.0  src 10.255.30.0`))
+				Expect(arpEntries).NotTo(ContainSubstring("10.254.40.0 lladdr ee:ee:0a:fe:28:00 PERMANENT"))
 				Expect(fdbEntries).NotTo(ContainSubstring("ee:ee:0a:fe:28:00 dst 172.17.0.4 self permanent"))
 			})
 		})
