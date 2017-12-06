@@ -76,3 +76,6 @@
 [submodule "vendor/github.com/containernetworking/plugins"]
 	path = vendor/github.com/containernetworking/plugins
 	url = https://github.com/containernetworking/plugins
+[submodule "vendor/github.com/pivotal-cf-experimental/gomegamatchers"]
+	path = vendor/github.com/pivotal-cf-experimental/gomegamatchers
+	url = https://github.com/pivotal-cf-experimental/gomegamatchers.git
