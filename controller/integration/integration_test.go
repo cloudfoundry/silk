@@ -171,7 +171,7 @@ var _ = Describe("Silk Controller", func() {
 			helpers.StopServer(session)
 			conf.Network = "10.255.0.0/29"
 			conf.SubnetPrefixLength = 30
-			conf.LeaseExpirationSeconds = 1
+			conf.LeaseExpirationSeconds = 3
 			session = helpers.StartAndWaitForServer(controllerBinaryPath, conf, testClient)
 		})
 
@@ -183,7 +183,7 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).To(MatchError(ContainSubstring("No lease available")))
 
 			// wait for lease to expire
-			time.Sleep(2 * time.Second)
+			time.Sleep(time.Duration(conf.LeaseExpirationSeconds+1) * time.Second)
 
 			newLease, err := testClient.AcquireSubnetLease("10.244.4.15")
 			Expect(err).NotTo(HaveOccurred())
