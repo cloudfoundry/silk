@@ -249,7 +249,7 @@ var _ = Describe("Daemon Integration", func() {
 			By("checking the arp fdb and routing are correct")
 			routes := mustSucceed("ip", "route", "list", "dev", vtepName)
 			Expect(routes).To(MatchRegexp(`10.255.0.0/16\s+proto\s+kernel\s+scope\s+link\s+src\s+10.255.30.0`))
-			Expect(routes).To(MatchRegexp(`10.255.40.0/24\s+via\s+10.255.40.0\s+src\s+10.255.30.0`))
+			Expect(routes).To(MatchRegexp(`.*10.255.40.0/24\s+via\s+10.255.40.0\s+src\s+10.255.30.0`))
 
 			arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
 			Expect(arpEntries).To(ContainSubstring("10.255.40.0 lladdr ee:ee:0a:ff:28:00 PERMANENT"))
