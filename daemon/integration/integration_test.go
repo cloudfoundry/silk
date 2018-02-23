@@ -242,6 +242,36 @@ var _ = Describe("Daemon Integration", func() {
 		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("renewFailure")))
 	})
 
+	Context("when custom_underlay_interface_name is specified", func() {
+		var (
+			dummyName      string
+			dummyInterface *net.Interface
+		)
+		BeforeEach(func() {
+			var err error
+
+			dummyName = "eth1"
+			daemonConf.CustomUnderlayInterfaceName = dummyName
+			mustSucceed("ip", "link", "add", dummyName, "type", "dummy")
+
+			dummyInterface, err = net.InterfaceByName("eth1")
+			Expect(err).NotTo(HaveOccurred())
+
+			stopDaemon()
+		})
+		AfterEach(func() {
+			mustSucceed("ip", "link", "delete", dummyName)
+		})
+		It("attaches the vtep device to the interface specified", func() {
+			startAndWaitForDaemon()
+			link, err := netlink.LinkByName(vtepName)
+			Expect(err).NotTo(HaveOccurred())
+
+			vtep := link.(*netlink.Vxlan)
+			Expect(vtep.VtepDevIndex).To(Equal(dummyInterface.Index))
+		})
+	})
+
 	It("emits an uptime metric", func() {
 		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
 	})
