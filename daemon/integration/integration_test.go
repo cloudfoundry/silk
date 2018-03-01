@@ -90,7 +90,6 @@ var _ = BeforeEach(func() {
 	datastorePath = filepath.Join(datastoreDir, "container-metadata.json")
 	daemonConf = config.Config{
 		UnderlayIP:                localIP,
-		UnderlayIPs:               []string{localIP},
 		SubnetPrefixLength:        24,
 		OverlayNetwork:            "10.255.0.0/16",
 		HealthCheckPort:           uint16(daemonHealthCheckPort),
@@ -126,7 +125,7 @@ var _ = BeforeEach(func() {
 	}
 
 	leases := map[string][]controller.Lease{
-		"leases": {
+		"leases": []controller.Lease{
 			{
 				UnderlayIP:          localIP,
 				OverlaySubnet:       overlaySubnet,
@@ -245,29 +244,23 @@ var _ = Describe("Daemon Integration", func() {
 
 	Context("when custom_underlay_interface_name is specified", func() {
 		var (
-			secondUnderlayDeviceName string
-			secondUnderlayIP         string
-			secondUnderlayDevice     *net.Interface
+			dummyName      string
+			dummyInterface *net.Interface
 		)
 		BeforeEach(func() {
-			secondUnderlayIP = "169.254.244.244"
-
-			secondUnderlayDeviceName = "eth1"
-			daemonConf.CustomUnderlayInterfaceName = secondUnderlayDeviceName
-			daemonConf.UnderlayIPs = []string{localIP, secondUnderlayIP}
-
-			mustSucceed("ip", "link", "add", secondUnderlayDeviceName, "type", "dummy")
-			mustSucceed("ip", "addr", "add", secondUnderlayIP, "dev", secondUnderlayDeviceName)
-
 			var err error
-			secondUnderlayDevice, err = net.InterfaceByName(secondUnderlayDeviceName)
+
+			dummyName = "eth1"
+			daemonConf.CustomUnderlayInterfaceName = dummyName
+			mustSucceed("ip", "link", "add", dummyName, "type", "dummy")
+
+			dummyInterface, err = net.InterfaceByName("eth1")
 			Expect(err).NotTo(HaveOccurred())
 
 			stopDaemon()
 		})
 		AfterEach(func() {
-			mustSucceed("ip", "addr", "delete", secondUnderlayIP+"/32", "dev", secondUnderlayDeviceName)
-			mustSucceed("ip", "link", "delete", secondUnderlayDeviceName)
+			mustSucceed("ip", "link", "delete", dummyName)
 		})
 		It("attaches the vtep device to the interface specified", func() {
 			startAndWaitForDaemon()
@@ -275,7 +268,7 @@ var _ = Describe("Daemon Integration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			vtep := link.(*netlink.Vxlan)
-			Expect(vtep.VtepDevIndex).To(Equal(secondUnderlayDevice.Index))
+			Expect(vtep.VtepDevIndex).To(Equal(dummyInterface.Index))
 		})
 	})
 

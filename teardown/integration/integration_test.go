@@ -46,7 +46,6 @@ var _ = BeforeEach(func() {
 	datastoreFile.Close()
 	clientConf = config.Config{
 		UnderlayIP:                localIP,
-		UnderlayIPs:               []string{localIP},
 		SubnetPrefixLength:        24,
 		OverlayNetwork:            "10.255.0.0/16", // unused by teardown, but config requires it
 		HealthCheckPort:           4000,

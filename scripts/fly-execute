@@ -15,6 +15,7 @@ db=${DB:-"postgres"} # if not set, default to postgres
 
 DIR=$(cd $(dirname $0)/.. && pwd)
 fly -t $1 execute \
+  --exclude-ignored \
   --privileged \
   --input silk=${DIR} \
   --config ${DIR}/ci/test-$db.yml
