@@ -12,7 +12,6 @@ import (
 type netAdapter interface {
 	Interfaces() ([]net.Interface, error)
 	InterfaceAddrs(net.Interface) ([]net.Addr, error)
-	InterfaceByName(name string) (*net.Interface, error)
 }
 
 type ConfigCreator struct {
@@ -44,25 +43,14 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 		return nil, fmt.Errorf("parse underlay ip: %s", clientConf.UnderlayIP)
 	}
 
-	var underlayInterface net.Interface
-	var err error
-
-	if clientConf.CustomUnderlayInterfaceName != "" {
-		underlayInterfacePointer, err := c.NetAdapter.InterfaceByName(clientConf.CustomUnderlayInterfaceName)
-		if err != nil {
-			return nil, fmt.Errorf("find device from name %s: %s", clientConf.CustomUnderlayInterfaceName, err)
-		}
-		underlayInterface = *underlayInterfacePointer
-	} else {
-		underlayInterface, err = c.locateInterface(underlayIP)
-		if err != nil {
-			return nil, fmt.Errorf("find device from ip %s: %s", underlayIP, err)
-		}
-	}
-
 	overlayIP, _, err := net.ParseCIDR(lease.OverlaySubnet)
 	if err != nil {
 		return nil, fmt.Errorf("determine vtep overlay ip: %s", err)
+	}
+
+	underlayInterface, err := c.locateInterface(underlayIP)
+	if err != nil {
+		return nil, fmt.Errorf("find device from ip %s: %s", underlayIP, err)
 	}
 
 	overlayHardwareAddr, err := net.ParseMAC(lease.OverlayHardwareAddr)

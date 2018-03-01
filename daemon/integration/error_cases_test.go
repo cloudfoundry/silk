@@ -301,17 +301,5 @@ var _ = Describe("error cases", func() {
 				Expect(string(session.Err.Contents())).To(ContainSubstring("acquire subnet lease: http status 500"))
 			})
 		})
-
-		Context("when the custom underlay interface does not exist", func() {
-			BeforeEach(func() {
-				daemonConf.CustomUnderlayInterfaceName = "non-existent-eth1"
-				configFilePath = writeConfigFile(daemonConf)
-			})
-			It("exits with status 1", func() {
-				session := startDaemon(configFilePath)
-				Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
-				Expect(string(session.Err.Contents())).To(ContainSubstring(`potato-prefix.silk-daemon error: create vtep config: find device from name non-existent-eth1: route ip+net: no such network interface`))
-			})
-		})
 	})
 })

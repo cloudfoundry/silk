@@ -65,34 +65,6 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(1))
 			Expect(fakeNetAdapter.InterfaceAddrsCallCount()).To(Equal(1))
 			Expect(fakeNetAdapter.InterfaceAddrsArgsForCall(0)).To(Equal(net.Interface{Index: 42}))
-			Expect(fakeNetAdapter.InterfaceByNameCallCount()).To(Equal(0))
-		})
-
-		Context("when CustomUnderlayInterfaceName is set", func() {
-			BeforeEach(func() {
-				clientConf.CustomUnderlayInterfaceName = "eth1"
-				fakeNetAdapter.InterfaceByNameReturns(&net.Interface{
-					Index: 38,
-				}, nil)
-			})
-			It("uses the underlay interface name in the config", func() {
-				conf, err := creator.Create(clientConf, lease)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(conf.UnderlayInterface).To(Equal(net.Interface{Index: 38}))
-
-				Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(0))
-				Expect(fakeNetAdapter.InterfaceByNameCallCount()).To(Equal(1))
-				Expect(fakeNetAdapter.InterfaceByNameArgsForCall(0)).To(Equal("eth1"))
-			})
-			Context("when the CustomUnderlayInterfaceName does not exist", func() {
-				BeforeEach(func() {
-					fakeNetAdapter.InterfaceByNameReturns(nil, errors.New("banana"))
-				})
-				It("returns an error", func() {
-					_, err := creator.Create(clientConf, lease)
-					Expect(err).To(MatchError("find device from name eth1: banana"))
-				})
-			})
 		})
 
 		Context("when the overlay network prefix length is greater than or equal to the subnet prefix length", func() {
