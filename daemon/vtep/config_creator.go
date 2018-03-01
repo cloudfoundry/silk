@@ -6,7 +6,6 @@ import (
 
 	clientConfig "code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
-	"strings"
 )
 
 //go:generate counterfeiter -o fakes/netAdapter.go --fake-name NetAdapter . netAdapter
@@ -49,10 +48,11 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 	var err error
 
 	if clientConf.CustomUnderlayInterfaceName != "" {
-		underlayInterface, err = c.locateInterfaceByName(clientConf.CustomUnderlayInterfaceName, clientConf.UnderlayIPs)
+		underlayInterfacePointer, err := c.NetAdapter.InterfaceByName(clientConf.CustomUnderlayInterfaceName)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("find device from name %s: %s", clientConf.CustomUnderlayInterfaceName, err)
 		}
+		underlayInterface = *underlayInterfacePointer
 	} else {
 		underlayInterface, err = c.locateInterface(underlayIP)
 		if err != nil {
@@ -92,39 +92,6 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 		OverlayNetworkPrefixLength: overlayNetworkPrefixLength,
 		VTEPPort:                   clientConf.VTEPPort,
 	}, nil
-}
-
-func (c *ConfigCreator) locateInterfaceByName(name string, availableIPs []string) (net.Interface, error) {
-	underlayInterface, err := c.NetAdapter.InterfaceByName(name)
-	if err != nil {
-		return net.Interface{}, fmt.Errorf("find device from name %s: %s", name, err)
-	}
-
-	availableInterfaceNames := make([]string, len(availableIPs))
-	found := false
-
-	for i, ip := range availableIPs {
-		parsedIP := net.ParseIP(ip)
-		if parsedIP == nil {
-			return net.Interface{}, fmt.Errorf("parse underlay ip: %s", ip)
-		}
-
-		availableUnderlayInterface, err := c.locateInterface(parsedIP)
-		if err != nil {
-			return net.Interface{}, fmt.Errorf("find device from ip %s: %s", parsedIP, err)
-		}
-
-		availableInterfaceNames[i] = availableUnderlayInterface.Name
-		if underlayInterface.Index == availableUnderlayInterface.Index {
-			found = true
-		}
-	}
-
-	if !found {
-		return net.Interface{}, fmt.Errorf("requested custom underlay interface name '%s' refers to a non underlay device. valid choices are [%s]", underlayInterface.Name, strings.Join(availableInterfaceNames, ", "))
-	}
-
-	return *underlayInterface, nil
 }
 
 func (c *ConfigCreator) locateInterface(toFind net.IP) (net.Interface, error) {

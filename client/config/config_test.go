@@ -27,7 +27,6 @@ var _ = Describe("Config.LoadConfig", func() {
 	BeforeEach(func() {
 		requiredFields = map[string]interface{}{
 			"underlay_ip":                 "1.2.3.4",
-			"underlay_ips":                []string{"1.2.3.4"},
 			"subnet_prefix_length":        24,
 			"overlay_network":             "10.255.0.0/16",
 			"health_check_port":           22222,

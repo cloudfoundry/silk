@@ -15,16 +15,10 @@ import (
 var _ = Describe("ConfigCreator", func() {
 	Describe("Create", func() {
 		var (
-			creator              *vtep.ConfigCreator
-			fakeNetAdapter       *fakes.NetAdapter
-			clientConf           clientConfig.Config
-			lease                controller.Lease
-			underlayInterface1IP net.IP
-			underlayInterface2IP net.IP
-			loopbackInterfaceIP  net.IP
-			underlayInterface1   net.Interface
-			underlayInterface2   net.Interface
-			loopbackInterface    net.Interface
+			creator        *vtep.ConfigCreator
+			fakeNetAdapter *fakes.NetAdapter
+			clientConf     clientConfig.Config
+			lease          controller.Lease
 		)
 		BeforeEach(func() {
 			fakeNetAdapter = &fakes.NetAdapter{}
@@ -45,52 +39,22 @@ var _ = Describe("ConfigCreator", func() {
 				OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
 			}
 
-			underlayInterface1 = net.Interface{Index: 42, Name: "eth1"}
-			underlayInterface2 = net.Interface{Index: 43, Name: "eth2"}
-			loopbackInterface = net.Interface{Index: 93, Name: "lo"}
-
-			fakeNetAdapter.InterfacesReturns([]net.Interface{
-				underlayInterface2, underlayInterface1, loopbackInterface,
+			fakeNetAdapter.InterfacesReturns([]net.Interface{net.Interface{
+				Index: 42,
+			}}, nil)
+			fakeNetAdapter.InterfaceAddrsReturns([]net.Addr{
+				&net.IPNet{
+					IP:   net.IP{172, 255, 30, 2},
+					Mask: net.IPMask{255, 255, 255, 255},
+				},
 			}, nil)
-
-			underlayInterface1IP = net.IP{172, 255, 30, 2}
-			underlayInterface2IP = net.IP{172, 255, 30, 3}
-			loopbackInterfaceIP = net.IP{127, 0, 0, 1}
-
-			fakeNetAdapter.InterfaceAddrsStub = func(requested net.Interface) ([]net.Addr, error) {
-				switch requested.Index {
-				case underlayInterface1.Index:
-					return []net.Addr{
-						&net.IPNet{
-							IP:   underlayInterface1IP,
-							Mask: net.IPMask{255, 255, 255, 255},
-						},
-					}, nil
-				case underlayInterface2.Index:
-					return []net.Addr{
-						&net.IPNet{
-							IP:   underlayInterface2IP,
-							Mask: net.IPMask{255, 255, 255, 255},
-						},
-					}, nil
-				case loopbackInterface.Index:
-					return []net.Addr{
-						&net.IPNet{
-							IP:   loopbackInterfaceIP,
-							Mask: net.IPMask{255, 255, 255, 255},
-						},
-					}, nil
-				default:
-					return nil, errors.New("interface not found")
-				}
-			}
 		})
 
 		It("returns a Config", func() {
 			conf, err := creator.Create(clientConf, lease)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(conf.VTEPName).To(Equal("some-vtep-name"))
-			Expect(conf.UnderlayInterface).To(Equal(net.Interface{Index: 42, Name: "eth1"}))
+			Expect(conf.UnderlayInterface).To(Equal(net.Interface{Index: 42}))
 			Expect(conf.UnderlayIP.String()).To(Equal("172.255.30.2"))
 			Expect(conf.OverlayIP.String()).To(Equal("10.255.30.0"))
 			Expect(conf.OverlayHardwareAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x1e, 0x00}))
@@ -99,75 +63,36 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.VTEPPort).To(Equal(12225))
 
 			Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(1))
-			Expect(fakeNetAdapter.InterfaceAddrsCallCount()).To(Equal(2))
-			Expect(fakeNetAdapter.InterfaceAddrsArgsForCall(0)).To(Equal(net.Interface{Index: 43, Name: "eth2"}))
-			Expect(fakeNetAdapter.InterfaceAddrsArgsForCall(1)).To(Equal(net.Interface{Index: 42, Name: "eth1"}))
+			Expect(fakeNetAdapter.InterfaceAddrsCallCount()).To(Equal(1))
+			Expect(fakeNetAdapter.InterfaceAddrsArgsForCall(0)).To(Equal(net.Interface{Index: 42}))
 			Expect(fakeNetAdapter.InterfaceByNameCallCount()).To(Equal(0))
 		})
 
 		Context("when CustomUnderlayInterfaceName is set", func() {
 			BeforeEach(func() {
-				clientConf.UnderlayIPs = []string{underlayInterface1IP.String(), underlayInterface2IP.String()}
-				fakeNetAdapter.InterfaceByNameStub = func(name string) (*net.Interface, error) {
-					switch name {
-					case "eth1":
-						return &underlayInterface1, nil
-					case "eth2":
-						return &underlayInterface2, nil
-					case "lo":
-						return &loopbackInterface, nil
-					default:
-						return nil, errors.New("interface not found")
-					}
-				}
+				clientConf.CustomUnderlayInterfaceName = "eth1"
+				fakeNetAdapter.InterfaceByNameReturns(&net.Interface{
+					Index: 38,
+				}, nil)
 			})
 			It("uses the underlay interface name in the config", func() {
-				clientConf.CustomUnderlayInterfaceName = "eth1"
-
 				conf, err := creator.Create(clientConf, lease)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(conf.UnderlayInterface).To(Equal(net.Interface{Index: 42, Name: "eth1"}))
+				Expect(conf.UnderlayInterface).To(Equal(net.Interface{Index: 38}))
 
+				Expect(fakeNetAdapter.InterfacesCallCount()).To(Equal(0))
 				Expect(fakeNetAdapter.InterfaceByNameCallCount()).To(Equal(1))
 				Expect(fakeNetAdapter.InterfaceByNameArgsForCall(0)).To(Equal("eth1"))
 			})
 			Context("when the CustomUnderlayInterfaceName does not exist", func() {
+				BeforeEach(func() {
+					fakeNetAdapter.InterfaceByNameReturns(nil, errors.New("banana"))
+				})
 				It("returns an error", func() {
-					clientConf.CustomUnderlayInterfaceName = "foo"
-
 					_, err := creator.Create(clientConf, lease)
-
-					Expect(err).To(MatchError("find device from name foo: interface not found"))
+					Expect(err).To(MatchError("find device from name eth1: banana"))
 				})
 			})
-			Context("when the CustomUnderlayInterfaceName refers to an iface that is not one of the ifaces that have one of the underlay ips", func() {
-				It("returns an error", func() {
-					clientConf.CustomUnderlayInterfaceName = "lo"
-
-					_, err := creator.Create(clientConf, lease)
-
-					Expect(err).To(MatchError("requested custom underlay interface name 'lo' refers to a non underlay device. valid choices are [eth1, eth2]"))
-				})
-			})
-			Context("when one of the underlay IPs is invalid.", func(){
-				It("returns an error", func(){
-					clientConf.CustomUnderlayInterfaceName = "eth1"
-					clientConf.UnderlayIPs = []string{"banana", underlayInterface2IP.String()}
-					_, err := creator.Create(clientConf, lease)
-
-					Expect(err).To(MatchError("parse underlay ip: banana"))
-				})
-			})
-			Context("when one of the underlay IPs is unknown", func(){
-				It("returns an error", func(){
-					clientConf.CustomUnderlayInterfaceName = "eth1"
-					clientConf.UnderlayIPs = []string{"192.168.0.0", underlayInterface2IP.String()}
-					_, err := creator.Create(clientConf, lease)
-
-					Expect(err).To(MatchError("find device from ip 192.168.0.0: no interface with address 192.168.0.0"))
-				})
-			})
-
 		})
 
 		Context("when the overlay network prefix length is greater than or equal to the subnet prefix length", func() {
