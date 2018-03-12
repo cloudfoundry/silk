@@ -75,4 +75,20 @@ var _ = Describe("Config.LoadConfig", func() {
 			Expect(err.Error()).To(HavePrefix("invalid config:"))
 		}
 	})
+	Context("when custom_underlay_interface_name is specified", func() {
+		It("sets CustomUnderlayInterfaceName", func() {
+			cfg := cloneMap(requiredFields)
+			cfg["custom_underlay_interface_name"] = "something"
+
+			file, err := ioutil.TempFile(os.TempDir(), "config-")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(json.NewEncoder(file).Encode(cfg)).To(Succeed())
+
+			loadedConfig, err := config.LoadConfig(file.Name())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(loadedConfig.CustomUnderlayInterfaceName).To(Equal("something"))
+
+		})
+	})
 })
