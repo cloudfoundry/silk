@@ -251,7 +251,7 @@ var _ = Describe("Daemon Integration", func() {
 			var err error
 
 			dummyName = "eth1"
-			daemonConf.CustomUnderlayInterfaceName = dummyName
+			daemonConf.VxlanInterfaceName = dummyName
 			mustSucceed("ip", "link", "add", dummyName, "type", "dummy")
 
 			dummyInterface, err = net.InterfaceByName("eth1")

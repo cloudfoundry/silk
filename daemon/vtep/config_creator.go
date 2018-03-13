@@ -47,10 +47,10 @@ func (c *ConfigCreator) Create(clientConf clientConfig.Config, lease controller.
 	var underlayInterface net.Interface
 	var err error
 
-	if clientConf.CustomUnderlayInterfaceName != "" {
-		underlayInterfacePointer, err := c.NetAdapter.InterfaceByName(clientConf.CustomUnderlayInterfaceName)
+	if clientConf.VxlanInterfaceName != "" {
+		underlayInterfacePointer, err := c.NetAdapter.InterfaceByName(clientConf.VxlanInterfaceName)
 		if err != nil {
-			return nil, fmt.Errorf("find device from name %s: %s", clientConf.CustomUnderlayInterfaceName, err)
+			return nil, fmt.Errorf("find device from name %s: %s", clientConf.VxlanInterfaceName, err)
 		}
 		underlayInterface = *underlayInterfacePointer
 	} else {

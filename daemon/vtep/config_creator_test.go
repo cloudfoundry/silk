@@ -68,9 +68,9 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(fakeNetAdapter.InterfaceByNameCallCount()).To(Equal(0))
 		})
 
-		Context("when CustomUnderlayInterfaceName is set", func() {
+		Context("when VxlanInterfaceName is set", func() {
 			BeforeEach(func() {
-				clientConf.CustomUnderlayInterfaceName = "eth1"
+				clientConf.VxlanInterfaceName = "eth1"
 				fakeNetAdapter.InterfaceByNameReturns(&net.Interface{
 					Index: 38,
 				}, nil)
@@ -84,7 +84,7 @@ var _ = Describe("ConfigCreator", func() {
 				Expect(fakeNetAdapter.InterfaceByNameCallCount()).To(Equal(1))
 				Expect(fakeNetAdapter.InterfaceByNameArgsForCall(0)).To(Equal("eth1"))
 			})
-			Context("when the CustomUnderlayInterfaceName does not exist", func() {
+			Context("when the VxlanInterfaceName does not exist", func() {
 				BeforeEach(func() {
 					fakeNetAdapter.InterfaceByNameReturns(nil, errors.New("banana"))
 				})

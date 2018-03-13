@@ -302,9 +302,9 @@ var _ = Describe("error cases", func() {
 			})
 		})
 
-		Context("when the custom underlay interface does not exist", func() {
+		Context("when the vxlan interface does not exist", func() {
 			BeforeEach(func() {
-				daemonConf.CustomUnderlayInterfaceName = "non-existent-eth1"
+				daemonConf.VxlanInterfaceName = "non-existent-eth1"
 				configFilePath = writeConfigFile(daemonConf)
 			})
 			It("exits with status 1", func() {
