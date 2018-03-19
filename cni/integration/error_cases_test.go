@@ -87,7 +87,7 @@ var _ = Describe("errors", func() {
 				Expect(session.Out.Contents()).To(MatchJSON(fmt.Sprintf(`{
 				"code": 100,
 				"msg": "discover network info",
-				"details": "get netinfo: json client do: http client do: Get http://127.0.0.1:%[1]d/: dial tcp 127.0.0.1:%[1]d: getsockopt: connection refused"
+				"details": "get netinfo: json client do: http client do: Get http://127.0.0.1:%[1]d/: dial tcp 127.0.0.1:%[1]d: connect: connection refused"
 			}`, daemonPort)))
 			})
 		})
