@@ -79,3 +79,6 @@
 [submodule "vendor/github.com/pivotal-cf-experimental/gomegamatchers"]
 	path = vendor/github.com/pivotal-cf-experimental/gomegamatchers
 	url = https://github.com/pivotal-cf-experimental/gomegamatchers.git
+[submodule "vendor/code.cloudfoundry.org/filelock"]
+	path = vendor/code.cloudfoundry.org/filelock
+	url = https://github.com/cloudfoundry/filelock

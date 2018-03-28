@@ -4,9 +4,19 @@ import (
 	"fmt"
 	"net"
 
-	"code.cloudfoundry.org/silk/lib/filelock"
+	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/silk/lib/serial"
 )
+
+//go:generate counterfeiter -o ../fakes/file_locker.go --fake-name FileLocker . FileLocker
+type FileLocker interface {
+	filelock.FileLocker
+}
+
+//go:generate counterfeiter -o ../fakes/locked_file.go --fake-name LockedFile . LockedFile
+type LockedFile interface {
+	filelock.LockedFile
+}
 
 //go:generate counterfeiter -o ../fakes/datastore.go --fake-name Datastore . Datastore
 type Datastore interface {
@@ -23,7 +33,7 @@ type Container struct {
 
 type Store struct {
 	Serializer serial.Serializer
-	Locker     filelock.FileLocker
+	LockerNew  func(filePath string) filelock.FileLocker
 }
 
 func validate(handle, ip string) error {
@@ -42,7 +52,8 @@ func (c *Store) Add(filePath, handle, ip string, metadata map[string]interface{}
 		return err
 	}
 
-	file, err := c.Locker.Open(filePath)
+	locker := c.LockerNew(filePath)
+	file, err := locker.Open()
 	if err != nil {
 		return fmt.Errorf("open lock: %s", err)
 	}
@@ -74,7 +85,8 @@ func (c *Store) Delete(filePath, handle string) (Container, error) {
 		return deleted, fmt.Errorf("invalid handle")
 	}
 
-	file, err := c.Locker.Open(filePath)
+	locker := c.LockerNew(filePath)
+	file, err := locker.Open()
 	if err != nil {
 		return deleted, fmt.Errorf("open lock: %s", err)
 	}
@@ -98,7 +110,8 @@ func (c *Store) Delete(filePath, handle string) (Container, error) {
 }
 
 func (c *Store) ReadAll(filePath string) (map[string]Container, error) {
-	file, err := c.Locker.Open(filePath)
+	locker := c.LockerNew(filePath)
+	file, err := locker.Open()
 	if err != nil {
 		return nil, fmt.Errorf("open lock: %s", err)
 	}

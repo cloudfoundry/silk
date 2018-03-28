@@ -7,10 +7,9 @@ import (
 	"sync/atomic"
 
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
+	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/silk/lib/datastore"
 	"code.cloudfoundry.org/silk/lib/serial"
-
-	"code.cloudfoundry.org/silk/lib/filelock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -39,12 +38,11 @@ var _ = Describe("Datastore Lifecycle", func() {
 		Expect(err).NotTo(HaveOccurred())
 		filepath = file.Name()
 
-		locker := &filelock.Locker{}
 		serializer := &serial.Serial{}
 
 		store = &datastore.Store{
 			Serializer: serializer,
-			Locker:     locker,
+			LockerNew:  filelock.NewLocker,
 		}
 	})
 

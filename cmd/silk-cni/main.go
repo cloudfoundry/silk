@@ -11,6 +11,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"code.cloudfoundry.org/cf-networking-helpers/json_client"
+	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/lager"
 
 	"code.cloudfoundry.org/silk/cni/adapter"
@@ -20,7 +21,6 @@ import (
 	"code.cloudfoundry.org/silk/daemon"
 	libAdapter "code.cloudfoundry.org/silk/lib/adapter"
 	"code.cloudfoundry.org/silk/lib/datastore"
-	"code.cloudfoundry.org/silk/lib/filelock"
 	"code.cloudfoundry.org/silk/lib/serial"
 	"github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -65,7 +65,7 @@ func main() {
 	}
 	store := &datastore.Store{
 		Serializer: &serial.Serial{},
-		Locker:     &filelock.Locker{},
+		LockerNew:  filelock.NewLocker,
 	}
 
 	plugin := &CNIPlugin{

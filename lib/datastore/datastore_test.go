@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/silk/lib/datastore"
 
 	libfakes "code.cloudfoundry.org/silk/lib/fakes"
@@ -19,8 +20,11 @@ var _ = Describe("Datastore", func() {
 		store    *datastore.Store
 		metadata map[string]interface{}
 
-		serializer *libfakes.Serializer
-		locker     *libfakes.FileLocker
+		serializer         *libfakes.Serializer
+		locker             *libfakes.FileLocker
+		lockerNewCallCount int
+		lockerNewFilePath  string
+
 		lockedFile *os.File
 		filePath   string
 	)
@@ -41,11 +45,17 @@ var _ = Describe("Datastore", func() {
 
 		store = &datastore.Store{
 			Serializer: serializer,
-			Locker:     locker,
+			LockerNew: func(filePath string) filelock.FileLocker {
+				lockerNewCallCount++
+				lockerNewFilePath = filePath
+				return locker
+			},
 		}
 
 		lockedFile = &os.File{}
 		locker.OpenReturns(lockedFile, nil)
+
+		lockerNewCallCount = 0
 	})
 
 	Context("when adding an entry to store", func() {
@@ -53,11 +63,11 @@ var _ = Describe("Datastore", func() {
 			err := store.Add(filePath, handle, ip, metadata)
 			Expect(err).NotTo(HaveOccurred())
 
+			Expect(lockerNewCallCount).To(Equal(1))
+			Expect(lockerNewFilePath).To(Equal(filePath))
 			Expect(locker.OpenCallCount()).To(Equal(1))
 			Expect(serializer.DecodeAllCallCount()).To(Equal(1))
 			Expect(serializer.EncodeAndOverwriteCallCount()).To(Equal(1))
-
-			Expect(locker.OpenArgsForCall(0)).To(Equal(filePath))
 
 			file, _ := serializer.DecodeAllArgsForCall(0)
 			Expect(file).To(Equal(lockedFile))
@@ -125,11 +135,11 @@ var _ = Describe("Datastore", func() {
 			_, err := store.Delete(filePath, handle)
 			Expect(err).NotTo(HaveOccurred())
 
+			Expect(lockerNewCallCount).To(Equal(1))
+			Expect(lockerNewFilePath).To(Equal(filePath))
 			Expect(locker.OpenCallCount()).To(Equal(1))
 			Expect(serializer.DecodeAllCallCount()).To(Equal(1))
 			Expect(serializer.EncodeAndOverwriteCallCount()).To(Equal(1))
-
-			Expect(locker.OpenArgsForCall(0)).To(Equal(filePath))
 
 			file, _ := serializer.DecodeAllArgsForCall(0)
 			Expect(file).To(Equal(lockedFile))
@@ -191,11 +201,11 @@ var _ = Describe("Datastore", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data).NotTo(BeNil())
 
+			Expect(lockerNewCallCount).To(Equal(1))
+			Expect(lockerNewFilePath).To(Equal(filePath))
 			Expect(locker.OpenCallCount()).To(Equal(1))
 			Expect(serializer.DecodeAllCallCount()).To(Equal(1))
 			Expect(serializer.EncodeAndOverwriteCallCount()).To(Equal(0))
-
-			Expect(locker.OpenArgsForCall(0)).To(Equal(filePath))
 
 			file, _ := serializer.DecodeAllArgsForCall(0)
 			Expect(file).To(Equal(lockedFile))

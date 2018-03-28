@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/cf-networking-helpers/metrics"
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	"code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
@@ -22,7 +23,6 @@ import (
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
 	"code.cloudfoundry.org/silk/lib/datastore"
-	"code.cloudfoundry.org/silk/lib/filelock"
 	"code.cloudfoundry.org/silk/lib/serial"
 
 	"github.com/cloudfoundry/dropsonde"
@@ -96,7 +96,7 @@ func mainWithError() error {
 
 	store := &datastore.Store{
 		Serializer: &serial.Serial{},
-		Locker:     &filelock.Locker{},
+		LockerNew:  filelock.NewLocker,
 	}
 
 	_, overlayNetwork, err := net.ParseCIDR(cfg.OverlayNetwork)
