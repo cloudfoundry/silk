@@ -8,7 +8,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	"encoding/json"
 )
+
+type cniDatabaseError struct {
+	Code int `json:"code"`
+	Msg string `json:"msg"`
+	Details string `json:"details"`
+}
 
 var _ = Describe("errors", func() {
 	Describe("errors on ADD", func() {
@@ -84,11 +91,14 @@ var _ = Describe("errors", func() {
 				session := startCommandInHost("ADD", cniStdin)
 				Eventually(session, cmdTimeout).Should(gexec.Exit(1))
 
-				Expect(session.Out.Contents()).To(MatchJSON(fmt.Sprintf(`{
-				"code": 100,
-				"msg": "discover network info",
-				"details": "get netinfo: json client do: http client do: Get http://127.0.0.1:%[1]d/: dial tcp 127.0.0.1:%[1]d: connect: connection refused"
-			}`, daemonPort)))
+				cniError := &cniDatabaseError{}
+				err := json.Unmarshal(session.Out.Contents(), cniError)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(cniError.Code).To(Equal(100))
+				Expect(cniError.Msg).To(Equal("discover network info"))
+				expectedCNIDetails := fmt.Sprintf("get netinfo: json client do: http client do: Get http://127.0.0.1:%[1]d/: dial tcp 127.0.0.1:%[1]d: .* connection refused", daemonPort)
+				Expect(cniError.Details).To(MatchRegexp(expectedCNIDetails))
 			})
 		})
 
