@@ -20,7 +20,6 @@ type hardwareAddressGenerator interface {
 //go:generate counterfeiter -o fakes/deviceNameGenerator.go --fake-name DeviceNameGenerator . deviceNameGenerator
 type deviceNameGenerator interface {
 	GenerateForHost(containerIP net.IP) (string, error)
-	GenerateForHostIFB(containerIP net.IP) (string, error)
 	GenerateTemporaryForContainer(containerIP net.IP) (string, error)
 }
 
@@ -90,13 +89,6 @@ func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResul
 			GW: []byte{169, 254, 0, 1},
 		},
 	}
-
-	conf.IFB.DeviceName, err = c.DeviceNameGenerator.GenerateForHostIFB(conf.Container.Address.IP)
-	if err != nil {
-		return nil, fmt.Errorf("generating host ifb device name: %s", err)
-	}
-	conf.IFB.Namespace = hostNS
-	conf.IFB.MTU = mtu
 
 	return &conf, nil
 }

@@ -36,9 +36,7 @@ type CNIPlugin struct {
 	ConfigCreator   *config.ConfigCreator
 	VethPairCreator *lib.VethPairCreator
 	Host            *lib.Host
-	IFBCreator      *lib.IFBCreator
 	Container       *lib.Container
-	Bandwidth       *lib.Bandwidth
 	Store           *datastore.Store
 	Logger          lager.Logger
 }
@@ -83,16 +81,9 @@ func main() {
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
 		},
-		IFBCreator: &lib.IFBCreator{
-			NetlinkAdapter:      netlinkAdapter,
-			DeviceNameGenerator: &config.DeviceNameGenerator{},
-		},
 		Container: &lib.Container{
 			Common:         commonSetup,
 			LinkOperations: linkOperations,
-		},
-		Bandwidth: &lib.Bandwidth{
-			NetlinkAdapter: netlinkAdapter,
 		},
 		Logger: logger,
 		Store:  store,
@@ -103,17 +94,11 @@ func main() {
 
 type NetConf struct {
 	types.NetConf
-	DataDir         string          `json:"dataDir"`
-	SubnetFile      string          `json:"subnetFile"`
-	MTU             int             `json:"mtu" validate:"min=0"`
-	Datastore       string          `json:"datastore"`
-	DaemonPort      int             `json:"daemonPort"`
-	BandwidthLimits BandwidthLimits `json:"bandwidthLimits"`
-}
-
-type BandwidthLimits struct {
-	Rate  int `json:"rate"`
-	Burst int `json:"burst"`
+	DataDir    string `json:"dataDir"`
+	SubnetFile string `json:"subnetFile"`
+	MTU        int    `json:"mtu" validate:"min=0"`
+	Datastore  string `json:"datastore"`
+	DaemonPort int    `json:"daemonPort"`
 }
 
 type HostLocalIPAM struct {
@@ -202,21 +187,6 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 		return typedError("set up host", err)
 	}
 
-	if netConf.BandwidthLimits.Rate > 0 && netConf.BandwidthLimits.Burst > 0 {
-		err = p.IFBCreator.Create(cfg)
-		if err != nil {
-			return typedError("set up ifb", err) // not tested
-		}
-		err = p.Bandwidth.InboundSetup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
-		if err != nil {
-			return typedError("set up inbound bandwidth limiting", err) // not tested
-		}
-		err = p.Bandwidth.OutboundSetup(netConf.BandwidthLimits.Rate, netConf.BandwidthLimits.Burst, cfg)
-		if err != nil {
-			return typedError("set up outbound bandwidth limiting", err) // not tested
-		}
-	}
-
 	err = p.Container.Setup(cfg)
 	if err != nil {
 		return typedError("set up container", err)
@@ -259,12 +229,6 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		p.Logger.Error("open-netns", err)
 		return nil // can't do teardown if no netns
-	}
-
-	err = p.IFBCreator.Teardown(containerNS, args.IfName)
-	if err != nil {
-		p.Logger.Error("delete-ifb", err)
-		// continue, keep trying to cleanup
 	}
 
 	err = p.Container.Teardown(containerNS, args.IfName)

@@ -20,19 +20,6 @@ type DeviceNameGenerator struct {
 		result1 string
 		result2 error
 	}
-	GenerateForHostIFBStub        func(containerIP net.IP) (string, error)
-	generateForHostIFBMutex       sync.RWMutex
-	generateForHostIFBArgsForCall []struct {
-		containerIP net.IP
-	}
-	generateForHostIFBReturns struct {
-		result1 string
-		result2 error
-	}
-	generateForHostIFBReturnsOnCall map[int]struct {
-		result1 string
-		result2 error
-	}
 	GenerateTemporaryForContainerStub        func(containerIP net.IP) (string, error)
 	generateTemporaryForContainerMutex       sync.RWMutex
 	generateTemporaryForContainerArgsForCall []struct {
@@ -101,57 +88,6 @@ func (fake *DeviceNameGenerator) GenerateForHostReturnsOnCall(i int, result1 str
 	}{result1, result2}
 }
 
-func (fake *DeviceNameGenerator) GenerateForHostIFB(containerIP net.IP) (string, error) {
-	fake.generateForHostIFBMutex.Lock()
-	ret, specificReturn := fake.generateForHostIFBReturnsOnCall[len(fake.generateForHostIFBArgsForCall)]
-	fake.generateForHostIFBArgsForCall = append(fake.generateForHostIFBArgsForCall, struct {
-		containerIP net.IP
-	}{containerIP})
-	fake.recordInvocation("GenerateForHostIFB", []interface{}{containerIP})
-	fake.generateForHostIFBMutex.Unlock()
-	if fake.GenerateForHostIFBStub != nil {
-		return fake.GenerateForHostIFBStub(containerIP)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.generateForHostIFBReturns.result1, fake.generateForHostIFBReturns.result2
-}
-
-func (fake *DeviceNameGenerator) GenerateForHostIFBCallCount() int {
-	fake.generateForHostIFBMutex.RLock()
-	defer fake.generateForHostIFBMutex.RUnlock()
-	return len(fake.generateForHostIFBArgsForCall)
-}
-
-func (fake *DeviceNameGenerator) GenerateForHostIFBArgsForCall(i int) net.IP {
-	fake.generateForHostIFBMutex.RLock()
-	defer fake.generateForHostIFBMutex.RUnlock()
-	return fake.generateForHostIFBArgsForCall[i].containerIP
-}
-
-func (fake *DeviceNameGenerator) GenerateForHostIFBReturns(result1 string, result2 error) {
-	fake.GenerateForHostIFBStub = nil
-	fake.generateForHostIFBReturns = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *DeviceNameGenerator) GenerateForHostIFBReturnsOnCall(i int, result1 string, result2 error) {
-	fake.GenerateForHostIFBStub = nil
-	if fake.generateForHostIFBReturnsOnCall == nil {
-		fake.generateForHostIFBReturnsOnCall = make(map[int]struct {
-			result1 string
-			result2 error
-		})
-	}
-	fake.generateForHostIFBReturnsOnCall[i] = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *DeviceNameGenerator) GenerateTemporaryForContainer(containerIP net.IP) (string, error) {
 	fake.generateTemporaryForContainerMutex.Lock()
 	ret, specificReturn := fake.generateTemporaryForContainerReturnsOnCall[len(fake.generateTemporaryForContainerArgsForCall)]
@@ -208,8 +144,6 @@ func (fake *DeviceNameGenerator) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.generateForHostMutex.RLock()
 	defer fake.generateForHostMutex.RUnlock()
-	fake.generateForHostIFBMutex.RLock()
-	defer fake.generateForHostIFBMutex.RUnlock()
 	fake.generateTemporaryForContainerMutex.RLock()
 	defer fake.generateTemporaryForContainerMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

@@ -57,7 +57,6 @@ var _ = Describe("ConfigCreator", func() {
 			fakeHardwareAddressGenerator.GenerateForContainerReturns(containerMAC, nil)
 			fakeHardwareAddressGenerator.GenerateForHostReturns(hostMAC, nil)
 			fakeDeviceNameGenerator.GenerateForHostReturns("s-010255030004", nil)
-			fakeDeviceNameGenerator.GenerateForHostIFBReturns("s-010255030004-ifb", nil)
 			fakeDeviceNameGenerator.GenerateTemporaryForContainerReturns("c-010255030004", nil)
 			containerNS.PathReturns("/some/container/namespace")
 			configCreator = &config.ConfigCreator{
@@ -98,15 +97,6 @@ var _ = Describe("ConfigCreator", func() {
 			Expect(conf.Host.Namespace).To(Equal(hostNS))
 			Expect(conf.Host.Address.IP).To(Equal(net.IP{169, 254, 0, 1}))
 			Expect(conf.Host.Address.Hardware).To(Equal(hostMAC))
-		})
-
-		It("creates a config with the desired ifb device metadata", func() {
-			conf, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(conf.IFB.DeviceName).To(Equal("s-010255030004-ifb"))
-			Expect(conf.IFB.Namespace).To(Equal(hostNS))
-			Expect(conf.IFB.MTU).To(Equal(1450))
 		})
 
 		Context("when the args interface name is blank", func() {
@@ -188,17 +178,5 @@ var _ = Describe("ConfigCreator", func() {
 				Expect(err).To(MatchError("no IP address in IPAM result"))
 			})
 		})
-
-		Context("when the device name generator fails for the host device ifb", func() {
-			BeforeEach(func() {
-				fakeDeviceNameGenerator.GenerateForHostIFBReturns("", errors.New("potato"))
-			})
-			It("wraps and returns the error", func() {
-				_, err := configCreator.Create(hostNS, addCmdArgs, ipamResult, 1450)
-				Expect(err).To(MatchError("generating host ifb device name: potato"))
-			})
-		})
-
 	})
-
 })
