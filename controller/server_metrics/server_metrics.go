@@ -13,7 +13,7 @@ type databaseHandler interface {
 
 //go:generate counterfeiter -o fakes/cidrPool.go --fake-name CIDRPool . cidrPool
 type cidrPool interface {
-	Size() int
+	BlockPoolSize() int
 }
 
 func NewTotalLeasesSource(lister databaseHandler) metrics.MetricSource {
@@ -33,7 +33,7 @@ func NewFreeLeasesSource(lister databaseHandler, pool cidrPool) metrics.MetricSo
 		Unit: "",
 		Getter: func() (float64, error) {
 			allLeases, err := lister.All()
-			size := pool.Size()
+			size := pool.BlockPoolSize()
 			return float64(size - len(allLeases)), err
 		},
 	}

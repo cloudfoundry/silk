@@ -29,7 +29,8 @@ type ReleaseLeaseRequest struct {
 }
 
 type AcquireLeaseRequest struct {
-	UnderlayIP string `json:"underlay_ip"`
+	UnderlayIP      string `json:"underlay_ip"`
+	SingleOverlayIP bool   `json:"single_overlay_ip"`
 }
 
 func NewClient(logger lager.Logger, httpClient json_client.HttpClient, baseURL string) *Client {
@@ -50,9 +51,18 @@ func (c *Client) GetActiveLeases() ([]Lease, error) {
 }
 
 func (c *Client) AcquireSubnetLease(underlayIP string) (Lease, error) {
+	return c.acquireLease(underlayIP, false)
+}
+
+func (c *Client) AcquireSingleOverlayIPLease(underlayIP string) (Lease, error) {
+	return c.acquireLease(underlayIP, true)
+}
+
+func (c *Client) acquireLease(underlayIP string, singleOverlayIP bool) (Lease, error) {
 	var response Lease
 	request := AcquireLeaseRequest{
-		UnderlayIP: underlayIP,
+		UnderlayIP:      underlayIP,
+		SingleOverlayIP: singleOverlayIP,
 	}
 	err := c.JsonClient.Do("PUT", "/leases/acquire", request, &response, "")
 	if err != nil {

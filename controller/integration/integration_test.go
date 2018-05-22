@@ -180,7 +180,7 @@ var _ = Describe("Silk Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = testClient.AcquireSubnetLease("10.244.4.15")
-			Expect(err).To(MatchError(ContainSubstring("No lease available")))
+			Expect(err).To(MatchError(ContainSubstring("no lease available")))
 
 			// wait for lease to expire
 			time.Sleep(time.Duration(conf.LeaseExpirationSeconds+1) * time.Second)
@@ -392,6 +392,44 @@ var _ = Describe("Silk Controller", func() {
 		}
 		Expect(len(leaseIPs)).To(Equal(nHosts))
 		Expect(len(leaseSubnets)).To(Equal(nHosts))
+	})
+
+	It("assigns unique leases to multiple clients acquiring single ips concurrently", func() {
+		parallelRunner := &testsupport.ParallelRunner{
+			NumWorkers: 4,
+		}
+		nHosts := 255
+		var underlayIPs []string
+		for i := 0; i < nHosts; i++ {
+			underlayIPs = append(underlayIPs, fmt.Sprintf("10.244.0.%d", i))
+		}
+
+		leases := make(chan controller.Lease, nHosts)
+		go func() {
+			parallelRunner.RunOnSliceStrings(underlayIPs, func(underlayIP string) {
+				lease, err := testClient.AcquireSingleOverlayIPLease(underlayIP)
+				Expect(err).NotTo(HaveOccurred())
+				leases <- lease
+			})
+			close(leases)
+		}()
+
+		leaseUnderlays := make(map[string]struct{})
+		leaseIPs := make(map[string]struct{})
+		_, network, err := net.ParseCIDR(conf.Network)
+		Expect(err).NotTo(HaveOccurred())
+
+		for lease := range leases {
+			_, subnet, err := net.ParseCIDR(lease.OverlaySubnet)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(network.Contains(subnet.IP)).To(BeTrue())
+			Expect(lease.OverlaySubnet).To(ContainSubstring("/32"))
+
+			leaseUnderlays[lease.UnderlayIP] = struct{}{}
+			leaseIPs[lease.OverlaySubnet] = struct{}{}
+		}
+		Expect(len(leaseUnderlays)).To(Equal(nHosts))
+		Expect(len(leaseIPs)).To(Equal(nHosts))
 	})
 
 	withName := func(name string) types.GomegaMatcher {

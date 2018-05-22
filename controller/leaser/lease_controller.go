@@ -17,8 +17,11 @@ type databaseHandler interface {
 	LastRenewedAtForUnderlayIP(string) (int64, error)
 	RenewLeaseForUnderlayIP(string) error
 	All() ([]controller.Lease, error)
+	AllBlockSubnets() ([]controller.Lease, error)
+	AllSingleIPSubnets() ([]controller.Lease, error)
 	AllActive(int) ([]controller.Lease, error)
-	OldestExpired(int) (*controller.Lease, error)
+	OldestExpiredBlockSubnet(int) (*controller.Lease, error)
+	OldestExpiredSingleIP(int) (*controller.Lease, error)
 }
 
 //go:generate counterfeiter -o fakes/lease_validator.go --fake-name LeaseValidator . leaseValidator
@@ -28,7 +31,8 @@ type leaseValidator interface {
 
 //go:generate counterfeiter -o fakes/cidr_pool.go --fake-name CIDRPool . cidrPool
 type cidrPool interface {
-	GetAvailable([]string) string
+	GetAvailableBlock([]string) string
+	GetAvailableSingleIP([]string) string
 	IsMember(string) bool
 }
 
@@ -61,7 +65,7 @@ func (c *LeaseController) ReleaseSubnetLease(underlayIP string) error {
 	return err
 }
 
-func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lease, error) {
+func (c *LeaseController) AcquireSubnetLease(underlayIP string, singleOverlayIP bool) (*controller.Lease, error) {
 	var err error
 	var lease *controller.Lease
 
@@ -87,7 +91,7 @@ func (c *LeaseController) AcquireSubnetLease(underlayIP string) (*controller.Lea
 	}
 
 	for numErrs := 0; numErrs < c.AcquireSubnetLeaseAttempts; numErrs++ {
-		lease, err = c.tryAcquireLease(underlayIP)
+		lease, err = c.tryAcquireLease(underlayIP, singleOverlayIP)
 		if lease != nil {
 			c.Logger.Info("lease-acquired", lager.Data{"lease": lease})
 			return lease, nil
@@ -139,31 +143,23 @@ func (c *LeaseController) RoutableLeases() ([]controller.Lease, error) {
 	return leases, nil
 }
 
-func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease, error) {
+func (c *LeaseController) tryAcquireLease(underlayIP string, singleOverlayIP bool) (*controller.Lease, error) {
 	var subnet string
-	leases, err := c.DatabaseHandler.All()
-	if err != nil {
-		return nil, fmt.Errorf("getting all subnets: %s", err)
-	}
-	var taken []string
-	for _, lease := range leases {
-		taken = append(taken, lease.OverlaySubnet)
-	}
-
-	subnet = c.CIDRPool.GetAvailable(taken)
-	if subnet == "" {
-		lease, err := c.DatabaseHandler.OldestExpired(c.LeaseExpirationSeconds)
+	if singleOverlayIP {
+		var err error
+		subnet, err = c.tryAcquireAvailableSingleIPSubnet(underlayIP)
 		if err != nil {
-			return nil, fmt.Errorf("get oldest expired: %s", err)
-		} else if lease == nil {
-			return nil, nil
-		} else {
-			err := c.DatabaseHandler.DeleteEntry(lease.UnderlayIP)
-			if err != nil {
-				return nil, fmt.Errorf("delete expired subnet: %s", err) // test
-			}
-			subnet = lease.OverlaySubnet
+			return nil, err
 		}
+	} else {
+		var err error
+		subnet, err = c.tryAcquireAvailableBlockSubnet(underlayIP)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if subnet == "" {
+		return nil, nil
 	}
 
 	vtepIP, _, err := net.ParseCIDR(subnet)
@@ -186,4 +182,64 @@ func (c *LeaseController) tryAcquireLease(underlayIP string) (*controller.Lease,
 		return nil, fmt.Errorf("adding lease entry: %s", err)
 	}
 	return &lease, nil
+}
+
+func (c *LeaseController) tryAcquireAvailableSingleIPSubnet(underlayIP string) (string, error) {
+	var subnet string
+	leases, err := c.DatabaseHandler.AllSingleIPSubnets()
+	if err != nil {
+		return "", fmt.Errorf("getting all single ip subnets: %s", err)
+	}
+	var taken []string
+	for _, lease := range leases {
+		taken = append(taken, lease.OverlaySubnet)
+	}
+
+	subnet = c.CIDRPool.GetAvailableSingleIP(taken)
+	if subnet == "" {
+		lease, err := c.DatabaseHandler.OldestExpiredSingleIP(c.LeaseExpirationSeconds)
+		if err != nil {
+			return "", fmt.Errorf("get oldest expired single ip: %s", err)
+		} else if lease == nil {
+			return "", nil
+		} else {
+			err := c.DatabaseHandler.DeleteEntry(lease.UnderlayIP)
+			if err != nil {
+				return "", fmt.Errorf("delete expired subnet: %s", err)
+			}
+			subnet = lease.OverlaySubnet
+		}
+	}
+
+	return subnet, nil
+}
+
+func (c *LeaseController) tryAcquireAvailableBlockSubnet(underlayIP string) (string, error) {
+	var subnet string
+	leases, err := c.DatabaseHandler.AllBlockSubnets()
+	if err != nil {
+		return "", fmt.Errorf("getting all subnets: %s", err)
+	}
+	var taken []string
+	for _, lease := range leases {
+		taken = append(taken, lease.OverlaySubnet)
+	}
+
+	subnet = c.CIDRPool.GetAvailableBlock(taken)
+	if subnet == "" {
+		lease, err := c.DatabaseHandler.OldestExpiredBlockSubnet(c.LeaseExpirationSeconds)
+		if err != nil {
+			return "", fmt.Errorf("get oldest expired: %s", err)
+		} else if lease == nil {
+			return "", nil
+		} else {
+			err := c.DatabaseHandler.DeleteEntry(lease.UnderlayIP)
+			if err != nil {
+				return "", fmt.Errorf("delete expired subnet: %s", err) // test
+			}
+			subnet = lease.OverlaySubnet
+		}
+	}
+
+	return subnet, nil
 }

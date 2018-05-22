@@ -32,7 +32,7 @@ var _ = Describe("ServerMetrics", func() {
 		fakeDatabaseHandler.AllActiveReturns([]controller.Lease{allLeases[0]}, nil)
 
 		fakeCIDRPool = &fakes.CIDRPool{}
-		fakeCIDRPool.SizeReturns(100)
+		fakeCIDRPool.BlockPoolSizeReturns(100)
 	})
 
 	Describe("totalLeases", func() {
@@ -61,7 +61,7 @@ var _ = Describe("ServerMetrics", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(fakeDatabaseHandler.AllCallCount()).To(Equal(1))
-			Expect(fakeCIDRPool.SizeCallCount()).To(Equal(1))
+			Expect(fakeCIDRPool.BlockPoolSizeCallCount()).To(Equal(1))
 			Expect(value).To(Equal(98.0))
 		})
 	})

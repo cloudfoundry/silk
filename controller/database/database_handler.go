@@ -6,8 +6,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/silk/controller"
-
-	"github.com/rubenv/sql-migrate"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 const postgresTimeNow = "EXTRACT(EPOCH FROM now())::numeric::integer"
@@ -16,7 +15,6 @@ const MySQL = "mysql"
 const Postgres = "postgres"
 
 var RecordNotAffectedError = errors.New("record not affected")
-var MultipleRecordsAffectedError = errors.New("multiple records affected")
 
 //go:generate counterfeiter -o fakes/db.go --fake-name Db . Db
 type Db interface {
@@ -43,7 +41,7 @@ func NewDatabaseHandler(migrator migrateAdapter, db Db) *DatabaseHandler {
 		migrator: migrator,
 		migrations: &migrate.MemoryMigrationSource{
 			Migrations: []*migrate.Migration{
-				&migrate.Migration{
+				{
 					Id:   "1",
 					Up:   []string{createSubnetTable(db.DriverName())},
 					Down: []string{"DROP TABLE subnets"},
@@ -60,27 +58,42 @@ func (d *DatabaseHandler) CheckDatabase() error {
 }
 
 func (d *DatabaseHandler) All() ([]controller.Lease, error) {
-	leases := []controller.Lease{}
 	rows, err := d.db.Query("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets")
 	if err != nil {
 		return nil, fmt.Errorf("selecting all subnets: %s", err)
 	}
 	defer rows.Close() // untested
-	for rows.Next() {
-		var underlayIP, overlaySubnet, overlayHWAddr string
-		err := rows.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
-		if err != nil {
-			return nil, fmt.Errorf("parsing result for all subnets: %s", err)
-		}
-		leases = append(leases, controller.Lease{
-			UnderlayIP:          underlayIP,
-			OverlaySubnet:       overlaySubnet,
-			OverlayHardwareAddr: overlayHWAddr,
-		})
-	}
-	err = rows.Err()
+	leases, err := rowsToLeases(rows)
 	if err != nil {
-		return nil, fmt.Errorf("getting next row: %s", err) // untested
+		return nil, fmt.Errorf("selecting all subnets: %s", err)
+	}
+
+	return leases, nil
+}
+
+func (d *DatabaseHandler) AllSingleIPSubnets() ([]controller.Lease, error) {
+	rows, err := d.db.Query("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE overlay_subnet LIKE '%/32'")
+	if err != nil {
+		return nil, fmt.Errorf("selecting all single ip subnets: %s", err)
+	}
+	defer rows.Close() // untested
+	leases, err := rowsToLeases(rows)
+	if err != nil {
+		return nil, fmt.Errorf("selecting all single ip subnets: %s", err)
+	}
+
+	return leases, nil
+}
+
+func (d *DatabaseHandler) AllBlockSubnets() ([]controller.Lease, error) {
+	rows, err := d.db.Query("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE overlay_subnet NOT LIKE '%/32'")
+	if err != nil {
+		return nil, fmt.Errorf("selecting all block subnets: %s", err)
+	}
+	defer rows.Close() // untested
+	leases, err := rowsToLeases(rows)
+	if err != nil {
+		return nil, fmt.Errorf("selecting all block subnets: %s", err)
 	}
 
 	return leases, nil
@@ -91,40 +104,49 @@ func (d *DatabaseHandler) AllActive(duration int) ([]controller.Lease, error) {
 	if err != nil {
 		return nil, err
 	}
-	leases := []controller.Lease{}
 	rows, err := d.db.Query(fmt.Sprintf("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE last_renewed_at + %d > %s", duration, timestamp))
 	if err != nil {
 		return nil, fmt.Errorf("selecting all active subnets: %s", err)
 	}
 	defer rows.Close() // untested
-	for rows.Next() {
-		var underlayIP, overlaySubnet, overlayHWAddr string
-		err := rows.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
-		if err != nil {
-			return nil, fmt.Errorf("parsing result for all active subnets: %s", err)
-		}
-		leases = append(leases, controller.Lease{
-			UnderlayIP:          underlayIP,
-			OverlaySubnet:       overlaySubnet,
-			OverlayHardwareAddr: overlayHWAddr,
-		})
-	}
-	err = rows.Err()
+	leases, err := rowsToLeases(rows)
 	if err != nil {
-		return nil, fmt.Errorf("getting next row: %s", err) // untested
+		return nil, fmt.Errorf("selecting all active subnets: %s", err)
 	}
 
 	return leases, nil
 }
 
-func (d *DatabaseHandler) OldestExpired(expirationTime int) (*controller.Lease, error) {
+func (d *DatabaseHandler) OldestExpiredBlockSubnet(expirationTime int) (*controller.Lease, error) {
 	timestamp, err := timestampForDriver(d.db.DriverName())
 	if err != nil {
 		return nil, err
 	}
 
 	var underlayIP, overlaySubnet, overlayHWAddr string
-	result := d.db.QueryRow(fmt.Sprintf("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE last_renewed_at + %d <= %s ORDER BY last_renewed_at ASC LIMIT 1", expirationTime, timestamp))
+	result := d.db.QueryRow(fmt.Sprintf("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE overlay_subnet NOT LIKE '%%/32' AND last_renewed_at + %d <= %s ORDER BY last_renewed_at ASC LIMIT 1", expirationTime, timestamp))
+	err = result.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("scan result: %s", err)
+	}
+	return &controller.Lease{
+		UnderlayIP:          underlayIP,
+		OverlaySubnet:       overlaySubnet,
+		OverlayHardwareAddr: overlayHWAddr,
+	}, nil
+}
+
+func (d *DatabaseHandler) OldestExpiredSingleIP(expirationTime int) (*controller.Lease, error) {
+	timestamp, err := timestampForDriver(d.db.DriverName())
+	if err != nil {
+		return nil, err
+	}
+
+	var underlayIP, overlaySubnet, overlayHWAddr string
+	result := d.db.QueryRow(fmt.Sprintf("SELECT underlay_ip, overlay_subnet, overlay_hwaddr FROM subnets WHERE overlay_subnet LIKE '%%/32' AND last_renewed_at + %d <= %s ORDER BY last_renewed_at ASC LIMIT 1", expirationTime, timestamp))
 	err = result.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -228,6 +250,28 @@ func (d *DatabaseHandler) SubnetForUnderlayIP(underlayIP string) (string, error)
 		return "", err
 	}
 	return subnet, nil
+}
+
+func rowsToLeases(rows *sql.Rows) ([]controller.Lease, error) {
+	leases := []controller.Lease{}
+	for rows.Next() {
+		var underlayIP, overlaySubnet, overlayHWAddr string
+		err := rows.Scan(&underlayIP, &overlaySubnet, &overlayHWAddr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing result: %s", err)
+		}
+		leases = append(leases, controller.Lease{
+			UnderlayIP:          underlayIP,
+			OverlaySubnet:       overlaySubnet,
+			OverlayHardwareAddr: overlayHWAddr,
+		})
+	}
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("getting next row: %s", err) // untested
+	}
+
+	return leases, nil
 }
 
 func createSubnetTable(dbType string) string {

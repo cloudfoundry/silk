@@ -8,10 +8,11 @@ import (
 )
 
 type LeaseAcquirer struct {
-	AcquireSubnetLeaseStub        func(underlayIP string) (*controller.Lease, error)
+	AcquireSubnetLeaseStub        func(underlayIP string, singleOverlayIP bool) (*controller.Lease, error)
 	acquireSubnetLeaseMutex       sync.RWMutex
 	acquireSubnetLeaseArgsForCall []struct {
-		underlayIP string
+		underlayIP      string
+		singleOverlayIP bool
 	}
 	acquireSubnetLeaseReturns struct {
 		result1 *controller.Lease
@@ -25,16 +26,17 @@ type LeaseAcquirer struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *LeaseAcquirer) AcquireSubnetLease(underlayIP string) (*controller.Lease, error) {
+func (fake *LeaseAcquirer) AcquireSubnetLease(underlayIP string, singleOverlayIP bool) (*controller.Lease, error) {
 	fake.acquireSubnetLeaseMutex.Lock()
 	ret, specificReturn := fake.acquireSubnetLeaseReturnsOnCall[len(fake.acquireSubnetLeaseArgsForCall)]
 	fake.acquireSubnetLeaseArgsForCall = append(fake.acquireSubnetLeaseArgsForCall, struct {
-		underlayIP string
-	}{underlayIP})
-	fake.recordInvocation("AcquireSubnetLease", []interface{}{underlayIP})
+		underlayIP      string
+		singleOverlayIP bool
+	}{underlayIP, singleOverlayIP})
+	fake.recordInvocation("AcquireSubnetLease", []interface{}{underlayIP, singleOverlayIP})
 	fake.acquireSubnetLeaseMutex.Unlock()
 	if fake.AcquireSubnetLeaseStub != nil {
-		return fake.AcquireSubnetLeaseStub(underlayIP)
+		return fake.AcquireSubnetLeaseStub(underlayIP, singleOverlayIP)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -48,10 +50,10 @@ func (fake *LeaseAcquirer) AcquireSubnetLeaseCallCount() int {
 	return len(fake.acquireSubnetLeaseArgsForCall)
 }
 
-func (fake *LeaseAcquirer) AcquireSubnetLeaseArgsForCall(i int) string {
+func (fake *LeaseAcquirer) AcquireSubnetLeaseArgsForCall(i int) (string, bool) {
 	fake.acquireSubnetLeaseMutex.RLock()
 	defer fake.acquireSubnetLeaseMutex.RUnlock()
-	return fake.acquireSubnetLeaseArgsForCall[i].underlayIP
+	return fake.acquireSubnetLeaseArgsForCall[i].underlayIP, fake.acquireSubnetLeaseArgsForCall[i].singleOverlayIP
 }
 
 func (fake *LeaseAcquirer) AcquireSubnetLeaseReturns(result1 *controller.Lease, result2 error) {

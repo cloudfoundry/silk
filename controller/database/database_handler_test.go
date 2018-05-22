@@ -17,7 +17,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/rubenv/sql-migrate"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 var _ = Describe("DatabaseHandler", func() {
@@ -30,6 +30,8 @@ var _ = Describe("DatabaseHandler", func() {
 		mockMigrateAdapter *fakes.MigrateAdapter
 		lease              controller.Lease
 		lease2             controller.Lease
+		singleIPLease      controller.Lease
+		singleIPLease2     controller.Lease
 	)
 	BeforeEach(func() {
 		mockDb = &fakes.Db{}
@@ -54,8 +56,18 @@ var _ = Describe("DatabaseHandler", func() {
 		}
 		lease2 = controller.Lease{
 			UnderlayIP:          "10.244.22.33",
-			OverlaySubnet:       "10.255.93.15/32",
+			OverlaySubnet:       "10.255.93.0/24",
 			OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
+		}
+		singleIPLease = controller.Lease{
+			UnderlayIP:          "10.244.11.26",
+			OverlaySubnet:       "10.255.0.12/32",
+			OverlayHardwareAddr: "ee:ee:0a:ff:11:11",
+		}
+		singleIPLease2 = controller.Lease{
+			UnderlayIP:          "10.244.11.28",
+			OverlaySubnet:       "10.255.0.19/32",
+			OverlayHardwareAddr: "ee:ee:0a:ff:11:12",
 		}
 	})
 
@@ -85,7 +97,7 @@ var _ = Describe("DatabaseHandler", func() {
 			if dbType == "postgres" {
 				Expect(migrations).To(Equal(migrate.MemoryMigrationSource{
 					Migrations: []*migrate.Migration{
-						&migrate.Migration{
+						{
 							Id:   "1",
 							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (id SERIAL PRIMARY KEY, underlay_ip varchar(15) NOT NULL, overlay_subnet varchar(18) NOT NULL, overlay_hwaddr varchar(17) NOT NULL, last_renewed_at bigint NOT NULL, UNIQUE (underlay_ip), UNIQUE (overlay_subnet), UNIQUE (overlay_hwaddr));"},
 							Down: []string{"DROP TABLE subnets"},
@@ -95,7 +107,7 @@ var _ = Describe("DatabaseHandler", func() {
 			} else {
 				Expect(migrations).To(Equal(migrate.MemoryMigrationSource{
 					Migrations: []*migrate.Migration{
-						&migrate.Migration{
+						{
 							Id:   "1",
 							Up:   []string{"CREATE TABLE IF NOT EXISTS subnets (id int NOT NULL AUTO_INCREMENT, PRIMARY KEY (id), underlay_ip varchar(15) NOT NULL, overlay_subnet varchar(18) NOT NULL, overlay_hwaddr varchar(17) NOT NULL, last_renewed_at bigint NOT NULL, UNIQUE (underlay_ip), UNIQUE (overlay_subnet), UNIQUE (overlay_hwaddr));"},
 							Down: []string{"DROP TABLE subnets"},
@@ -385,23 +397,22 @@ var _ = Describe("DatabaseHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = databaseHandler.AddEntry(lease2)
 			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease2)
+			Expect(err).NotTo(HaveOccurred())
 		})
+
 		It("returns all the saved subnets", func() {
 			leases, err := databaseHandler.All()
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(len(leases)).To(Equal(2))
+			Expect(len(leases)).To(Equal(4))
 			Expect(leases).To(ConsistOf([]controller.Lease{
-				{
-					UnderlayIP:          "10.244.11.22",
-					OverlaySubnet:       "10.255.17.0/24",
-					OverlayHardwareAddr: "ee:ee:0a:ff:11:00",
-				},
-				{
-					UnderlayIP:          "10.244.22.33",
-					OverlaySubnet:       "10.255.93.15/32",
-					OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
-				},
+				lease,
+				lease2,
+				singleIPLease,
+				singleIPLease2,
 			}))
 		})
 
@@ -433,7 +444,124 @@ var _ = Describe("DatabaseHandler", func() {
 
 			It("returns an error", func() {
 				_, err := databaseHandler.All()
-				Expect(err.Error()).To(ContainSubstring("parsing result for all subnets"))
+				Expect(err.Error()).To(ContainSubstring("selecting all subnets: parsing result"))
+			})
+		})
+	})
+
+	Describe("AllBlockSubnets", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease2)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease2)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns all the saved subnets", func() {
+			leases, err := databaseHandler.AllBlockSubnets()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(len(leases)).To(Equal(2))
+			Expect(leases).To(ConsistOf([]controller.Lease{
+				lease,
+				lease2,
+			}))
+		})
+
+		Context("when the query fails", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(nil, errors.New("strawberry"))
+			})
+			It("returns an error", func() {
+				_, err := databaseHandler.AllBlockSubnets()
+				Expect(err).To(MatchError("selecting all block subnets: strawberry"))
+			})
+		})
+
+		Context("when the parsing the result fails", func() {
+			var rows *sql.Rows
+			BeforeEach(func() {
+				var err error
+				rows, err = realDb.Query("SELECT 1")
+				Expect(err).NotTo(HaveOccurred())
+
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(rows, nil)
+			})
+
+			AfterEach(func() {
+				Expect(rows.Close()).To(Succeed())
+			})
+
+			It("returns an error", func() {
+				_, err := databaseHandler.AllBlockSubnets()
+				Expect(err.Error()).To(ContainSubstring("selecting all block subnets: parsing result"))
+			})
+		})
+	})
+
+	Describe("AllSingleIPSubnets", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease2)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns all singleIP subnets", func() {
+			leases, err := databaseHandler.AllSingleIPSubnets()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(leases).To(HaveLen(2))
+			Expect(leases).To(ConsistOf([]controller.Lease{
+				singleIPLease,
+				singleIPLease2,
+			}))
+		})
+
+		Context("when the query fails", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(nil, errors.New("strawberry"))
+			})
+
+			It("returns an error", func() {
+				_, err := databaseHandler.AllSingleIPSubnets()
+				Expect(err).To(MatchError("selecting all single ip subnets: strawberry"))
+			})
+		})
+
+		Context("when the parsing the result fails", func() {
+			var rows *sql.Rows
+			BeforeEach(func() {
+				var err error
+				rows, err = realDb.Query("SELECT 1")
+				Expect(err).NotTo(HaveOccurred())
+
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.QueryReturns(rows, nil)
+			})
+
+			AfterEach(func() {
+				Expect(rows.Close()).To(Succeed())
+			})
+
+			It("returns an error", func() {
+				_, err := databaseHandler.AllSingleIPSubnets()
+				Expect(err.Error()).To(ContainSubstring("selecting all single ip subnets: parsing result"))
 			})
 		})
 	})
@@ -455,16 +583,8 @@ var _ = Describe("DatabaseHandler", func() {
 
 			Expect(leases).To(HaveLen(2))
 			Expect(leases).To(ConsistOf([]controller.Lease{
-				{
-					UnderlayIP:          "10.244.11.22",
-					OverlaySubnet:       "10.255.17.0/24",
-					OverlayHardwareAddr: "ee:ee:0a:ff:11:00",
-				},
-				{
-					UnderlayIP:          "10.244.22.33",
-					OverlaySubnet:       "10.255.93.15/32",
-					OverlayHardwareAddr: "ee:ee:0a:ff:5d:0f",
-				},
+				lease,
+				lease2,
 			}))
 
 			leases, err = databaseHandler.AllActive(0)
@@ -512,7 +632,7 @@ var _ = Describe("DatabaseHandler", func() {
 
 			It("returns an error", func() {
 				_, err := databaseHandler.AllActive(100)
-				Expect(err.Error()).To(ContainSubstring("parsing result for all active subnets"))
+				Expect(err.Error()).To(ContainSubstring("selecting all active subnets: parsing result"))
 			})
 		})
 	})
@@ -543,17 +663,19 @@ var _ = Describe("DatabaseHandler", func() {
 		})
 	})
 
-	Describe("OldestExpired", func() {
+	Describe("OldestExpiredBlockSubnet", func() {
 		BeforeEach(func() {
 			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
 			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease)
 			Expect(err).NotTo(HaveOccurred())
 			err = databaseHandler.AddEntry(lease)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("gets the oldest lease that is expired", func() {
-			expiredLease, err := databaseHandler.OldestExpired(0)
+			expiredLease, err := databaseHandler.OldestExpiredBlockSubnet(0)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(expiredLease).To(Equal(&lease))
@@ -565,7 +687,7 @@ var _ = Describe("DatabaseHandler", func() {
 				mockDb.DriverNameReturns("foo")
 			})
 			It("returns an error", func() {
-				_, err := databaseHandler.OldestExpired(23)
+				_, err := databaseHandler.OldestExpiredBlockSubnet(23)
 				Expect(err).To(MatchError("database type foo is not supported"))
 			})
 		})
@@ -577,7 +699,7 @@ var _ = Describe("DatabaseHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("returns nil and does not error", func() {
-				lease, err := databaseHandler.OldestExpired(23)
+				lease, err := databaseHandler.OldestExpiredBlockSubnet(23)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lease).To(BeNil())
 			})
@@ -592,7 +714,64 @@ var _ = Describe("DatabaseHandler", func() {
 				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
 			})
 			It("returns an error", func() {
-				_, err := databaseHandler.OldestExpired(23)
+				_, err := databaseHandler.OldestExpiredBlockSubnet(23)
+				Expect(err).To(MatchError(ContainSubstring("scan result:")))
+			})
+		})
+	})
+
+	Describe("OldestExipredSingleIP", func() {
+		BeforeEach(func() {
+			databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+			_, err := databaseHandler.Migrate()
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(lease)
+			Expect(err).NotTo(HaveOccurred())
+			err = databaseHandler.AddEntry(singleIPLease)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("gets the oldest lease that is expired", func() {
+			expiredLease, err := databaseHandler.OldestExpiredSingleIP(0)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(expiredLease).To(Equal(&singleIPLease))
+		})
+
+		Context("when the database type is not supported", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+				mockDb.DriverNameReturns("foo")
+			})
+			It("returns an error", func() {
+				_, err := databaseHandler.OldestExpiredSingleIP(23)
+				Expect(err).To(MatchError("database type foo is not supported"))
+			})
+		})
+
+		Context("when no lease is expired", func() {
+			BeforeEach(func() {
+				databaseHandler = database.NewDatabaseHandler(realMigrateAdapter, realDb)
+				_, err := databaseHandler.Migrate()
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("returns nil and does not error", func() {
+				lease, err := databaseHandler.OldestExpiredSingleIP(23)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lease).To(BeNil())
+			})
+		})
+
+		Context("when parsing the result fails", func() {
+			var result *sql.Row
+			BeforeEach(func() {
+				result = realDb.QueryRow("SELECT 1")
+
+				mockDb.QueryRowReturns(result)
+				databaseHandler = database.NewDatabaseHandler(mockMigrateAdapter, mockDb)
+			})
+			It("returns an error", func() {
+				_, err := databaseHandler.OldestExpiredSingleIP(23)
 				Expect(err).To(MatchError(ContainSubstring("scan result:")))
 			})
 		})
@@ -643,8 +822,3 @@ var _ = Describe("DatabaseHandler", func() {
 		})
 	})
 })
-
-//go:generate counterfeiter -o fakes/sqlResult.go --fake-name SqlResult . sqlResult
-type sqlResult interface {
-	sql.Result
-}

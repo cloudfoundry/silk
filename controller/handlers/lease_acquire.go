@@ -13,7 +13,7 @@ import (
 
 //go:generate counterfeiter -o fakes/lease_acquirer.go --fake-name LeaseAcquirer . leaseAcquirer
 type leaseAcquirer interface {
-	AcquireSubnetLease(underlayIP string) (*controller.Lease, error)
+	AcquireSubnetLease(underlayIP string, singleOverlayIP bool) (*controller.Lease, error)
 }
 
 type LeasesAcquire struct {
@@ -33,7 +33,8 @@ func (l *LeasesAcquire) ServeHTTP(logger lager.Logger, w http.ResponseWriter, re
 	}
 
 	var payload struct {
-		UnderlayIP string `json:"underlay_ip"`
+		UnderlayIP      string `json:"underlay_ip"`
+		SingleOverlayIP bool   `json:"single_overlay_ip"`
 	}
 	err = l.Unmarshaler.Unmarshal(bodyBytes, &payload)
 	if err != nil {
@@ -41,13 +42,13 @@ func (l *LeasesAcquire) ServeHTTP(logger lager.Logger, w http.ResponseWriter, re
 		return
 	}
 
-	lease, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP)
+	lease, err := l.LeaseAcquirer.AcquireSubnetLease(payload.UnderlayIP, payload.SingleOverlayIP)
 	if err != nil {
 		l.ErrorResponse.InternalServerError(logger, w, err, err.Error())
 		return
 	}
 	if lease == nil {
-		err := errors.New("No lease available")
+		err := errors.New("no lease available")
 		l.ErrorResponse.Conflict(logger, w, err, err.Error())
 		return
 	}

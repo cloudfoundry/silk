@@ -73,11 +73,37 @@ var _ = Describe("LeasesAcquire", func() {
 
 		handler.ServeHTTP(logger, resp, request)
 		Expect(leaseAcquirer.AcquireSubnetLeaseCallCount()).To(Equal(1))
-		Expect(leaseAcquirer.AcquireSubnetLeaseArgsForCall(0)).To(Equal("10.244.16.11"))
+		underlayIP, singleOverlayIP := leaseAcquirer.AcquireSubnetLeaseArgsForCall(0)
+		Expect(underlayIP).To(Equal("10.244.16.11"))
+		Expect(singleOverlayIP).To(Equal(false))
 
 		Expect(resp.Code).To(Equal(http.StatusOK))
 		Expect(resp.Body).To(MatchJSON(expectedResponseJSON))
+	})
 
+	It("acquires a lease for a single overlay IP", func() {
+		lease := &controller.Lease{
+			UnderlayIP:          "10.244.0.12",
+			OverlaySubnet:       "10.255.0.17/32",
+			OverlayHardwareAddr: "ee:ee:0a:fb:00:11",
+		}
+		leaseAcquirer.AcquireSubnetLeaseReturns(lease, nil)
+
+		expectedResponseJSON := `{ "underlay_ip": "10.244.0.12", "overlay_subnet": "10.255.0.17/32", "overlay_hardware_addr": "ee:ee:0a:fb:00:11" }`
+		requestBody := bytes.NewBuffer([]byte(`{ "underlay_ip": "10.244.0.12", "single_overlay_ip": true }`))
+		request, err := http.NewRequest("PUT", "/leases/acquire", requestBody)
+		Expect(err).NotTo(HaveOccurred())
+
+		request.RemoteAddr = "remote-host:remote-port"
+
+		handler.ServeHTTP(logger, resp, request)
+		Expect(leaseAcquirer.AcquireSubnetLeaseCallCount()).To(Equal(1))
+		underlayIP, singleOverlayIP := leaseAcquirer.AcquireSubnetLeaseArgsForCall(0)
+		Expect(underlayIP).To(Equal("10.244.0.12"))
+		Expect(singleOverlayIP).To(Equal(true))
+
+		Expect(resp.Code).To(Equal(http.StatusOK))
+		Expect(resp.Body).To(MatchJSON(expectedResponseJSON))
 	})
 
 	Context("when there are errors reading the body bytes", func() {
@@ -158,8 +184,8 @@ var _ = Describe("LeasesAcquire", func() {
 			l, w, err, description := fakeErrorResponse.ConflictArgsForCall(0)
 			Expect(l).To(Equal(expectedLogger))
 			Expect(w).To(Equal(resp))
-			Expect(err).To(MatchError("No lease available"))
-			Expect(description).To(Equal("No lease available"))
+			Expect(err).To(MatchError("no lease available"))
+			Expect(description).To(Equal("no lease available"))
 		})
 	})
 
