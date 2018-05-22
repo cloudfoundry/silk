@@ -133,7 +133,7 @@ var _ = Describe("Silk Controller", func() {
 	})
 
 	Describe("releasing", func() {
-		It("provides an endpoint to release a subnet lease", func() {
+		It("releases a subnet lease", func() {
 			By("getting a valid lease")
 			lease, err := testClient.AcquireSubnetLease("10.244.4.5")
 			Expect(err).NotTo(HaveOccurred())
@@ -156,6 +156,33 @@ var _ = Describe("Silk Controller", func() {
 			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(
 				HaveName("LeasesReleaseRequestTime"),
 			))
+		})
+
+		Context("when trying to release a single ip", func() {
+			It("releases a subnet lease", func() {
+				By("getting a valid lease")
+				lease, err := testClient.AcquireSingleOverlayIPLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+
+				By("checking that the lease is present in the list of routable leases")
+				leases, err := testClient.GetActiveLeases()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(leases)).To(Equal(1))
+				Expect(leases[0]).To(Equal(lease))
+
+				By("attempting to release it")
+				err = testClient.ReleaseSubnetLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+
+				By("checking that the lease is not present in the list of routable leases")
+				leases, err = testClient.GetActiveLeases()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(leases)).To(Equal(0))
+
+				Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(
+					HaveName("LeasesReleaseRequestTime"),
+				))
+			})
 		})
 
 		Context("when lease is not present in database", func() {
