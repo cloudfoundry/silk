@@ -19,9 +19,12 @@ import (
 
 type FakeController struct {
 	ifrit.Process
-	handlerLock sync.Mutex
-	handlers    map[string]*FakeHandler
+	handlerLock  sync.Mutex
+	handlers     map[string]*FakeHandler
+	handlerFuncs map[string]FakeHandlerFunc
 }
+
+type FakeHandlerFunc func(w http.ResponseWriter, r *http.Request)
 
 type FakeHandler struct {
 	LastRequestBody []byte
@@ -30,14 +33,14 @@ type FakeHandler struct {
 }
 
 func (f *FakeController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	bodyBytes, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	f.handlerLock.Lock()
+	defer f.handlerLock.Unlock()
+	fakeHandlerFunc, ok := f.handlerFuncs[r.URL.Path]
+	if ok {
+		fakeHandlerFunc(w, r)
 		return
 	}
 
-	f.handlerLock.Lock()
-	defer f.handlerLock.Unlock()
 	var fakeHandler *FakeHandler
 	for route, h := range f.handlers {
 		if r.URL.Path == route {
@@ -50,6 +53,11 @@ func (f *FakeController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	fakeHandler.LastRequestBody = bodyBytes
 	responseBytes, _ := json.Marshal(fakeHandler.ResponseBody)
 	w.WriteHeader(fakeHandler.ResponseCode)
@@ -62,9 +70,16 @@ func (f *FakeController) SetHandler(route string, handler *FakeHandler) {
 	f.handlers[route] = handler
 }
 
+func (f *FakeController) SetHandlerFunc(route string, handlerFunc FakeHandlerFunc) {
+	f.handlerLock.Lock()
+	defer f.handlerLock.Unlock()
+	f.handlerFuncs[route] = handlerFunc
+}
+
 func StartServer(serverListenAddr string, tlsConfig *tls.Config) *FakeController {
 	fakeServer := &FakeController{
-		handlers: make(map[string]*FakeHandler),
+		handlers:     make(map[string]*FakeHandler),
+		handlerFuncs: make(map[string]FakeHandlerFunc),
 	}
 
 	someServer := http_server.NewTLSServer(serverListenAddr, fakeServer, tlsConfig)

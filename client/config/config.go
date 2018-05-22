@@ -28,6 +28,7 @@ type Config struct {
 	ClientTimeoutSeconds      int    `json:"client_timeout_seconds" validate:"nonzero"`
 	MetronPort                int    `json:"metron_port" validate:"min=1"`
 	LogPrefix                 string `json:"log_prefix" validate:"nonzero"`
+	SingleIPOnly              bool   `json:"single_ip_only"`
 }
 
 func LoadConfig(filePath string) (Config, error) {

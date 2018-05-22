@@ -216,9 +216,19 @@ func mainWithError() error {
 }
 
 func acquireLease(logger lager.Logger, client *controller.Client, vtepConfigCreator *vtep.ConfigCreator, vtepFactory *vtep.Factory, cfg config.Config) (controller.Lease, error) {
-	lease, err := client.AcquireSubnetLease(cfg.UnderlayIP)
-	if err != nil {
-		return controller.Lease{}, fmt.Errorf("acquire subnet lease: %s", err)
+	var lease controller.Lease
+	if cfg.SingleIPOnly {
+		var err error
+		lease, err = client.AcquireSingleOverlayIPLease(cfg.UnderlayIP)
+		if err != nil {
+			return controller.Lease{}, fmt.Errorf("acquire subnet lease: %s", err)
+		}
+	} else {
+		var err error
+		lease, err = client.AcquireSubnetLease(cfg.UnderlayIP)
+		if err != nil {
+			return controller.Lease{}, fmt.Errorf("acquire subnet lease: %s", err)
+		}
 	}
 	logger.Info("acquired-lease", lager.Data{"lease": lease})
 

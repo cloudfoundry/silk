@@ -75,6 +75,23 @@ var _ = Describe("Config.LoadConfig", func() {
 			Expect(err.Error()).To(HavePrefix("invalid config:"))
 		}
 	})
+
+	Context("when single ip only is specified", func() {
+		It("sets SingleIPOnly", func() {
+			cfg := cloneMap(requiredFields)
+			cfg["single_ip_only"] = true
+
+			file, err := ioutil.TempFile(os.TempDir(), "config-")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(json.NewEncoder(file).Encode(cfg)).To(Succeed())
+
+			loadedConfig, err := config.LoadConfig(file.Name())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(loadedConfig.SingleIPOnly).To(Equal(true))
+		})
+	})
+
 	Context("when vxlan_interface_name is specified", func() {
 		It("sets VxlanInterfaceName", func() {
 			cfg := cloneMap(requiredFields)
@@ -88,7 +105,6 @@ var _ = Describe("Config.LoadConfig", func() {
 			loadedConfig, err := config.LoadConfig(file.Name())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(loadedConfig.VxlanInterfaceName).To(Equal("something"))
-
 		})
 	})
 })

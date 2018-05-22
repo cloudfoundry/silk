@@ -57,6 +57,8 @@ var (
 	overlayVtepIP         net.IP
 	remoteOverlaySubnet   string
 	remoteOverlayVtepIP   net.IP
+	remoteSingleIPSubnet  string
+	remoteSingleIP        net.IP
 )
 
 var _ = BeforeEach(func() {
@@ -71,6 +73,9 @@ var _ = BeforeEach(func() {
 
 	remoteOverlaySubnet = fmt.Sprintf("10.255.%d.0/24", GinkgoParallelNode()+2)
 	remoteOverlayVtepIP, _, _ = net.ParseCIDR(remoteOverlaySubnet)
+
+	remoteSingleIPSubnet = fmt.Sprintf("10.255.0.%d/32", GinkgoParallelNode()+20)
+	remoteSingleIP, _, _ = net.ParseCIDR(remoteSingleIPSubnet)
 
 	daemonLease = controller.Lease{
 		UnderlayIP:          localIP,
@@ -134,6 +139,10 @@ var _ = BeforeEach(func() {
 				UnderlayIP:          "172.17.0.5",
 				OverlaySubnet:       remoteOverlaySubnet,
 				OverlayHardwareAddr: "ee:ee:0a:ff:28:00",
+			}, {
+				UnderlayIP:          "172.17.0.6",
+				OverlaySubnet:       remoteSingleIPSubnet,
+				OverlayHardwareAddr: "ee:ee:0a:ff:28:20",
 			},
 		},
 	}
@@ -141,6 +150,7 @@ var _ = BeforeEach(func() {
 		ResponseCode: 200,
 		ResponseBody: leases,
 	}
+
 	fakeServer.SetHandler("/leases/acquire", acquireHandler)
 	fakeServer.SetHandler("/leases", indexHandler)
 })
@@ -242,6 +252,50 @@ var _ = Describe("Daemon Integration", func() {
 		Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("renewFailure")))
 	})
 
+	Context("when single ip only is true", func() {
+		BeforeEach(func() {
+			fakeServer.SetHandlerFunc("/leases/acquire", func(w http.ResponseWriter, req *http.Request) {
+				contents, err := ioutil.ReadAll(req.Body)
+				Expect(err).NotTo(HaveOccurred())
+
+				var acquireRequest controller.AcquireLeaseRequest
+				err = json.Unmarshal(contents, &acquireRequest)
+				Expect(err).NotTo(HaveOccurred())
+				if acquireRequest.SingleOverlayIP {
+					contents, err := json.Marshal(controller.Lease{
+						UnderlayIP:          "10.244.64.65",
+						OverlaySubnet:       "10.255.0.32/32",
+						OverlayHardwareAddr: "ee:ee:0a:ff:00:20",
+					})
+					Expect(err).NotTo(HaveOccurred())
+					w.WriteHeader(http.StatusOK)
+					w.Write(contents)
+					return
+				}
+
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("{}"))
+			})
+
+			daemonConf.SingleIPOnly = true
+			stopDaemon()
+			startAndWaitForDaemon()
+		})
+
+		It("updates the local networking stack", func() {
+			link, err := netlink.LinkByName(vtepName)
+			Expect(err).NotTo(HaveOccurred())
+			vtep := link.(*netlink.Vxlan)
+			Expect(vtep.HardwareAddr.String()).To(Equal("ee:ee:0a:ff:00:20"))
+			Expect(vtep.SrcAddr.String()).To(Equal(localIP))
+
+			addresses, err := netlink.AddrList(vtep, netlink.FAMILY_V4)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(HaveLen(1))
+			Expect(addresses[0].IP.String()).To(Equal("10.255.0.32"))
+		})
+	})
+
 	Context("when custom_underlay_interface_name is specified", func() {
 		var (
 			dummyName      string
@@ -316,6 +370,7 @@ var _ = Describe("Daemon Integration", func() {
 			routeFields := strings.Fields(routes)
 			Expect(routeFields).To(matchers.ContainSequence([]string{"10.255.0.0/16", "proto", "kernel", "scope", "link", "src", overlayVtepIP.String()}))
 			Expect(routeFields).To(matchers.ContainSequence([]string{remoteOverlaySubnet, "via", remoteOverlayVtepIP.String(), "src", overlayVtepIP.String()}))
+			Expect(routeFields).To(matchers.ContainSequence([]string{remoteSingleIP.String(), "via", remoteSingleIP.String(), "src", overlayVtepIP.String()}))
 
 			arpEntries := mustSucceed("ip", "neigh", "list", "dev", vtepName)
 			Expect(arpEntries).To(ContainSubstring(remoteOverlayVtepIP.String() + " lladdr ee:ee:0a:ff:28:00 PERMANENT"))
@@ -324,7 +379,7 @@ var _ = Describe("Daemon Integration", func() {
 			Expect(fdbEntries).To(ContainSubstring("ee:ee:0a:ff:28:00 dst 172.17.0.5 self permanent"))
 
 			By("checking that it emits a metric for the number of leases it sees")
-			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(hasMetricWithValue("numberLeases", 2)))
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(hasMetricWithValue("numberLeases", 3)))
 
 			By("removing the leases from the controller")
 			fakeServer.SetHandler("/leases", &testsupport.FakeHandler{
@@ -347,7 +402,7 @@ var _ = Describe("Daemon Integration", func() {
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*` + remoteOverlaySubnet + `.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
 				By("checking the arp fdb and routing are correct")
-				Eventually(string(session.Out.Contents()), "5s").Should(ContainSubstring(`silk-daemon.converge-leases","log_level":0,"data":{"leases":[{"underlay_ip":"127.0.0.1","overlay_subnet":"` + overlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"},{"underlay_ip":"172.17.0.5","overlay_subnet":"` + remoteOverlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:00"}]}}`))
+				Eventually(string(session.Out.Contents()), "5s").Should(ContainSubstring(`silk-daemon.converge-leases","log_level":0,"data":{"leases":[{"underlay_ip":"127.0.0.1","overlay_subnet":"` + overlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"},{"underlay_ip":"172.17.0.5","overlay_subnet":"` + remoteOverlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:00"},{"underlay_ip":"172.17.0.6","overlay_subnet":"` + remoteSingleIPSubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:20"}]}}`))
 
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
 				routeFields := strings.Fields(routes)
