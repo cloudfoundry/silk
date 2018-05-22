@@ -212,6 +212,28 @@ var _ = Describe("Silk Controller", func() {
 			))
 		})
 
+		Context("when trying to renew a single ip", func() {
+			It("successfully renews", func() {
+				By("getting a valid lease")
+				lease, err := testClient.AcquireSingleOverlayIPLease("10.244.4.5")
+				Expect(err).NotTo(HaveOccurred())
+
+				By("attempting to renew it")
+				err = testClient.RenewSubnetLease(lease)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("checking that the lease is present in the list of routable leases")
+				leases, err := testClient.GetActiveLeases()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(leases)).To(Equal(1))
+				Expect(leases[0]).To(Equal(lease))
+
+				Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(
+					HaveName("LeasesRenewRequestTime"),
+				))
+			})
+		})
+
 		Context("when the lease is not valid for some reason", func() {
 			It("returns a non-retriable error", func() {
 				By("getting a valid lease")
