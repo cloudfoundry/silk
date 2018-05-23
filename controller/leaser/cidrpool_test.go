@@ -22,6 +22,18 @@ var _ = Describe("CIDRPool", func() {
 		)
 	})
 
+	Describe("SingleIPPoolSize", func() {
+		DescribeTable("returns the number of subnets that can be allocated",
+			func(subnetRange string, subnetMask, expectedSize int) {
+				cidrPool := leaser.NewCIDRPool(subnetRange, subnetMask)
+				Expect(cidrPool.SingleIPPoolSize()).To(Equal(expectedSize))
+			},
+			Entry("when the range is /16 and mask is /25", "10.255.0.0/16", 25, 127),
+			Entry("when the range is /16 and mask is /26", "10.255.0.0/16", 26, 63),
+			Entry("when the range is /16 and mask is /27", "10.255.0.0/16", 27, 31),
+		)
+	})
+
 	Describe("GetAvailableBlock", func() {
 		It("returns a subnet from the pool that is not taken", func() {
 			subnetRange := "10.255.0.0/16"
@@ -87,6 +99,43 @@ var _ = Describe("CIDRPool", func() {
 				// 10.255.0.0 should never be allocated? Maybe?
 				Expect(subnet.IP.To4()).NotTo(Equal(network.IP.To4()))
 			}
+		})
+
+		Context("when the subnet mask is 29", func() {
+			It("returns ips containing only .1-.7", func() {
+				subnetRange := "10.255.0.0/16"
+				_, network, _ := net.ParseCIDR(subnetRange)
+				cidrPool := leaser.NewCIDRPool(subnetRange, 29)
+
+				results := map[string]int{}
+
+				var taken []string
+				for i := 0; i < 7; i++ {
+					s := cidrPool.GetAvailableSingleIP(taken)
+					results[s]++
+					taken = append(taken, s)
+				}
+				Expect(len(results)).To(Equal(7))
+
+				Expect(results).To(Equal(map[string]int{
+					"10.255.0.1/32": 1,
+					"10.255.0.2/32": 1,
+					"10.255.0.3/32": 1,
+					"10.255.0.4/32": 1,
+					"10.255.0.5/32": 1,
+					"10.255.0.6/32": 1,
+					"10.255.0.7/32": 1,
+				}))
+
+				for result := range results {
+					_, subnet, err := net.ParseCIDR(result)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(network.Contains(subnet.IP)).To(BeTrue())
+					Expect(subnet.Mask).To(Equal(net.IPMask{255, 255, 255, 255}))
+					// 10.255.0.0 should never be allocated? Maybe?
+					Expect(subnet.IP.To4()).NotTo(Equal(network.IP.To4()))
+				}
+			})
 		})
 
 		Context("when no subnets are available", func() {

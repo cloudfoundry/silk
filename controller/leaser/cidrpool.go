@@ -27,12 +27,16 @@ func NewCIDRPool(subnetRange string, subnetMask int) *CIDRPool {
 
 	return &CIDRPool{
 		blockPool:  generateBlockPool(ip, uint(cidrMask), uint(subnetMask)),
-		singlePool: generateSingleIPPool(ip),
+		singlePool: generateSingleIPPool(ip, uint(subnetMask)),
 	}
 }
 
 func (c *CIDRPool) BlockPoolSize() int {
 	return len(c.blockPool)
+}
+
+func (c *CIDRPool) SingleIPPoolSize() int {
+	return len(c.singlePool)
 }
 
 func (c *CIDRPool) GetAvailableBlock(taken []string) string {
@@ -82,9 +86,10 @@ func generateBlockPool(ipStart net.IP, cidrMask, cidrMaskBlock uint) map[string]
 	return pool
 }
 
-func generateSingleIPPool(ipStart net.IP) map[string]struct{} {
+func generateSingleIPPool(ipStart net.IP, cidrMaskBlock uint) map[string]struct{} {
 	pool := make(map[string]struct{})
-	for i := 1; i <= 255; i++ {
+	blockSize := 1 << (32 - cidrMaskBlock)
+	for i := 1; i < blockSize; i++ {
 		singleCIDR := fmt.Sprintf("%s/32", netaddr.IPAdd(ipStart, i))
 		pool[singleCIDR] = struct{}{}
 	}
