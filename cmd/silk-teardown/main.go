@@ -5,17 +5,23 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/hashicorp/go-multierror"
 
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/lib/adapter"
 )
+
+const (
+	jobPrefix = "silk-teardown"
+)
+
+var logPrefix = "cfnetworking"
 
 func main() {
 	if err := mainWithError(); err != nil {
@@ -31,10 +37,11 @@ func mainWithError() error {
 		return fmt.Errorf("load config file: %s", err)
 	}
 
-	logger := lager.NewLogger(fmt.Sprintf("%s.%s", cfg.LogPrefix, "silk-teardown"))
-	sink := lager.NewWriterSink(os.Stdout, lager.INFO)
-	logger.RegisterSink(sink)
+	if cfg.LogPrefix != "" {
+		logPrefix = cfg.LogPrefix
+	}
 
+	logger, _ := lagerflags.NewFromConfig(fmt.Sprintf("%s.%s", logPrefix, jobPrefix), getLagerConfig())
 	logger.Info("starting")
 
 	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
@@ -63,4 +70,10 @@ func mainWithError() error {
 	logger.Info("complete")
 
 	return errList
+}
+
+func getLagerConfig() lagerflags.LagerConfig {
+	lagerConfig := lagerflags.DefaultLagerConfig()
+	lagerConfig.TimeFormat = lagerflags.FormatRFC3339
+	return lagerConfig
 }

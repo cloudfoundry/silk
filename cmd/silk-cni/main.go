@@ -41,14 +41,20 @@ type CNIPlugin struct {
 	Logger          lager.Logger
 }
 
+const (
+	jobPrefix = "silk-cni"
+	logPrefix = "cfnetworking"
+)
+
 func main() {
 	hostNS, err := ns.GetCurrentNS()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	logger := lager.NewLogger("silk-cni")
-	sink := lager.NewWriterSink(os.Stderr, lager.INFO)
+	logger := lager.NewLogger(fmt.Sprintf("%s.%s", logPrefix, jobPrefix))
+	inSink := lager.NewPrettySink(os.Stderr, lager.DEBUG)
+	sink := lager.NewReconfigurableSink(inSink, lager.DEBUG)
 	logger.RegisterSink(sink)
 
 	netlinkAdapter := &libAdapter.NetlinkAdapter{}

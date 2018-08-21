@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"net/http"
 
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
-	"encoding/json"
 )
 
 type cniDatabaseError struct {
-	Code int `json:"code"`
-	Msg string `json:"msg"`
+	Code    int    `json:"code"`
+	Msg     string `json:"msg"`
 	Details string `json:"details"`
 }
 

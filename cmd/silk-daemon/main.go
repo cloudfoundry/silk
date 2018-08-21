@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon"
@@ -37,6 +38,10 @@ import (
 
 var logPrefix = "cfnetworking"
 
+const (
+	jobPrefix = "silk-daemon"
+)
+
 func main() {
 	if err := mainWithError(); err != nil {
 		log.Fatalf("%s.silk-daemon error: %s", logPrefix, err)
@@ -56,12 +61,7 @@ func mainWithError() error {
 		logPrefix = cfg.LogPrefix
 	}
 
-	reconfigurableSink := lager.NewReconfigurableSink(
-		lager.NewWriterSink(os.Stdout, lager.DEBUG),
-		lager.INFO)
-
-	logger := lager.NewLogger(fmt.Sprintf("%s.%s", logPrefix, "silk-daemon"))
-	logger.RegisterSink(reconfigurableSink)
+	logger, reconfigurableSink := lagerflags.NewFromConfig(fmt.Sprintf("%s.%s", logPrefix, jobPrefix), getLagerConfig())
 	logger.Info("starting")
 
 	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
@@ -302,4 +302,10 @@ func deleteAndAcquire(cfg config.Config, logger lager.Logger, client *controller
 		return controller.Lease{}, fmt.Errorf("delete vtep: %s", err) // not tested, should be impossible
 	}
 	return acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
+}
+
+func getLagerConfig() lagerflags.LagerConfig {
+	lagerConfig := lagerflags.DefaultLagerConfig()
+	lagerConfig.TimeFormat = lagerflags.FormatRFC3339
+	return lagerConfig
 }

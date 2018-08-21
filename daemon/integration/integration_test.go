@@ -361,7 +361,7 @@ var _ = Describe("Daemon Integration", func() {
 
 		It("polls for other leases and logs at debug level", func() {
 			By("checking that the correct leases are logged")
-			Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
+			Eventually(session.Out, 2).Should(gbytes.Say(`level.*debug.*silk-daemon.converge-leases`))
 			Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*`+overlaySubnet+`.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 			Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*` + remoteOverlaySubnet + `.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
@@ -397,12 +397,13 @@ var _ = Describe("Daemon Integration", func() {
 		Context("when cells with overlay subnets are brought down", func() {
 			It("polls and updates the leases accordingly", func() {
 				By("checking that the correct leases are logged")
-				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
+				Eventually(session.Out, 2).Should(gbytes.Say(`level.*debug.*silk-daemon.converge-leases`))
 				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*`+overlaySubnet+`.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*` + remoteOverlaySubnet + `.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
 				By("checking the arp fdb and routing are correct")
-				Eventually(string(session.Out.Contents()), "5s").Should(ContainSubstring(`silk-daemon.converge-leases","log_level":0,"data":{"leases":[{"underlay_ip":"127.0.0.1","overlay_subnet":"` + overlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"},{"underlay_ip":"172.17.0.5","overlay_subnet":"` + remoteOverlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:00"},{"underlay_ip":"172.17.0.6","overlay_subnet":"` + remoteSingleIPSubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:20"}]}}`))
+
+				Eventually(string(session.Out.Contents()), "5s").Should(ContainSubstring(`"level":"debug","source":"potato-prefix.silk-daemon","message":"potato-prefix.silk-daemon.converge-leases","data":{"leases":[{"underlay_ip":"127.0.0.1","overlay_subnet":"` + overlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"},{"underlay_ip":"172.17.0.5","overlay_subnet":"` + remoteOverlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:00"},{"underlay_ip":"172.17.0.6","overlay_subnet":"` + remoteSingleIPSubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:20"}]}}`))
 
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)
 				routeFields := strings.Fields(routes)
@@ -428,7 +429,7 @@ var _ = Describe("Daemon Integration", func() {
 				)
 
 				By("checking that updated leases are logged")
-				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`silk-daemon.converge-leases.*log_level.*0`)))
+				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`level.*debug.*silk-daemon.converge-leases`)))
 				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*`+overlaySubnet+`.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 				Eventually(session.Out, 2).ShouldNot(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*` + remoteOverlaySubnet + `.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
@@ -475,14 +476,14 @@ var _ = Describe("Daemon Integration", func() {
 
 			It("only updates the leases inside the overlay network", func() {
 				By("logging the number of leases we skipped")
-				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converger.*log_level.*1.*non-routable-lease-count.*1`))
+				Eventually(session.Out, 2).Should(gbytes.Say(`level.*info.*silk-daemon.converger.*non-routable-lease-count.*1`))
 
 				By("checking that the correct leases are logged")
-				Eventually(session.Out, 2).Should(gbytes.Say(`silk-daemon.converge-leases.*log_level.*0`))
+				Eventually(session.Out, 2).Should(gbytes.Say(`level.*debug.*silk-daemon.converge-leases`))
 				Eventually(session.Out, 2).Should(gbytes.Say(fmt.Sprintf(`underlay_ip.*%s.*overlay_subnet.*`+overlaySubnet+`.*overlay_hardware_addr.*ee:ee:0a:ff:1e:00`, localIP)))
 				Eventually(session.Out, 2).Should(gbytes.Say(`underlay_ip.*172.17.0.5.*overlay_subnet.*` + remoteOverlaySubnet + `.*overlay_hardware_addr.*ee:ee:0a:ff:28:00`))
 
-				Eventually(string(session.Out.Contents()), "5s").Should(ContainSubstring(`silk-daemon.converge-leases","log_level":0,"data":{"leases":[{"underlay_ip":"127.0.0.1","overlay_subnet":"` + overlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"},{"underlay_ip":"172.17.0.4","overlay_subnet":"10.123.40.0/24","overlay_hardware_addr":"ee:ee:0a:fe:28:00"},{"underlay_ip":"172.17.0.5","overlay_subnet":"` + remoteOverlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:00"}]}}`))
+				Eventually(session.Out, "5s").Should(gbytes.Say(`level.*debug.*silk-daemon.converge-leases.*data":\{"leases":\[\{"underlay_ip":"127.0.0.1","overlay_subnet":"` + overlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:1e:00"\},\{"underlay_ip":"172.17.0.4","overlay_subnet":"10.123.40.0/24","overlay_hardware_addr":"ee:ee:0a:fe:28:00"\},\{"underlay_ip":"172.17.0.5","overlay_subnet":"` + remoteOverlaySubnet + `","overlay_hardware_addr":"ee:ee:0a:ff:28:00"`))
 
 				By("checking the arp fdb and routing are correct")
 				routes := mustSucceed("ip", "route", "list", "dev", vtepName)

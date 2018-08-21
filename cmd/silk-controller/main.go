@@ -17,6 +17,7 @@ import (
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/silk/controller/config"
 	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/handlers"
@@ -31,6 +32,7 @@ import (
 )
 
 var (
+	jobPrefix = "silk-controller"
 	logPrefix = "cfnetworking"
 )
 
@@ -54,11 +56,7 @@ func mainWithError() error {
 		logPrefix = conf.LogPrefix
 	}
 
-	logger := lager.NewLogger(fmt.Sprintf("%s.%s", logPrefix, "silk-controller"))
-	reconfigurableSink := lager.NewReconfigurableSink(
-		lager.NewWriterSink(os.Stdout, lager.DEBUG),
-		lager.INFO)
-	logger.RegisterSink(reconfigurableSink)
+	logger, reconfigurableSink := lagerflags.NewFromConfig(fmt.Sprintf("%s.%s", logPrefix, jobPrefix), getLagerConfig())
 	logger.Info("starting")
 
 	logger.Info("parsed-config")
@@ -219,4 +217,10 @@ func mainWithError() error {
 
 	logger.Info("exited")
 	return nil
+}
+
+func getLagerConfig() lagerflags.LagerConfig {
+	lagerConfig := lagerflags.DefaultLagerConfig()
+	lagerConfig.TimeFormat = lagerflags.FormatRFC3339
+	return lagerConfig
 }
