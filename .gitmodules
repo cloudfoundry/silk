@@ -82,3 +82,6 @@
 [submodule "vendor/code.cloudfoundry.org/filelock"]
 	path = vendor/code.cloudfoundry.org/filelock
 	url = https://github.com/cloudfoundry/filelock
+[submodule "vendor/golang.org/x/sys"]
+	path = vendor/golang.org/x/sys
+	url = https://go.googlesource.com/sys

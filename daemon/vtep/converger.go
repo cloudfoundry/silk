@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/controller"
 	"github.com/vishvananda/netlink"
+	"os/exec"
 )
 
 type Converger struct {
@@ -76,11 +77,36 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 	}
 
 	neighsForDeletion := getDeletedNeighs(previousNeighs, currentNeighs)
+	c.Logger.Debug("converger", lager.Data{"neighsForDeletion count": len(neighsForDeletion)})
 	for _, neigh := range neighsForDeletion {
 		if neigh.LinkIndex == c.LocalVTEP.Index {
 			err = c.NetlinkAdapter.NeighDel(&neigh)
 			if err != nil {
 				return fmt.Errorf("del neigh with ip/hwaddr %s: %s", &neigh, err)
+			}
+
+			/*
+				on trusty, FDB entries are clean up in the `NeighDel()` command above
+				on xenial, the FDB entries are not cleaned up. Googling does not turn up reveal a root cause.
+				As a workaround, delete the leftover FDBs manually using the `bridge` command
+			*/
+			leftoverFDBs, err := c.NetlinkAdapter.FDBList(neigh.LinkIndex)
+			if err != nil {
+				return fmt.Errorf("failed to list FDB after deleting neighbor: %s", err)
+			}
+
+			c.Logger.Debug("converger", lager.Data{"leftover FDB count": len(leftoverFDBs)})
+
+			for _, leftover := range leftoverFDBs {
+				c.Logger.Debug("converger", lager.Data{"leftover hw addr": leftover.HardwareAddr.String()})
+
+				if leftover.HardwareAddr.String() == neigh.HardwareAddr.String() {
+					err = exec.Command("bridge", "fdb", "del", neigh.HardwareAddr.String(), "dev", c.LocalVTEP.Name).Run()
+					if err != nil {
+						return fmt.Errorf("failed to remove fdb entry %s for device %s: %s",
+							neigh.HardwareAddr.String(), c.LocalVTEP.Name, err)
+					}
+				}
 			}
 		}
 	}
