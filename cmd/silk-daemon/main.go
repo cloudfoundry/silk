@@ -187,11 +187,12 @@ func mainWithError() error {
 			ControllerClient: client,
 			Lease:            lease,
 			Converger: &vtep.Converger{
-				OverlayNetwork: overlayNetwork,
-				LocalSubnet:    localSubnet,
-				LocalVTEP:      *vxlanIface,
-				NetlinkAdapter: &adapter.NetlinkAdapter{},
-				Logger:         logger,
+				OverlayNetwork:    overlayNetwork,
+				LocalSubnet:       localSubnet,
+				LocalVTEP:         *vxlanIface,
+				NetlinkAdapter:    &adapter.NetlinkAdapter{},
+				Logger:            logger,
+				UnderlayAddresses: make(map[string]net.IP),
 			},
 			ErrorDetector: planner.NewGracefulDetector(
 				time.Duration(cfg.PartitionToleranceSeconds) * time.Second,

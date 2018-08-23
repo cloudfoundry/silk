@@ -11,12 +11,12 @@ import (
 )
 
 type Converger struct {
-	OverlayNetwork   *net.IPNet
-	LocalSubnet      *net.IPNet
-	LocalVTEP        net.Interface
-	NetlinkAdapter   netlinkAdapter
-	Logger           lager.Logger
-	underlayAdresses map[string]net.IP
+	OverlayNetwork    *net.IPNet
+	LocalSubnet       *net.IPNet
+	LocalVTEP         net.Interface
+	NetlinkAdapter    netlinkAdapter
+	Logger            lager.Logger
+	UnderlayAddresses map[string]net.IP
 }
 
 func (c *Converger) Converge(leases []controller.Lease) error {
@@ -160,7 +160,7 @@ func (c *Converger) getPreviousState(index int) ([]netlink.Route, []netlink.Neig
 	*/
 	if len(previousFDBNeighs) != len(previousARPNeighs) {
 		for _, previousARPNeigh := range previousARPNeighs {
-			if underlayIP, ok := c.underlayAdresses[previousARPNeigh.HardwareAddr.String()]; ok {
+			if underlayIP, ok := c.UnderlayAddresses[previousARPNeigh.HardwareAddr.String()]; ok {
 				previousFDBNeighs = append(previousFDBNeighs, netlink.Neigh{
 					LinkIndex:    previousARPNeigh.LinkIndex,
 					State:        previousARPNeigh.State,
@@ -219,7 +219,7 @@ func (c *Converger) addNeighs(underlayIP, destAddr net.IP, remoteMac net.Hardwar
 		},
 	}
 
-	c.underlayAdresses[remoteMac.String()] = underlayIP
+	c.UnderlayAddresses[remoteMac.String()] = underlayIP
 
 	var currentNeighs []netlink.Neigh
 	for _, neigh := range neighs {

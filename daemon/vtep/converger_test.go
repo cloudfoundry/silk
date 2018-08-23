@@ -37,11 +37,12 @@ var _ = Describe("Converger", func() {
 				Name:  "silk-vtep",
 			}
 			converger = &vtep.Converger{
-				OverlayNetwork: overlayNet,
-				LocalSubnet:    localSubnet,
-				LocalVTEP:      localVTEP,
-				NetlinkAdapter: fakeNetlink,
-				Logger:         logger,
+				OverlayNetwork:    overlayNet,
+				LocalSubnet:       localSubnet,
+				LocalVTEP:         localVTEP,
+				NetlinkAdapter:    fakeNetlink,
+				Logger:            logger,
+				UnderlayAddresses: make(map[string]net.IP),
 			}
 			localMac, _ = net.ParseMAC("ee:ee:aa:bb:cc:dd")
 			remoteMac, _ = net.ParseMAC("ee:ee:aa:aa:aa:ff")
