@@ -11,11 +11,12 @@ import (
 )
 
 type Converger struct {
-	OverlayNetwork *net.IPNet
-	LocalSubnet    *net.IPNet
-	LocalVTEP      net.Interface
-	NetlinkAdapter netlinkAdapter
-	Logger         lager.Logger
+	OverlayNetwork   *net.IPNet
+	LocalSubnet      *net.IPNet
+	LocalVTEP        net.Interface
+	NetlinkAdapter   netlinkAdapter
+	Logger           lager.Logger
+	underlayAdresses map[string]net.IP
 }
 
 func (c *Converger) Converge(leases []controller.Lease) error {
@@ -159,13 +160,21 @@ func (c *Converger) getPreviousState(index int) ([]netlink.Route, []netlink.Neig
 	*/
 	if len(previousFDBNeighs) != len(previousARPNeighs) {
 		for _, previousARPNeigh := range previousARPNeighs {
-			previousFDBNeighs = append(previousFDBNeighs, netlink.Neigh{
-				LinkIndex:    previousARPNeigh.LinkIndex,
-				State:        previousARPNeigh.State,
-				Family:       syscall.AF_BRIDGE,
-				Flags:        netlink.NTF_SELF,
-				HardwareAddr: previousARPNeigh.HardwareAddr,
-			})
+			if underlayIP, ok := c.underlayAdresses[previousARPNeigh.HardwareAddr.String()]; ok {
+				previousFDBNeighs = append(previousFDBNeighs, netlink.Neigh{
+					LinkIndex:    previousARPNeigh.LinkIndex,
+					State:        previousARPNeigh.State,
+					Family:       syscall.AF_BRIDGE,
+					Flags:        netlink.NTF_SELF,
+					IP:           underlayIP,
+					HardwareAddr: previousARPNeigh.HardwareAddr,
+				})
+			} else {
+				c.Logger.Info("failedFindFDBNeighbor", lager.Data{
+					"hardware-addr": previousARPNeigh.HardwareAddr.String(),
+					"error-msg":     "unable to resolve the underlayIP using the arp entry hardware address",
+				})
+			}
 		}
 	}
 
@@ -209,6 +218,8 @@ func (c *Converger) addNeighs(underlayIP, destAddr net.IP, remoteMac net.Hardwar
 			HardwareAddr: remoteMac,
 		},
 	}
+
+	c.underlayAdresses[remoteMac.String()] = underlayIP
 
 	var currentNeighs []netlink.Neigh
 	for _, neigh := range neighs {
