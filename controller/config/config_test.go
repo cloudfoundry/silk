@@ -114,5 +114,6 @@ var _ = Describe("Config.ReadFromFile", func() {
 
 		Entry("invalid max_open_connections", "max_open_connections", -2, "MaxOpenConnections: less than min"),
 		Entry("invalid max_idle_connections", "max_idle_connections", -2, "MaxIdleConnections: less than min"),
+		Entry("invalid connections_max_lifetime_seconds", "connections_max_lifetime_seconds", -2, "MaxConnectionsLifetimeSeconds: less than min"),
 	)
 })

@@ -75,6 +75,7 @@ func mainWithError() error {
 	}
 	sqlDB.SetMaxOpenConns(conf.MaxOpenConnections)
 	sqlDB.SetMaxIdleConns(conf.MaxIdleConnections)
+	sqlDB.SetConnMaxLifetime(time.Duration(conf.MaxConnectionsLifetimeSeconds) * time.Second)
 	logger.Info("db-connection-established")
 
 	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
@@ -92,7 +93,7 @@ func mainWithError() error {
 		DatabaseMigrator:              databaseHandler,
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
-		Logger: logger,
+		Logger:                        logger,
 	}
 	if err = migrator.TryMigrations(); err != nil {
 		return fmt.Errorf("migrating database: %s", err)
