@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/silk/controller/database"
+	"github.com/jmoiron/sqlx"
 )
 
 type Db struct {
@@ -68,6 +69,15 @@ type Db struct {
 	}
 	driverNameReturnsOnCall map[int]struct {
 		result1 string
+	}
+	RawConnectionStub        func() *sqlx.DB
+	rawConnectionMutex       sync.RWMutex
+	rawConnectionArgsForCall []struct{}
+	rawConnectionReturns     struct {
+		result1 *sqlx.DB
+	}
+	rawConnectionReturnsOnCall map[int]struct {
+		result1 *sqlx.DB
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -314,6 +324,46 @@ func (fake *Db) DriverNameReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
+func (fake *Db) RawConnection() *sqlx.DB {
+	fake.rawConnectionMutex.Lock()
+	ret, specificReturn := fake.rawConnectionReturnsOnCall[len(fake.rawConnectionArgsForCall)]
+	fake.rawConnectionArgsForCall = append(fake.rawConnectionArgsForCall, struct{}{})
+	fake.recordInvocation("RawConnection", []interface{}{})
+	fake.rawConnectionMutex.Unlock()
+	if fake.RawConnectionStub != nil {
+		return fake.RawConnectionStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.rawConnectionReturns.result1
+}
+
+func (fake *Db) RawConnectionCallCount() int {
+	fake.rawConnectionMutex.RLock()
+	defer fake.rawConnectionMutex.RUnlock()
+	return len(fake.rawConnectionArgsForCall)
+}
+
+func (fake *Db) RawConnectionReturns(result1 *sqlx.DB) {
+	fake.RawConnectionStub = nil
+	fake.rawConnectionReturns = struct {
+		result1 *sqlx.DB
+	}{result1}
+}
+
+func (fake *Db) RawConnectionReturnsOnCall(i int, result1 *sqlx.DB) {
+	fake.RawConnectionStub = nil
+	if fake.rawConnectionReturnsOnCall == nil {
+		fake.rawConnectionReturnsOnCall = make(map[int]struct {
+			result1 *sqlx.DB
+		})
+	}
+	fake.rawConnectionReturnsOnCall[i] = struct {
+		result1 *sqlx.DB
+	}{result1}
+}
+
 func (fake *Db) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -327,6 +377,8 @@ func (fake *Db) Invocations() map[string][][]interface{} {
 	defer fake.queryRowMutex.RUnlock()
 	fake.driverNameMutex.RLock()
 	defer fake.driverNameMutex.RUnlock()
+	fake.rawConnectionMutex.RLock()
+	defer fake.rawConnectionMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

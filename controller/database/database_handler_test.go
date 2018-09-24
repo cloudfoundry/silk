@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/database/fakes"
-	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	migrate "github.com/rubenv/sql-migrate"
@@ -23,7 +22,7 @@ import (
 var _ = Describe("DatabaseHandler", func() {
 	var (
 		databaseHandler    *database.DatabaseHandler
-		realDb             *sqlx.DB
+		realDb             *db.ConnWrapper
 		realMigrateAdapter *database.MigrateAdapter
 		dbConfig           db.Config
 		mockDb             *fakes.Db

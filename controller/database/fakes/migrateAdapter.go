@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/silk/controller/database"
-	migrate "github.com/rubenv/sql-migrate"
+	"github.com/rubenv/sql-migrate"
 )
 
 type MigrateAdapter struct {
