@@ -69,16 +69,20 @@ func mainWithError() error {
 		return fmt.Errorf("mutual tls config: %s", err)
 	}
 
-	sqlDB, err := db.GetConnectionPool(conf.Database)
+	connectionPool, err := db.NewConnectionPool(
+		conf.Database,
+		conf.MaxOpenConnections,
+		conf.MaxIdleConnections,
+		time.Duration(conf.MaxConnectionsLifetimeSeconds)*time.Second,
+		logPrefix,
+		jobPrefix,
+		logger,
+	)
 	if err != nil {
 		return fmt.Errorf("connecting to database: %s", err)
 	}
-	sqlDB.SetMaxOpenConns(conf.MaxOpenConnections)
-	sqlDB.SetMaxIdleConns(conf.MaxIdleConnections)
-	sqlDB.SetConnMaxLifetime(time.Duration(conf.MaxConnectionsLifetimeSeconds) * time.Second)
-	logger.Info("db-connection-established")
 
-	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, sqlDB)
+	databaseHandler := database.NewDatabaseHandler(&database.MigrateAdapter{}, connectionPool)
 	cidrPool := leaser.NewCIDRPool(conf.Network, conf.SubnetPrefixLength)
 	leaseController := &leaser.LeaseController{
 		DatabaseHandler:            databaseHandler,
@@ -198,7 +202,7 @@ func mainWithError() error {
 	totalLeasesSource := server_metrics.NewTotalLeasesSource(databaseHandler)
 	freeLeasesSource := server_metrics.NewFreeLeasesSource(databaseHandler, cidrPool)
 	staleLeasesSource := server_metrics.NewStaleLeasesSource(databaseHandler, conf.StalenessThresholdSeconds)
-	dbMonitorSource := metrics.NewDBMonitorSource(sqlDB)
+	dbMonitorSource := metrics.NewDBMonitorSource(connectionPool)
 
 	metricsEmitter := metrics.NewMetricsEmitter(logger, time.Duration(conf.MetricsEmitSeconds)*time.Second, uptimeSource, totalLeasesSource, freeLeasesSource, staleLeasesSource, dbMonitorSource)
 	members := grouper.Members{

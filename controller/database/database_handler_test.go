@@ -10,6 +10,7 @@ import (
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
+	"code.cloudfoundry.org/lager/lagertest"
 
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/database"
@@ -41,7 +42,15 @@ var _ = Describe("DatabaseHandler", func() {
 		testsupport.CreateDatabase(dbConfig)
 
 		var err error
-		realDb, err = db.GetConnectionPool(dbConfig)
+		realDb, err = db.NewConnectionPool(
+			dbConfig,
+			200,
+			200,
+			5*time.Minute,
+			"controller",
+			"database-handler",
+			lagertest.NewTestLogger("test"),
+		)
 		Expect(err).NotTo(HaveOccurred())
 
 		realMigrateAdapter = &database.MigrateAdapter{}
