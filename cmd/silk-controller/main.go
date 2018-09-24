@@ -93,7 +93,7 @@ func mainWithError() error {
 		DatabaseMigrator:              databaseHandler,
 		MaxMigrationAttempts:          5,
 		MigrationAttemptSleepDuration: time.Second,
-		Logger:                        logger,
+		Logger: logger,
 	}
 	if err = migrator.TryMigrations(); err != nil {
 		return fmt.Errorf("migrating database: %s", err)
@@ -198,8 +198,9 @@ func mainWithError() error {
 	totalLeasesSource := server_metrics.NewTotalLeasesSource(databaseHandler)
 	freeLeasesSource := server_metrics.NewFreeLeasesSource(databaseHandler, cidrPool)
 	staleLeasesSource := server_metrics.NewStaleLeasesSource(databaseHandler, conf.StalenessThresholdSeconds)
+	dbMonitorSource := metrics.NewDBMonitorSource(sqlDB)
 
-	metricsEmitter := metrics.NewMetricsEmitter(logger, time.Duration(conf.MetricsEmitSeconds)*time.Second, uptimeSource, totalLeasesSource, freeLeasesSource, staleLeasesSource)
+	metricsEmitter := metrics.NewMetricsEmitter(logger, time.Duration(conf.MetricsEmitSeconds)*time.Second, uptimeSource, totalLeasesSource, freeLeasesSource, staleLeasesSource, dbMonitorSource)
 	members := grouper.Members{
 		{"http_server", httpServer},
 		{"health-server", healthServer},

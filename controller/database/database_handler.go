@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/silk/controller"
+	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
 )
 
@@ -23,6 +24,7 @@ type Db interface {
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
 	DriverName() string
+	RawConnection() *sqlx.DB
 }
 
 //go:generate counterfeiter -o fakes/migrateAdapter.go --fake-name MigrateAdapter . migrateAdapter

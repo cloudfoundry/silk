@@ -507,6 +507,11 @@ var _ = Describe("Silk Controller", func() {
 		It("emits an uptime metric", func() {
 			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("uptime")))
 		})
+
+		It("emits database metric", func() {
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("DBOpenConnections")))
+		})
+
 		Context("when some leases have been claimed", func() {
 			BeforeEach(func() {
 				_, err := testClient.AcquireSubnetLease("10.244.4.5")
