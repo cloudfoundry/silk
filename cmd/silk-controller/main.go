@@ -198,13 +198,14 @@ func mainWithError() error {
 	healthServer := http_server.New(healthServerAddress, healthRouter)
 
 	// Metrics sources
-	uptimeSource := metrics.NewUptimeSource()
-	totalLeasesSource := server_metrics.NewTotalLeasesSource(databaseHandler)
-	freeLeasesSource := server_metrics.NewFreeLeasesSource(databaseHandler, cidrPool)
-	staleLeasesSource := server_metrics.NewStaleLeasesSource(databaseHandler, conf.StalenessThresholdSeconds)
-	dbMonitorSource := metrics.NewDBMonitorSource(connectionPool)
-
-	metricsEmitter := metrics.NewMetricsEmitter(logger, time.Duration(conf.MetricsEmitSeconds)*time.Second, uptimeSource, totalLeasesSource, freeLeasesSource, staleLeasesSource, dbMonitorSource)
+	metricSources := []metrics.MetricSource{
+		metrics.NewUptimeSource(),
+		server_metrics.NewTotalLeasesSource(databaseHandler),
+		server_metrics.NewFreeLeasesSource(databaseHandler, cidrPool),
+		server_metrics.NewStaleLeasesSource(databaseHandler, conf.StalenessThresholdSeconds),
+	}
+	metricSources = append(metricSources, metrics.NewDBMonitorSource(connectionPool, connectionPool.Monitor)...)
+	metricsEmitter := metrics.NewMetricsEmitter(logger, time.Duration(conf.MetricsEmitSeconds)*time.Second, metricSources...)
 	members := grouper.Members{
 		{"http_server", httpServer},
 		{"health-server", healthServer},

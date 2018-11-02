@@ -85,3 +85,6 @@
 [submodule "vendor/golang.org/x/sys"]
 	path = vendor/golang.org/x/sys
 	url = https://go.googlesource.com/sys
+[submodule "vendor/code.cloudfoundry.org/bbs"]
+	path = vendor/code.cloudfoundry.org/bbs
+	url = https://github.com/cloudfoundry/bbs.git

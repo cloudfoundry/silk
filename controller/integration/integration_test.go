@@ -510,6 +510,11 @@ var _ = Describe("Silk Controller", func() {
 
 		It("emits database metric", func() {
 			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("DBOpenConnections")))
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("DBQueriesTotal")))
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("DBQueriesSucceeded")))
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("DBQueriesFailed")))
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("DBQueriesInFlight")))
+			Eventually(fakeMetron.AllEvents, "5s").Should(ContainElement(withName("DBQueryDurationMax")))
 		})
 
 		Context("when some leases have been claimed", func() {
