@@ -37,12 +37,11 @@ var _ = Describe("Converger", func() {
 				Name:  "silk-vtep",
 			}
 			converger = &vtep.Converger{
-				OverlayNetwork:    overlayNet,
-				LocalSubnet:       localSubnet,
-				LocalVTEP:         localVTEP,
-				NetlinkAdapter:    fakeNetlink,
-				Logger:            logger,
-				UnderlayAddresses: make(map[string]net.IP),
+				OverlayNetwork: overlayNet,
+				LocalSubnet:    localSubnet,
+				LocalVTEP:      localVTEP,
+				NetlinkAdapter: fakeNetlink,
+				Logger:         logger,
 			}
 			localMac, _ = net.ParseMAC("ee:ee:aa:bb:cc:dd")
 			remoteMac, _ = net.ParseMAC("ee:ee:aa:aa:aa:ff")
@@ -108,19 +107,7 @@ var _ = Describe("Converger", func() {
 			err := converger.Converge(leases)
 			Expect(err).NotTo(HaveOccurred())
 
-			/*
-				Commenting out because of bug with netlink library and xenial stemcell
-				Bug tracker number: #160007813
-				This results in log line: "neighsForDeletion count: 0"
-				When the bug is fixed, revert this commit
-			*/
-
-			// Expect(logger.Logs()).To(HaveLen(0))
-
-			Expect(logger.Logs()).To(HaveLen(1))
-			Expect(logger.Logs()[0].LogLevel).To(Equal(lager.DEBUG))
-			Expect(logger.Logs()[0].ToJSON()).To(MatchRegexp(`"neighsForDeletion count":0`))
-
+			Expect(logger.Logs()).To(HaveLen(0))
 		})
 
 		Context("when the a remote lease is removed", func() {
@@ -414,7 +401,6 @@ var _ = Describe("Converger", func() {
 					},
 				}
 			})
-
 			It("does not touch them and adds only the leases in the overlay network", func() {
 				err := converger.Converge(leases)
 				Expect(err).NotTo(HaveOccurred())
@@ -428,20 +414,9 @@ var _ = Describe("Converger", func() {
 				addedFDB := fakeNetlink.NeighSetArgsForCall(1)
 				Expect(addedFDB.IP).To(Equal(net.ParseIP("10.10.0.5")))
 
-				/*
-					Commenting out because of bug with netlink library and xenial stemcell
-					Bug tracker number: #160007813
-					This results in log line: "neighsForDeletion count: 0"
-					When the bug is fixed, revert this commit
-				*/
-
-				//Expect(logger.Logs()).To(HaveLen(1))
-				//Expect(logger.Logs()[0].LogLevel).To(Equal(lager.INFO))
-				//Expect(logger.Logs()[0].ToJSON()).To(MatchRegexp("converger.*non-routable-lease-count.*2"))
-
-				Expect(logger.Logs()).To(HaveLen(2))
-				Expect(logger.Logs()[1].LogLevel).To(Equal(lager.INFO))
-				Expect(logger.Logs()[1].ToJSON()).To(MatchRegexp("converger.*non-routable-lease-count.*2"))
+				Expect(logger.Logs()).To(HaveLen(1))
+				Expect(logger.Logs()[0].LogLevel).To(Equal(lager.INFO))
+				Expect(logger.Logs()[0].ToJSON()).To(MatchRegexp("converger.*non-routable-lease-count.*2"))
 			})
 		})
 

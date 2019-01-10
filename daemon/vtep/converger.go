@@ -11,12 +11,11 @@ import (
 )
 
 type Converger struct {
-	OverlayNetwork    *net.IPNet
-	LocalSubnet       *net.IPNet
-	LocalVTEP         net.Interface
-	NetlinkAdapter    netlinkAdapter
-	Logger            lager.Logger
-	UnderlayAddresses map[string]net.IP
+	OverlayNetwork *net.IPNet
+	LocalSubnet    *net.IPNet
+	LocalVTEP      net.Interface
+	NetlinkAdapter netlinkAdapter
+	Logger         lager.Logger
 }
 
 func (c *Converger) Converge(leases []controller.Lease) error {
@@ -77,8 +76,6 @@ func (c *Converger) Converge(leases []controller.Lease) error {
 	}
 
 	neighsForDeletion := getDeletedNeighs(previousNeighs, currentNeighs)
-	c.Logger.Debug("converger", lager.Data{"neighsForDeletion count": len(neighsForDeletion)})
-
 	for _, neigh := range neighsForDeletion {
 		if neigh.LinkIndex == c.LocalVTEP.Index {
 			err = c.NetlinkAdapter.NeighDel(&neigh)
@@ -153,31 +150,6 @@ func (c *Converger) getPreviousState(index int) ([]netlink.Route, []netlink.Neig
 		return nil, nil, fmt.Errorf("list arp: %s", err)
 	}
 
-	/*
-		on trusty, FDB entries are found with the `FDBList` command above
-		on xenial, the FDB entries are not found.
-		As a workaround, generate the state of the fdb based on known data
-	*/
-	if len(previousFDBNeighs) != len(previousARPNeighs) {
-		for _, previousARPNeigh := range previousARPNeighs {
-			if underlayIP, ok := c.UnderlayAddresses[previousARPNeigh.HardwareAddr.String()]; ok {
-				previousFDBNeighs = append(previousFDBNeighs, netlink.Neigh{
-					LinkIndex:    previousARPNeigh.LinkIndex,
-					State:        previousARPNeigh.State,
-					Family:       syscall.AF_BRIDGE,
-					Flags:        netlink.NTF_SELF,
-					IP:           underlayIP,
-					HardwareAddr: previousARPNeigh.HardwareAddr,
-				})
-			} else {
-				c.Logger.Info("failedFindFDBNeighbor", lager.Data{
-					"hardware-addr": previousARPNeigh.HardwareAddr.String(),
-					"error-msg":     "unable to resolve the underlayIP using the arp entry hardware address",
-				})
-			}
-		}
-	}
-
 	previousNeighs := append(previousARPNeighs, previousFDBNeighs...)
 
 	return previousRoutes, previousNeighs, nil
@@ -218,8 +190,6 @@ func (c *Converger) addNeighs(underlayIP, destAddr net.IP, remoteMac net.Hardwar
 			HardwareAddr: remoteMac,
 		},
 	}
-
-	c.UnderlayAddresses[remoteMac.String()] = underlayIP
 
 	var currentNeighs []netlink.Neigh
 	for _, neigh := range neighs {
