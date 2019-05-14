@@ -1,12 +1,11 @@
 package leaser_test
 
 import (
-	"net"
-
 	"code.cloudfoundry.org/silk/controller/leaser"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"net"
 )
 
 var _ = Describe("CIDRPool", func() {
@@ -19,6 +18,21 @@ var _ = Describe("CIDRPool", func() {
 			Entry("when the range is /16 and mask is /24", "10.255.0.0/16", 24, 255),
 			Entry("when the range is /16 and mask is /20", "10.255.0.0/16", 20, 15),
 			Entry("when the range is /16 and mask is /16", "10.255.0.0/16", 16, 0),
+		)
+
+		DescribeTable("produces valid subnets within the correct range",
+			func(overlayCIDR string, subnetMask int) {
+				_, networkWithFirstIp, _ := net.ParseCIDR(overlayCIDR)
+				cidrPool := leaser.NewCIDRPool(overlayCIDR, subnetMask)
+
+				for blockDividedCIDR, _ := range cidrPool.GetBlockPool() {
+					_, ipNet, _ := net.ParseCIDR(blockDividedCIDR)
+					Expect(networkWithFirstIp.Contains(ipNet.IP)).Should(BeTrue())
+				}
+			},
+			Entry("when ip is in the start of the range", "10.240.0.0/12", 24),
+			Entry("when ip is in the middle of the range", "10.255.0.0/12", 24),
+			Entry("when ip is in the end of the range", "10.255.255.255/12", 24),
 		)
 	})
 
