@@ -22,17 +22,17 @@ var _ = Describe("CIDRPool", func() {
 
 		DescribeTable("produces valid subnets within the correct range",
 			func(overlayCIDR string, subnetMask int) {
-				_, networkWithFirstIp, _ := net.ParseCIDR(overlayCIDR)
+				_, overlayNetwork, _ := net.ParseCIDR(overlayCIDR)
 				cidrPool := leaser.NewCIDRPool(overlayCIDR, subnetMask)
 
 				for blockDividedCIDR, _ := range cidrPool.GetBlockPool() {
-					_, ipNet, _ := net.ParseCIDR(blockDividedCIDR)
-					Expect(networkWithFirstIp.Contains(ipNet.IP)).Should(BeTrue())
+					_, blockNetwork, _ := net.ParseCIDR(blockDividedCIDR)
+					Expect(overlayNetwork.Contains(blockNetwork.IP)).Should(BeTrue())
 				}
 			},
-			Entry("when ip is in the start of the range", "10.240.0.0/12", 24),
-			Entry("when ip is in the middle of the range", "10.255.0.0/12", 24),
-			Entry("when ip is in the end of the range", "10.255.255.255/12", 24),
+			Entry("when ip is in the start of the cidr range", "10.240.0.0/12", 24),
+			Entry("when ip is in the middle of the cidr range", "10.255.0.0/12", 24),
+			Entry("when ip is in the end of the cidr range", "10.255.255.255/12", 24),
 		)
 	})
 
@@ -46,6 +46,19 @@ var _ = Describe("CIDRPool", func() {
 			Entry("when the range is /16 and mask is /26", "10.255.0.0/16", 26, 63),
 			Entry("when the range is /16 and mask is /27", "10.255.0.0/16", 27, 31),
 		)
+
+		It("produces valid subnet starting with the first IP of the cidr", func(){
+			overlayCIDR := "10.255.0.0/12"
+			subnetMask := 24
+			firstSubnet := "10.240.0.0/24"
+
+			cidrPool := leaser.NewCIDRPool(overlayCIDR, subnetMask)
+			_, expectedSingleIPNetwork, _ := net.ParseCIDR(firstSubnet)
+			for singleIPCIDR, _ := range cidrPool.GetSinglePool() {
+				_, singleIPNetwork, _ := net.ParseCIDR(singleIPCIDR)
+				Expect(expectedSingleIPNetwork.Contains(singleIPNetwork.IP)).Should(BeTrue())
+			}
+		})
 	})
 
 	Describe("GetAvailableBlock", func() {
