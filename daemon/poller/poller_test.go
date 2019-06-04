@@ -37,7 +37,7 @@ var _ = Describe("Poller", func() {
 
 			p = &poller.Poller{
 				Logger:       logger,
-				PollInterval: 10 * time.Millisecond,
+				PollInterval: 1 * time.Second,
 
 				SingleCycleFunc: func() error {
 					atomic.AddUint64(&cycleCount, 1)
@@ -46,20 +46,36 @@ var _ = Describe("Poller", func() {
 			}
 		})
 
-		It("calls the single cycle func", func() {
-			go func() {
-				retChan <- p.Run(signals, ready)
-			}()
+		Context("when running", func() {
 
-			Eventually(ready).Should(BeClosed())
-			Eventually(func() uint64 {
-				return atomic.LoadUint64(&cycleCount)
-			}).Should(BeNumerically(">", 0))
+			It("calls the single cycle func on start", func() {
+				go func() {
+					retChan <- p.Run(signals, ready)
+				}()
 
-			Consistently(retChan).ShouldNot(Receive())
+				Eventually(ready).Should(BeClosed())
+				Expect(atomic.LoadUint64(&cycleCount)).To(Equal(uint64(1)))
 
-			signals <- os.Interrupt
-			Eventually(retChan).Should(Receive(nil))
+				signals <- os.Interrupt
+				Eventually(retChan).Should(Receive(nil))
+			})
+
+			It("calls the single cycle func after the poll interval", func() {
+				go func() {
+					retChan <- p.Run(signals, ready)
+				}()
+
+				Eventually(ready).Should(BeClosed())
+				Eventually(func() uint64 {
+					return atomic.LoadUint64(&cycleCount)
+				}).Should(BeNumerically(">", 1))
+
+				Consistently(retChan).ShouldNot(Receive())
+
+				signals <- os.Interrupt
+				Eventually(retChan).Should(Receive(nil))
+			})
+
 		})
 
 		Context("when the cycle func fails with a non-fatal error", func() {
