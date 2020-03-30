@@ -23,9 +23,10 @@ var _ = Describe("error cases", func() {
 	})
 
 	Context("when the path to the config is bad", func() {
-		It("exits with status 1", func() {
+		It("exits with non-zero status code", func() {
 			session := runTeardown("/some/bad/path")
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+			Expect(session.ExitCode).NotTo(Equal(0))
 			Expect(string(session.Err.Contents())).To(ContainSubstring("load config file: reading file /some/bad/path"))
 		})
 	})
@@ -35,9 +36,10 @@ var _ = Describe("error cases", func() {
 			Expect(ioutil.WriteFile(configFilePath, []byte("some-bad-contents"), os.ModePerm)).To(Succeed())
 		})
 
-		It("exits with status 1", func() {
+		It("exits with non-zero status code", func() {
 			session := runTeardown(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+			Expect(session.ExitCode).NotTo(Equal(0))
 			Expect(session.Err.Contents()).To(ContainSubstring("load config file: unmarshaling contents"))
 		})
 	})
@@ -49,9 +51,10 @@ var _ = Describe("error cases", func() {
 			configFilePath = writeConfigFile(clientConf)
 		})
 
-		It("exits with status 1", func() {
+		It("exits with non-zero status code", func() {
 			session := runTeardown(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+			Expect(session.ExitCode).NotTo(Equal(0))
 			Expect(session.Err.Contents()).To(ContainSubstring("create tls config:"))
 		})
 	})
@@ -61,9 +64,10 @@ var _ = Describe("error cases", func() {
 			fakeServer.Stop()
 		})
 
-		It("logs the error and exits with status 1, but still deletes the VTEP", func() {
+		It("logs the error and exits with non-zero status code, but still deletes the VTEP", func() {
 			session := runTeardown(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+			Expect(session.ExitCode).NotTo(Equal(0))
 			Expect(string(session.Err.Contents())).To(MatchRegexp(`.*release.*dial tcp.*`))
 
 			_, _, _, err := vtepFactory.GetVTEPState(clientConf.VTEPName)
@@ -79,9 +83,10 @@ var _ = Describe("error cases", func() {
 			})
 		})
 
-		It("logs the error and exits with status 1", func() {
+		It("logs the error and exits with non-zero status", func() {
 			session := runTeardown(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+			Expect(session.ExitCode).NotTo(Equal(0))
 			Expect(string(session.Err.Contents())).To(ContainSubstring("release subnet lease: http status 500: potato"))
 		})
 	})
@@ -91,9 +96,10 @@ var _ = Describe("error cases", func() {
 			removeVTEP()
 		})
 
-		It("exits with status 1", func() {
+		It("exits with non-zero status code", func() {
 			session := runTeardown(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+			Expect(session.ExitCode).NotTo(Equal(0))
 			Expect(string(session.Err.Contents())).To(MatchRegexp("delete vtep: find link.*Link not found"))
 		})
 	})
@@ -106,7 +112,8 @@ var _ = Describe("error cases", func() {
 
 		It("logs both errors", func() {
 			session := runTeardown(configFilePath)
-			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit(1))
+			Eventually(session, DEFAULT_TIMEOUT).Should(gexec.Exit())
+			Expect(session.ExitCode).NotTo(Equal(0))
 			Expect(string(session.Err.Contents())).To(MatchRegexp("release subnet lease.*dial tcp"))
 			Expect(string(session.Err.Contents())).To(MatchRegexp("delete vtep: find link.*Link not found"))
 		})
