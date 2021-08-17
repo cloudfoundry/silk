@@ -581,10 +581,8 @@ func startAndWaitForDaemon() {
 	callHealthcheck := func() (int, error) {
 		resp, err := http.Get(daemonHealthCheckURL)
 		if resp == nil {
-			fmt.Printf("Error: %s", err.Error())
 			return -1, err
 		}
-		fmt.Printf("StatusCode %+v", resp.StatusCode)
 		return resp.StatusCode, nil
 	}
 	Eventually(callHealthcheck, time.Minute, time.Second).Should(Equal(http.StatusOK))
