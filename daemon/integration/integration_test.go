@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics"
@@ -108,7 +109,7 @@ var _ = BeforeEach(func() {
 		DebugServerPort:           daemonDebugServerPort,
 		Datastore:                 datastorePath,
 		PartitionToleranceSeconds: 10,
-		ClientTimeoutSeconds:      5,
+		ClientTimeoutSeconds:      10,
 		MetronPort:                fakeMetron.Port(),
 		VTEPPort:                  vtepPort,
 		LogPrefix:                 "potato-prefix",
@@ -547,8 +548,9 @@ var _ = Describe("Daemon Integration", func() {
 				})
 
 				It("logs the error and dies", func() {
-					startAndWaitForDaemon()
-					Expect(session.Out).To(gbytes.Say(`renew-lease.*"error":"non-retriable: lease mismatch"`))
+					session = startDaemon(writeConfigFile(daemonConf))
+					// startAndWaitForDaemon()
+					Eventually(session.Out).Should(gbytes.Say(`renew-lease.*"error":"non-retriable: lease mismatch"`))
 
 					Eventually(session, "10s").Should(gexec.Exit(1))
 				})
@@ -579,11 +581,13 @@ func startAndWaitForDaemon() {
 	callHealthcheck := func() (int, error) {
 		resp, err := http.Get(daemonHealthCheckURL)
 		if resp == nil {
+			fmt.Printf("Error: %s", err.Error())
 			return -1, err
 		}
-		return resp.StatusCode, err
+		fmt.Printf("StatusCode %+v", resp.StatusCode)
+		return resp.StatusCode, nil
 	}
-	Eventually(callHealthcheck, "5s").Should(Equal(http.StatusOK))
+	Eventually(callHealthcheck, time.Minute, time.Second).Should(Equal(http.StatusOK))
 }
 
 func doHealthCheck() {

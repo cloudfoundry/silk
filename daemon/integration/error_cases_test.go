@@ -227,7 +227,7 @@ var _ = Describe("error cases", func() {
 			configFilePath := writeConfigFile(daemonConf)
 			startDaemon(configFilePath)
 			Eventually(session, 3*time.Second).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(MatchRegexp(`potato-prefix.silk-daemon error: acquire subnet lease: http client do:.*request canceled while waiting for connection`))
+			Expect(string(session.Err.Contents())).To(MatchRegexp(`potato-prefix.silk-daemon error: acquire subnet lease: http client do:.* \(Client.Timeout exceeded while awaiting headers\)`))
 		})
 	})
 

@@ -98,7 +98,7 @@ var _ = Describe("errors", func() {
 
 				Expect(cniError.Code).To(Equal(100))
 				Expect(cniError.Msg).To(Equal("discover network info"))
-				expectedCNIDetails := fmt.Sprintf("get netinfo: json client do: http client do: Get http://127.0.0.1:%[1]d/: dial tcp 127.0.0.1:%[1]d: .* connection refused", daemonPort)
+				expectedCNIDetails := fmt.Sprintf(`get netinfo: json client do: http client do: Get "http://127.0.0.1:%[1]d/": dial tcp 127.0.0.1:%[1]d: .* connection refused`, daemonPort)
 				Expect(cniError.Details).To(MatchRegexp(expectedCNIDetails))
 			})
 		})

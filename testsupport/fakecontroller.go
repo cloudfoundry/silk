@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -91,7 +92,7 @@ func StartServer(serverListenAddr string, tlsConfig *tls.Config) *FakeController
 	group := grouper.NewOrdered(os.Interrupt, members)
 	monitor := ifrit.Invoke(sigmon.New(group))
 
-	Eventually(monitor.Ready()).Should(BeClosed())
+	Eventually(monitor.Ready(), 30*time.Second).Should(BeClosed())
 	fakeServer.Process = monitor
 	return fakeServer
 }

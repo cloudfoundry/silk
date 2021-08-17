@@ -68,7 +68,7 @@ var _ = Describe("Poller", func() {
 				Eventually(ready).Should(BeClosed())
 				Eventually(func() uint64 {
 					return atomic.LoadUint64(&cycleCount)
-				}).Should(BeNumerically(">", 1))
+				}, 3*time.Second).Should(BeNumerically(">", 1))
 
 				Consistently(retChan).ShouldNot(Receive())
 
