@@ -4,6 +4,8 @@ go 1.16
 
 replace github.com/containernetworking/cni => github.com/containernetworking/cni v0.6.0
 
+replace code.cloudfoundry.org/cf-networking-helpers => code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8
+
 replace github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
 
 replace github.com/square/certstrap => github.com/square/certstrap v1.1.1
