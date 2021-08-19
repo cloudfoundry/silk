@@ -2,8 +2,6 @@ module code.cloudfoundry.org/silk
 
 go 1.16
 
-replace github.com/containernetworking/cni => github.com/containernetworking/cni v0.6.0
-
 replace code.cloudfoundry.org/cf-networking-helpers => code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8
 
 replace github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
@@ -21,7 +19,7 @@ require (
 	github.com/cloudfoundry/dropsonde v1.0.0
 	github.com/cloudfoundry/gosteno v0.0.0-20150423193413-0c8581caea35 // indirect
 	github.com/cloudfoundry/sonde-go v0.0.0-20200416163440-a42463ba266b // indirect
-	github.com/containernetworking/cni v0.0.0-00010101000000-000000000000
+	github.com/containernetworking/cni v0.6.0
 	github.com/containernetworking/plugins v0.0.0-00010101000000-000000000000
 	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
