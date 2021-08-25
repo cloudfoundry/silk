@@ -44,9 +44,6 @@ var (
 )
 
 var _ = BeforeEach(func() {
-	By("attempting to reach the internet from the container 0")
-	mustSucceed("curl", "-f", "example.com")
-
 	By("setting up namespaces for the 'host' and 'container'")
 	containerNSName = fmt.Sprintf("container-%03d", GinkgoParallelNode())
 	mustSucceed("ip", "netns", "add", containerNSName)
@@ -367,7 +364,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			mustSucceedInContainer("ping", "-c", "1", ipOnTheHost)
 		})
 
-		FIt("allows the container to reach IP addresses on the internet", func() {
+		It("allows the container to reach IP addresses on the internet", func() {
 			// NOTE: unlike all other tests in this suite
 			// this one uses the REAL host namespace in order to
 			// test proper packet forwarding to the internet
@@ -375,11 +372,11 @@ var _ = Describe("Silk CNI Integration", func() {
 			// concurrently with any other test that also touches the REAL host namespace
 			// Avoid writing such tests if you can.
 			By("starting the fake daemon")
-			// fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
+			fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
 
 			By("calling CNI with ADD")
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
-			sess := startCommandInHost("ADD", cniStdin)
+			sess := startCommandInRealHostNamespace("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("discovering the container IP")
@@ -400,6 +397,9 @@ var _ = Describe("Silk CNI Integration", func() {
 
 			allRules := mustSucceed("iptables", "-S")
 			fmt.Printf(allRules)
+
+			By("attempting to reach the internet outside of the container")
+			mustSucceedInContainer("curl", "-f", "example.com")
 
 			By("attempting to reach the internet from the container")
 			mustSucceedInContainer("curl", "-f", "example.com")
