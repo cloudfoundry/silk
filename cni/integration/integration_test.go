@@ -374,13 +374,9 @@ var _ = Describe("Silk CNI Integration", func() {
 			By("starting the fake daemon")
 			fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
 
-			hostNS, err := ns.GetCurrentNS()
-			Expect(err).NotTo(HaveOccurred())
-			fmt.Printf("Host NS: %+v \n", hostNS)
-
 			By("calling CNI with ADD")
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
-			sess := startCommandInRealHostNamespace("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("discovering the container IP")
@@ -397,7 +393,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			iptablesRule := func(action string) []string {
 				return []string{"-t", "nat", action, "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE"}
 			}
-			mustSucceed("iptables", iptablesRule("-A")...)
+			mustSucceedInFakeHost("iptables", iptablesRule("-A")...)
 
 			allRules := mustSucceed("iptables", "-S")
 			fmt.Printf(allRules)
