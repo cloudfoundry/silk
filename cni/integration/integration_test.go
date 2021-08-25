@@ -364,10 +364,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			mustSucceedInContainer("ping", "-c", "1", ipOnTheHost)
 		})
 
-		XIt("allows the container to reach IP addresses on the internet", func() {
-			By("attempting to reach the internet from the container 1")
-			mustSucceedInContainer("curl", "-f", "example.com")
-
+		FIt("allows the container to reach IP addresses on the internet", func() {
 			// NOTE: unlike all other tests in this suite
 			// this one uses the REAL host namespace in order to
 			// test proper packet forwarding to the internet
@@ -375,11 +372,11 @@ var _ = Describe("Silk CNI Integration", func() {
 			// concurrently with any other test that also touches the REAL host namespace
 			// Avoid writing such tests if you can.
 			By("starting the fake daemon")
-			fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
+			// fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
 
 			By("calling CNI with ADD")
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
-			sess := startCommandInRealHostNamespace("ADD", cniStdin)
+			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("discovering the container IP")
