@@ -384,14 +384,14 @@ var _ = Describe("Silk CNI Integration", func() {
 			Expect(json.Unmarshal(sess.Out.Contents(), &cniResult)).To(Succeed())
 			sourceIP := fmt.Sprintf("%s/32", cniResult.IPs[0].Address.IP.String())
 
+			meta := mustSucceed("curl", "-H", "Accept: application/vnd.github.v3+json", "https://api.github.com/meta")
+			fmt.Printf(meta)
+
 			By("installing the requisite iptables rule")
 			iptablesRule := func(action string) []string {
 				return []string{"-t", "nat", action, "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE"}
 			}
 			mustSucceed("iptables", iptablesRule("-A")...)
-
-			meta := mustSucceed("curl", "-H", "\"Accept: application/vnd.github.v3+json\"", "https://api.github.com/meta")
-			fmt.Printf(meta)
 
 			allRules := mustSucceed("iptables", "-S")
 			fmt.Printf(allRules)
