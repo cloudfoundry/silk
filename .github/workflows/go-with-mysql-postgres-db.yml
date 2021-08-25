@@ -1,0 +1,83 @@
+name: Go
+
+on:
+  push:
+    branches: [ with-go-mod ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+        - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: mysql
+        ports:
+        - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Get Go version from go.mod
+      run: |
+        go_version=$(cat go.mod | grep "^go" | cut -d ' ' -f 2)
+        echo "go_version=${go_version}" >> $GITHUB_ENV
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.go_version }}
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test Postgres
+      run: ./scripts/test.sh
+      env:
+        DB: postgres
+        DB_PASSWORD: postgres
+        DB_HOST: localhost
+        DB_PORT: ${{ job.services.postgres.ports[5432] }}
+
+    - name: Test Mysql
+      run: ./scripts/test.sh
+      env:
+        DB: mysql
+        DB_PASSWORD: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: ${{ job.services.mysql.ports[3306] }}
+
+  # promote:
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #     with:
+  #       # fetch-depth: Number of commits to fetch. 0 indicates all history for all branches and tags.
+  #       fetch-depth: 0
+  #   - name: Promote to main
+  #     run: |
+  #       git fetch --all
+
+  #       git checkout main
+  #       git pull --rebase
+
+  #       git rebase develop
+  #       git push
