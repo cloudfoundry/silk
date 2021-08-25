@@ -390,6 +390,9 @@ var _ = Describe("Silk CNI Integration", func() {
 			}
 			mustSucceed("iptables", iptablesRule("-A")...)
 
+			allRules := mustSucceed("iptables", "-S")
+			fmt.Printf(allRules)
+
 			By("attempting to reach the internet from the container")
 			mustSucceedInContainer("curl", "-f", "example.com")
 
