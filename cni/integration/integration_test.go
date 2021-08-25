@@ -44,10 +44,6 @@ var (
 )
 
 var _ = BeforeEach(func() {
-	By("attempting to reach the internet outside of the container 0")
-	mustSucceed("curl", "-f", "example.com")
-	mustSucceed("ping", "8.8.8.8")
-
 	By("setting up namespaces for the 'host' and 'container'")
 	containerNSName = fmt.Sprintf("container-%03d", GinkgoParallelNode())
 	mustSucceed("ip", "netns", "add", containerNSName)
@@ -369,8 +365,6 @@ var _ = Describe("Silk CNI Integration", func() {
 		})
 
 		It("allows the container to reach IP addresses on the internet", func() {
-			By("attempting to reach the internet outside of the container 1")
-			mustSucceed("ping", "-c", "1", "8.8.8.8")
 			// NOTE: unlike all other tests in this suite
 			// this one uses the REAL host namespace in order to
 			// test proper packet forwarding to the internet
@@ -405,13 +399,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			fmt.Printf(allRules)
 
 			By("attempting to reach the internet outside of the container")
-			mustSucceed("ping", "-c", "1", "8.8.8.8")
-
-			By("attempting to reach the internet outside of the container")
 			mustSucceed("curl", "-f", "example.com")
-
-			By("attempting to ping internet from the container")
-			mustSucceedInContainer("ping", "-c", "1", "8.8.8.8")
 
 			By("attempting to reach the internet from the container")
 			mustSucceedInContainer("curl", "-f", "example.com")
