@@ -371,8 +371,8 @@ var _ = Describe("Silk CNI Integration", func() {
 			// Because it messes with the REAL host namespace, it cannot safely run
 			// concurrently with any other test that also touches the REAL host namespace
 			// Avoid writing such tests if you can.
-			// By("starting the fake daemon")
-			// fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
+			By("starting the fake daemon")
+			fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
 
 			By("calling CNI with ADD")
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
@@ -392,7 +392,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			}
 			mustSucceed("iptables", iptablesRule("-A")...)
 
-			allRules := mustSucceed("iptables", "-S")
+			allRules := mustSucceed("iptables", "-t", "nat", "-L")
 			fmt.Printf(allRules)
 
 			By("attempting to reach the internet outside of the container")
