@@ -365,6 +365,9 @@ var _ = Describe("Silk CNI Integration", func() {
 		})
 
 		It("allows the container to reach IP addresses on the internet", func() {
+			By("attempting to reach the internet from the container 1")
+			mustSucceedInContainer("curl", "-f", "example.com")
+
 			// NOTE: unlike all other tests in this suite
 			// this one uses the REAL host namespace in order to
 			// test proper packet forwarding to the internet
@@ -385,9 +388,6 @@ var _ = Describe("Silk CNI Integration", func() {
 			sourceIP := fmt.Sprintf("%s/32", cniResult.IPs[0].Address.IP.String())
 
 			fmt.Printf("IPs: %+v \n", cniResult.IPs)
-
-			By("attempting to reach the internet from the container 1")
-			mustSucceedInContainer("curl", "-f", "example.com")
 
 			// 			meta := mustSucceed("curl", "-H", "Accept: application/vnd.github.v3+json", "https://api.github.com/meta")
 			// 			fmt.Printf(meta)
