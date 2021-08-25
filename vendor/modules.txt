@@ -1,7 +1,7 @@
 # code.cloudfoundry.org/bbs v0.0.0-20210727125654-2ad50317f7ed
 ## explicit
 code.cloudfoundry.org/bbs/db/sqldb/helpers/monitor
-# code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210809162311-5c15f1e28181 => code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8
+# code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210809162311-5c15f1e28181
 ## explicit
 code.cloudfoundry.org/cf-networking-helpers/db
 code.cloudfoundry.org/cf-networking-helpers/fakes
@@ -197,7 +197,7 @@ github.com/ziutek/utils/netaddr
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
-# golang.org/x/sys v0.0.0-20210817190340-bfb29a6856f2
+# golang.org/x/sys v0.0.0-20210423082822-04245dca01da
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
@@ -230,6 +230,5 @@ gopkg.in/tomb.v1
 gopkg.in/validator.v2
 # gopkg.in/yaml.v2 v2.4.0
 gopkg.in/yaml.v2
-# code.cloudfoundry.org/cf-networking-helpers => code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8
 # github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
 # github.com/square/certstrap => github.com/square/certstrap v1.1.1
