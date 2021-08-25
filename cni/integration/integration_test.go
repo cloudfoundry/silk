@@ -390,6 +390,9 @@ var _ = Describe("Silk CNI Integration", func() {
 			}
 			mustSucceed("iptables", iptablesRule("-A")...)
 
+			meta := mustSucceed("curl", "-H", "\"Accept: application/vnd.github.v3+json\"", "https://api.github.com/meta")
+			fmt.Printf(meta)
+
 			allRules := mustSucceed("iptables", "-S")
 			fmt.Printf(allRules)
 
