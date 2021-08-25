@@ -399,7 +399,10 @@ var _ = Describe("Silk CNI Integration", func() {
 			mustSucceed("curl", "-f", "example.com")
 
 			By("attempting to reach the internet from the container")
-			mustSucceedInContainer("curl", "-f", "example.com")
+			mustFailInContainer("curl", "-f", "example.com")
+
+			rulesDebug := mustSucceed("iptables", "-t", "nat", "-L", "-v")
+			fmt.Printf(rulesDebug)
 
 			By("removing the iptables rule from the host")
 			mustSucceed("iptables", iptablesRule("-D")...)
