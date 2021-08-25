@@ -399,7 +399,10 @@ var _ = Describe("Silk CNI Integration", func() {
 			mustSucceed("curl", "-f", "example.com")
 
 			By("attempting to reach the internet from the container")
-			mustFailInContainer("curl", "-f", "example.com")
+			cmdArgs := []string{"netns", "exec", containerNSName, "curl"}
+			cmdArgs = append(cmdArgs, "-f", "example.com")
+			mustStart("ip", cmdArgs...)
+			time.Sleep(5 * time.Second)
 
 			rulesDebug := mustSucceed("iptables", "-t", "nat", "-L", "-v")
 			fmt.Printf(rulesDebug)
