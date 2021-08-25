@@ -11,6 +11,9 @@ export PATH="${PATH}:${BIN_DIR}"
 
 go build -o "$BIN_DIR/ginkgo" github.com/onsi/ginkgo/ginkgo
 
+echo "first curl"
+curl -f http://example.com
+
 ginkgo -r -p --race -randomizeAllSpecs -randomizeSuites \
   -ldflags="-extldflags=-Wl,--allow-multiple-definition" \
   cni/integration ${@}
