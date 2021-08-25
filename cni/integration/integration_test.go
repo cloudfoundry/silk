@@ -364,7 +364,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			mustSucceedInContainer("ping", "-c", "1", ipOnTheHost)
 		})
 
-		It("allows the container to reach IP addresses on the internet", func() {
+		FIt("allows the container to reach IP addresses on the internet", func() {
 			// NOTE: unlike all other tests in this suite
 			// this one uses the REAL host namespace in order to
 			// test proper packet forwarding to the internet
@@ -376,7 +376,7 @@ var _ = Describe("Silk CNI Integration", func() {
 
 			By("calling CNI with ADD")
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
-			sess := startCommandInHost("ADD", cniStdin)
+			sess := startCommandInRealHostNamespace("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 			By("discovering the container IP")
@@ -386,14 +386,11 @@ var _ = Describe("Silk CNI Integration", func() {
 
 			fmt.Printf("IPs: %+v \n", cniResult.IPs)
 
-			// 			meta := mustSucceed("curl", "-H", "Accept: application/vnd.github.v3+json", "https://api.github.com/meta")
-			// 			fmt.Printf(meta)
-
 			By("installing the requisite iptables rule")
 			iptablesRule := func(action string) []string {
 				return []string{"-t", "nat", action, "POSTROUTING", "-s", sourceIP, "!", "-d", "10.255.0.0/16", "-j", "MASQUERADE"}
 			}
-			mustSucceedInFakeHost("iptables", iptablesRule("-A")...)
+			mustSucceed("iptables", iptablesRule("-A")...)
 
 			allRules := mustSucceed("iptables", "-S")
 			fmt.Printf(allRules)
