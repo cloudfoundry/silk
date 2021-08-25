@@ -399,7 +399,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			fmt.Printf(allRules)
 
 			By("attempting to reach the internet outside of the container")
-			mustSucceedInContainer("curl", "-f", "example.com")
+			mustSucceed("curl", "-f", "example.com")
 
 			By("attempting to reach the internet from the container")
 			mustSucceedInContainer("curl", "-f", "example.com")
