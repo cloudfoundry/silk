@@ -408,6 +408,9 @@ var _ = Describe("Silk CNI Integration", func() {
 			By("attempting to reach the internet outside of the container")
 			mustSucceed("curl", "-f", "example.com")
 
+			By("attempting to ping internet from the container")
+			mustSucceedInContainer("ping", "-c", "1", "8.8.8.8")
+
 			By("attempting to reach the internet from the container")
 			mustSucceedInContainer("curl", "-f", "example.com")
 
