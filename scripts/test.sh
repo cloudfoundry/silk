@@ -13,4 +13,4 @@ go build -o "$BIN_DIR/ginkgo" github.com/onsi/ginkgo/ginkgo
 
 ginkgo -r -p --race -randomizeAllSpecs -randomizeSuites \
   -ldflags="-extldflags=-Wl,--allow-multiple-definition" \
-  ${@}
+  cni/integration ${@}

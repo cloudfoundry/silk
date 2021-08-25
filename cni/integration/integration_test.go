@@ -384,6 +384,8 @@ var _ = Describe("Silk CNI Integration", func() {
 			Expect(json.Unmarshal(sess.Out.Contents(), &cniResult)).To(Succeed())
 			sourceIP := fmt.Sprintf("%s/32", cniResult.IPs[0].Address.IP.String())
 
+			fmt.Printf("IPs: %+v \n", cniResult.IPs)
+
 			By("attempting to reach the internet from the container 1")
 			mustSucceedInContainer("curl", "-f", "example.com")
 
