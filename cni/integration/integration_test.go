@@ -44,8 +44,9 @@ var (
 )
 
 var _ = BeforeEach(func() {
-	By("attempting to reach the internet outside of the container 1")
-	mustSucceed("ping", "-c", "1", "8.8.8.8")
+	By("attempting to reach the internet outside of the container 0")
+	mustSucceed("curl", "-f", "example.com")
+	mustSucceed("ping", "8.8.8.8")
 
 	By("setting up namespaces for the 'host' and 'container'")
 	containerNSName = fmt.Sprintf("container-%03d", GinkgoParallelNode())
