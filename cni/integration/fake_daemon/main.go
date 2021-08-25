@@ -28,6 +28,7 @@ func main() {
 	server := http_server.New(
 		fmt.Sprintf("127.0.0.1:%s", port),
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(os.Stdout, "received request from %s\n", r.RemoteAddr)
 			w.WriteHeader(code)
 			w.Write([]byte(response))
 		}),
