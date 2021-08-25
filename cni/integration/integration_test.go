@@ -374,6 +374,10 @@ var _ = Describe("Silk CNI Integration", func() {
 			By("starting the fake daemon")
 			fakeServer = startFakeDaemonInRealHostNamespace(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1350}`)
 
+			hostNS, err := ns.GetCurrentNS()
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Printf("Host NS: %+v \n", hostNS)
+
 			By("calling CNI with ADD")
 			cniStdin = cniConfig(dataDir, datastorePath, daemonPort)
 			sess := startCommandInRealHostNamespace("ADD", cniStdin)
