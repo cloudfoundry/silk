@@ -364,7 +364,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			mustSucceedInContainer("ping", "-c", "1", ipOnTheHost)
 		})
 
-		It("allows the container to reach IP addresses on the internet", func() {
+		XIt("allows the container to reach IP addresses on the internet", func() {
 			By("attempting to reach the internet from the container 1")
 			mustSucceedInContainer("curl", "-f", "example.com")
 
