@@ -9,7 +9,7 @@ function bootDB {
   db=$1
 
   if [ "$db" = "postgres" ]; then
-    launchDB="(/docker-entrypoint.sh postgres &> /var/log/postgres-boot.log) &"
+    launchDB="(docker-entrypoint.sh postgres &> /var/log/postgres-boot.log) &"
     testConnection="psql -h localhost -U postgres -c '\conninfo' &>/dev/null"
   elif [ "$db" = "mysql" ]  || [ "$db" = "mysql-5.6" ]; then
     launchDB="(MYSQL_ROOT_PASSWORD=password /entrypoint.sh mysqld &> /var/log/mysql-boot.log) &"
@@ -38,7 +38,11 @@ function bootDB {
   exit 1
 }
 
-go install ./vendor/github.com/onsi/ginkgo/ginkgo
+BIN_DIR="${PWD}/bin"
+mkdir -p "${BIN_DIR}"
+export PATH="${BIN_DIR}:${PATH}"
+
+go build -o "$BIN_DIR/ginkgo" github.com/onsi/ginkgo/ginkgo
 
 bootDB $DB
 
