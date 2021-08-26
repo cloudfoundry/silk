@@ -15,9 +15,8 @@ docker run \
    --rm \
    -it \
    --privileged \
-   -v $PWD:/go/src/code.cloudfoundry.org/silk \
-   -e GOPATH=/go \
+   -v $PWD:/silk \
    -e DB=$db \
-   -w /go/src/code.cloudfoundry.org/silk \
+   -w /silk \
    $docker_image \
    /bin/bash "$@"
