@@ -2,7 +2,7 @@ module code.cloudfoundry.org/silk
 
 go 1.16
 
-replace code.cloudfoundry.org/cf-networking-helpers => code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8
+replace code.cloudfoundry.org/lager => code.cloudfoundry.org/lager v1.1.1-0.20210513163233-569157d2803b
 
 replace github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
 
@@ -10,7 +10,7 @@ replace github.com/square/certstrap => github.com/square/certstrap v1.1.1
 
 require (
 	code.cloudfoundry.org/bbs v0.0.0-20210727125654-2ad50317f7ed // indirect
-	code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210809162311-5c15f1e28181
+	code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210825141236-777da71209d5
 	code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4
 	code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
 	code.cloudfoundry.org/lager v2.0.0+incompatible

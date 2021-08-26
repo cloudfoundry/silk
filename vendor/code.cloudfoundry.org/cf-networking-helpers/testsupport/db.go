@@ -76,19 +76,19 @@ func getDbConnection(conf db.Config) dbConnection {
 const DefaultDBTimeout = 5
 
 func getPostgresDBConfig() db.Config {
-	user, isSet := os.LookupEnv("POSTGRES_USER")
+	user, isSet := os.LookupEnv("DB_USER")
 	if !isSet {
 		user = "postgres"
 	}
-	password, isSet := os.LookupEnv("POSTGRES_PASSWORD")
+	password, isSet := os.LookupEnv("DB_PASSWORD")
 	if !isSet {
 		password = "postgres"
 	}
-	host, isSet := os.LookupEnv("POSTGRES_HOST")
+	host, isSet := os.LookupEnv("DB_HOST")
 	if !isSet {
 		host = "127.0.0.1"
 	}
-	portStr, isSet := os.LookupEnv("POSTGRES_PORT")
+	portStr, isSet := os.LookupEnv("DB_PORT")
 	if !isSet {
 		portStr = "5432"
 	}
@@ -104,12 +104,32 @@ func getPostgresDBConfig() db.Config {
 }
 
 func getMySQLDBConfig() db.Config {
+	user, isSet := os.LookupEnv("DB_USER")
+	if !isSet {
+		user = "root"
+	}
+	password, isSet := os.LookupEnv("DB_PASSWORD")
+	if !isSet {
+		password = "password"
+	}
+	host, isSet := os.LookupEnv("DB_HOST")
+	if !isSet {
+		host = "127.0.0.1"
+	}
+	portStr, isSet := os.LookupEnv("DB_PORT")
+	if !isSet {
+		portStr = "3306"
+	}
+	port, _ := strconv.Atoi(portStr)
+
+	fmt.Printf("User %s , Password %s , host %s , port %d\n", user, password, host, port)
+
 	return db.Config{
 		Type:     "mysql",
-		User:     "root",
-		Password: "password",
-		Host:     "127.0.0.1",
-		Port:     3306,
+		User:     user,
+		Password: password,
+		Host:     host,
+		Port:     uint16(port),
 		Timeout:  DefaultDBTimeout,
 	}
 }

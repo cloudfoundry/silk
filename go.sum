@@ -6,10 +6,13 @@ code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210809162311-5c15f1e28181 h
 code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210809162311-5c15f1e28181/go.mod h1:9orwjhE6G/V4vRbNME9tnuFcgGYBF1IcLEaXFiLBb7M=
 code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8 h1:SMURRzY35GkwTgY5l0stETBNJRAUoTP8F4t7DPKg9Yc=
 code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8/go.mod h1:m55RU/DiLvIJ2gO7KEmP9wKU9k3+1aZ5tWBOMhdPnsg=
+code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210825141236-777da71209d5 h1:2LNoWK64q5eJjFK1be1HoNeWh0tFZ4nGIz4YJmDvn00=
+code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210825141236-777da71209d5/go.mod h1:kf4WVsGZqWT4r9wA9xLpdc4U/QtB5HcUUMa1VSsb6AM=
 code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4 h1:6UIZEq5iyr4zDCgOH5MtRbgvsIjk4XFNUaaoMekEssQ=
 code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4/go.mod h1:gNKNma2dj1tNTqiguITu8zzSyfGPPavqckoGXQxdnsI=
 code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639 h1:c+Sv3PcX6x3oaZmgznhYqrfkBX1Sjx511Sr9eHjMyQk=
 code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639/go.mod h1:V+dLGgqNJ1KyoipMBOkTMhXztmimMOyo5P0TL/kcPvU=
+code.cloudfoundry.org/lager v1.1.1-0.20210513163233-569157d2803b h1:jgCg9ARoZ2MENhRzUGupXKIk75z5EBygS6Zmpkgtryg=
 code.cloudfoundry.org/lager v1.1.1-0.20210513163233-569157d2803b/go.mod h1:SF6BAZkl2+itWGVny2ILQCY9UNXIRwgi/m181VkHfrI=
 code.cloudfoundry.org/lager v2.0.0+incompatible h1:WZwDKDB2PLd/oL+USK4b4aEjUymIej9My2nUQ9oWEwQ=
 code.cloudfoundry.org/lager v2.0.0+incompatible/go.mod h1:O2sS7gKP3HM2iemG+EnwvyNQK7pTSC6Foi4QiMp9sSk=

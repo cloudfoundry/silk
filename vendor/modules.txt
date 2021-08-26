@@ -1,7 +1,7 @@
 # code.cloudfoundry.org/bbs v0.0.0-20210727125654-2ad50317f7ed
 ## explicit
 code.cloudfoundry.org/bbs/db/sqldb/helpers/monitor
-# code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210809162311-5c15f1e28181 => code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8
+# code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210825141236-777da71209d5
 ## explicit
 code.cloudfoundry.org/cf-networking-helpers/db
 code.cloudfoundry.org/cf-networking-helpers/fakes
@@ -20,9 +20,10 @@ code.cloudfoundry.org/debugserver
 # code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
 ## explicit
 code.cloudfoundry.org/filelock
-# code.cloudfoundry.org/lager v2.0.0+incompatible
+# code.cloudfoundry.org/lager v2.0.0+incompatible => code.cloudfoundry.org/lager v1.1.1-0.20210513163233-569157d2803b
 ## explicit
 code.cloudfoundry.org/lager
+code.cloudfoundry.org/lager/internal/truncate
 code.cloudfoundry.org/lager/lagerctx
 code.cloudfoundry.org/lager/lagerflags
 code.cloudfoundry.org/lager/lagertest
@@ -230,6 +231,6 @@ gopkg.in/tomb.v1
 gopkg.in/validator.v2
 # gopkg.in/yaml.v2 v2.4.0
 gopkg.in/yaml.v2
-# code.cloudfoundry.org/cf-networking-helpers => code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210818160341-4ed163a496a8
+# code.cloudfoundry.org/lager => code.cloudfoundry.org/lager v1.1.1-0.20210513163233-569157d2803b
 # github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
 # github.com/square/certstrap => github.com/square/certstrap v1.1.1
