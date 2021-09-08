@@ -22,7 +22,7 @@ require (
 	github.com/cloudfoundry/gosteno v0.0.0-20150423193413-0c8581caea35 // indirect
 	github.com/cloudfoundry/loggregatorlib v0.0.0-20170823162133-36eddf15ef12 // indirect
 	github.com/cloudfoundry/sonde-go v0.0.0-20200416163440-a42463ba266b // indirect
-	github.com/containernetworking/cni v0.6.0
+	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.0.0-00010101000000-000000000000
 	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
