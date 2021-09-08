@@ -52,6 +52,8 @@ github.com/cloudfoundry/dropsonde/runtime_stats
 ## explicit
 github.com/cloudfoundry/gosteno
 github.com/cloudfoundry/gosteno/syslog
+# github.com/cloudfoundry/loggregatorlib v0.0.0-20170823162133-36eddf15ef12
+## explicit
 # github.com/cloudfoundry/sonde-go v0.0.0-20200416163440-a42463ba266b
 ## explicit
 github.com/cloudfoundry/sonde-go/events
@@ -98,7 +100,7 @@ github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx
 # github.com/josharian/intern v1.0.0
 github.com/josharian/intern
-# github.com/lib/pq v1.10.2
+# github.com/lib/pq v1.10.3
 ## explicit
 github.com/lib/pq
 github.com/lib/pq/oid
@@ -110,7 +112,6 @@ github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
 # github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
-## explicit
 github.com/nu7hatch/gouuid
 # github.com/nxadm/tail v1.4.8
 github.com/nxadm/tail
@@ -191,6 +192,8 @@ github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 github.com/vishvananda/netns
+# github.com/ziutek/mymysql v1.5.4
+## explicit
 # github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
 ## explicit
 github.com/ziutek/utils/netaddr
@@ -231,6 +234,8 @@ gopkg.in/tomb.v1
 gopkg.in/validator.v2
 # gopkg.in/yaml.v2 v2.4.0
 gopkg.in/yaml.v2
+# launchpad.net/gocheck v0.0.0-20140225173054-000000000087
+## explicit
 # code.cloudfoundry.org/lager => code.cloudfoundry.org/lager v1.1.1-0.20210513163233-569157d2803b
 # github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
 # github.com/containernetworking/cni => github.com/containernetworking/cni v0.6.0
