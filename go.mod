@@ -12,7 +12,7 @@ replace github.com/square/certstrap => github.com/square/certstrap v1.1.1
 
 require (
 	code.cloudfoundry.org/bbs v0.0.0-20210727125654-2ad50317f7ed // indirect
-	code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210825141236-777da71209d5
+	code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210929193536-efcc04207348
 	code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4
 	code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
 	code.cloudfoundry.org/lager v2.0.0+incompatible
@@ -40,6 +40,7 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
+	google.golang.org/appengine v1.3.0 // indirect
 	gopkg.in/validator.v2 v2.0.0-20210331031555-b37d688a7fb0
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )
