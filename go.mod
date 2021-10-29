@@ -30,7 +30,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/lib/pq v1.10.3
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
 	github.com/pivotal-cf-experimental/gomegamatchers v0.0.0-20180326192815-e36bfcc98c3a
 	github.com/rubenv/sql-migrate v0.0.0-20210614095031-55d5740dbbcc
@@ -40,7 +40,6 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
-	google.golang.org/appengine v1.3.0 // indirect
 	gopkg.in/validator.v2 v2.0.0-20210331031555-b37d688a7fb0
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )
