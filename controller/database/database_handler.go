@@ -244,16 +244,6 @@ func (d *DatabaseHandler) LastRenewedAtForUnderlayIP(underlayIP string) (int64, 
 	return lastRenewedAt, nil
 }
 
-func (d *DatabaseHandler) SubnetForUnderlayIP(underlayIP string) (string, error) {
-	var subnet string
-	result := d.db.QueryRow(d.db.Rebind("SELECT subnet FROM subnets WHERE underlay_ip = ?"), underlayIP)
-	err := result.Scan(&subnet)
-	if err != nil {
-		return "", err
-	}
-	return subnet, nil
-}
-
 func rowsToLeases(rows *sql.Rows) ([]controller.Lease, error) {
 	leases := []controller.Lease{}
 	for rows.Next() {
