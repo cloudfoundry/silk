@@ -100,7 +100,7 @@ github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx
 # github.com/josharian/intern v1.0.0
 github.com/josharian/intern
-# github.com/lib/pq v1.10.3
+# github.com/lib/pq v1.10.5
 ## explicit
 github.com/lib/pq
 github.com/lib/pq/oid
