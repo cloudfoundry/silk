@@ -45,18 +45,18 @@ var (
 
 var _ = BeforeEach(func() {
 	By("setting up namespaces for the 'host' and 'container'")
-	containerNSName = fmt.Sprintf("container-%03d", GinkgoParallelNode())
+	containerNSName = fmt.Sprintf("container-%03d", GinkgoParallelProcess())
 	mustSucceed("ip", "netns", "add", containerNSName)
 	var err error
 	containerNS, err = ns.GetNS(fmt.Sprintf("/var/run/netns/%s", containerNSName))
 	Expect(err).NotTo(HaveOccurred())
 
-	fakeHostNSName = fmt.Sprintf("host-%03d", GinkgoParallelNode())
+	fakeHostNSName = fmt.Sprintf("host-%03d", GinkgoParallelProcess())
 	mustSucceed("ip", "netns", "add", fakeHostNSName)
 	fakeHostNS, err = ns.GetNS(fmt.Sprintf("/var/run/netns/%s", fakeHostNSName))
 	Expect(err).NotTo(HaveOccurred())
 
-	containerID = fmt.Sprintf("test-%03d-%x", GinkgoParallelNode(), rand.Int31())
+	containerID = fmt.Sprintf("test-%03d-%x", GinkgoParallelProcess(), rand.Int31())
 
 	By("setting up CNI config")
 	cniEnv = map[string]string{
@@ -76,7 +76,7 @@ var _ = BeforeEach(func() {
 		Mask: flannelSubnetCIDR.Mask,
 	}
 
-	daemonPort = 40000 + GinkgoParallelNode()
+	daemonPort = 40000 + GinkgoParallelProcess()
 	fakeServer = startFakeDaemonInHost(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1472}`)
 
 	cniStdin = cniConfig(dataDir, datastorePath, daemonPort)

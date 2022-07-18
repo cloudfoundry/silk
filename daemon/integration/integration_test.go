@@ -69,13 +69,13 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	externalMTU = externalIface.MTU
 
-	overlaySubnet = fmt.Sprintf("10.255.%d.0/24", GinkgoParallelNode()+100)
+	overlaySubnet = fmt.Sprintf("10.255.%d.0/24", GinkgoParallelProcess()+100)
 	overlayVtepIP, _, _ = net.ParseCIDR(overlaySubnet)
 
-	remoteOverlaySubnet = fmt.Sprintf("10.255.%d.0/24", GinkgoParallelNode()+2)
+	remoteOverlaySubnet = fmt.Sprintf("10.255.%d.0/24", GinkgoParallelProcess()+2)
 	remoteOverlayVtepIP, _, _ = net.ParseCIDR(remoteOverlaySubnet)
 
-	remoteSingleIPSubnet = fmt.Sprintf("10.255.0.%d/32", GinkgoParallelNode()+20)
+	remoteSingleIPSubnet = fmt.Sprintf("10.255.0.%d/32", GinkgoParallelProcess()+20)
 	remoteSingleIP, _, _ = net.ParseCIDR(remoteSingleIPSubnet)
 
 	daemonLease = controller.Lease{
@@ -83,8 +83,8 @@ var _ = BeforeEach(func() {
 		OverlaySubnet:       overlaySubnet,
 		OverlayHardwareAddr: "ee:ee:0a:ff:1e:00",
 	}
-	vni = GinkgoParallelNode()
-	vtepName = fmt.Sprintf("silk-vtep-%d", GinkgoParallelNode())
+	vni = GinkgoParallelProcess()
+	vtepName = fmt.Sprintf("silk-vtep-%d", GinkgoParallelProcess())
 	daemonHealthCheckPort := ports.PickAPort()
 	daemonHealthCheckURL = fmt.Sprintf("http://127.0.0.1:%d/health", daemonHealthCheckPort)
 	daemonDebugServerPort = ports.PickAPort()

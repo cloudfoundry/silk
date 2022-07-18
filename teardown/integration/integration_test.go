@@ -34,14 +34,14 @@ var (
 var _ = BeforeEach(func() {
 	localIP := "127.0.0.1"
 	vtepConfig = &vtep.Config{
-		VTEPName:            fmt.Sprintf("t-v-%d", GinkgoParallelNode()),
+		VTEPName:            fmt.Sprintf("t-v-%d", GinkgoParallelProcess()),
 		UnderlayIP:          net.ParseIP(localIP),
-		OverlayIP:           net.IP{10, 255, byte(GinkgoParallelNode()), 0},
-		OverlayHardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, byte(GinkgoParallelNode()), 0x00},
-		VNI:                 GinkgoParallelNode(),
+		OverlayIP:           net.IP{10, 255, byte(GinkgoParallelProcess()), 0},
+		OverlayHardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, byte(GinkgoParallelProcess()), 0x00},
+		VNI:                 GinkgoParallelProcess(),
 	}
 
-	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelNode())
+	serverListenAddr = fmt.Sprintf("127.0.0.1:%d", 40000+GinkgoParallelProcess())
 	datastoreFile, _ := ioutil.TempFile("", "-datastore")
 	datastoreFile.Close()
 	clientConf = config.Config{
@@ -54,9 +54,9 @@ var _ = BeforeEach(func() {
 		ServerCACertFile:          paths.ServerCACertFile,
 		ClientCertFile:            paths.ClientCertFile,
 		ClientKeyFile:             paths.ClientKeyFile,
-		VNI:                       GinkgoParallelNode(),
+		VNI:                       GinkgoParallelProcess(),
 		PollInterval:              5,                    // unused by teardown
-		DebugServerPort:           GinkgoParallelNode(), // unused by teardown
+		DebugServerPort:           GinkgoParallelProcess(), // unused by teardown
 		Datastore:                 datastoreFile.Name(),
 		PartitionToleranceSeconds: 60,    // unused by teardown
 		ClientTimeoutSeconds:      5,     // unused by teardown
