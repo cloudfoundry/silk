@@ -28,19 +28,18 @@ func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) e
 	// For example: s-1234 had MAC addr bb:bb:bb:bb:bb:bb initially. We call LinkSetHardwarAddr
 	// to set it to aa:aa:aa:aa:aa:aa, but afterwards its MAC addr is ff:dd:23:f1:9a:43
 
-	successfullySetAddr := false
-	for i := 0; i < MAX_ATTEMPTS; i++ {
+	l, _ := s.NetlinkAdapter.LinkByName(deviceName)
+	got := l.Attrs().HardwareAddr.String()
+	expected := local.Hardware.String()
+	for i := 0; got != expected && i < MAX_ATTEMPTS; i++ {
 		err = s.NetlinkAdapter.LinkSetHardwareAddr(link, local.Hardware)
 		if err != nil {
 			return fmt.Errorf("setting hardware address: %s", err)
 		}
 		l, _ := s.NetlinkAdapter.LinkByName(deviceName)
-		if l.Attrs().HardwareAddr.String() == local.Hardware.String() {
-			successfullySetAddr = true
-			break
-		}
+		got = l.Attrs().HardwareAddr.String()
 	}
-	if !successfullySetAddr {
+	if got != expected {
 		return fmt.Errorf("failed to set hardware addr after %d attempts", MAX_ATTEMPTS)
 	}
 
