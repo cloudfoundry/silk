@@ -16,11 +16,13 @@ var _ = Describe("VethPairCreator", func() {
 	Describe("Create", func() {
 
 		var (
-			containerNS        *fakes.NetNS
-			hostNS             *fakes.NetNS
-			cfg                *config.Config
-			creator            *lib.VethPairCreator
-			fakeNetlinkAdapter *fakes.NetlinkAdapter
+			containerNS             *fakes.NetNS
+			hostNS                  *fakes.NetNS
+			cfg                     *config.Config
+			creator                 *lib.VethPairCreator
+			fakeNetlinkAdapter      *fakes.NetlinkAdapter
+			err                     error
+			hostAddr, containerAddr net.HardwareAddr
 		)
 
 		BeforeEach(func() {
@@ -29,12 +31,19 @@ var _ = Describe("VethPairCreator", func() {
 			hostNS = &fakes.NetNS{}
 			hostNS.DoStub = lib.NetNsDoStub
 
+			hostAddr, err = net.ParseMAC("aa:aa:0a:ff:ad:39")
+			Expect(err).NotTo(HaveOccurred())
+			containerAddr, err = net.ParseMAC("ee:ee:0a:ff:ad:39")
+			Expect(err).NotTo(HaveOccurred())
+
 			cfg = &config.Config{}
 			cfg.Container.TemporaryDeviceName = "myTemporaryDeviceName"
 			cfg.Container.Namespace = containerNS
 			cfg.Container.MTU = 1234
 			cfg.Host.DeviceName = "myDeviceName"
 			cfg.Host.Namespace = hostNS
+			cfg.Host.Address.Hardware = hostAddr
+			cfg.Container.Address.Hardware = containerAddr
 
 			fakeNetlinkAdapter = &fakes.NetlinkAdapter{}
 			fakeNetlinkAdapter.LinkByNameReturns(&netlink.Bridge{
@@ -52,18 +61,20 @@ var _ = Describe("VethPairCreator", func() {
 			hostNS.Close()
 		})
 
-		It("creates a correctly-named veth device in the host namespace with the correct MTU", func() {
+		It("creates a correctly-named veth device in the host namespace with the correct MTU and HW addr", func() {
 			Expect(creator.Create(cfg)).To(Succeed())
 
 			By("requesting to create a container veth device")
 			Expect(fakeNetlinkAdapter.LinkAddCallCount()).To(Equal(1))
 			Expect(fakeNetlinkAdapter.LinkAddArgsForCall(0)).To(Equal(&netlink.Veth{
 				LinkAttrs: netlink.LinkAttrs{
-					Name:  "myDeviceName",
-					Flags: net.FlagUp,
-					MTU:   1234,
+					Name:         "myDeviceName",
+					Flags:        net.FlagUp,
+					MTU:          1234,
+					HardwareAddr: hostAddr,
 				},
-				PeerName: "myTemporaryDeviceName",
+				PeerName:         "myTemporaryDeviceName",
+				PeerHardwareAddr: containerAddr,
 			}))
 
 			By("getting the newly-created container veth device")
