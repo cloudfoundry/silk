@@ -24,20 +24,6 @@ var _ = Describe("Common", func() {
 			common             *lib.Common
 		)
 		BeforeEach(func() {
-			fakeNetlinkAdapter = &fakes.NetlinkAdapter{}
-			fakeLinkOperations = &fakes.LinkOperations{}
-			fakeLink = &netlink.Bridge{
-				LinkAttrs: netlink.LinkAttrs{
-					Name: "my-fake-bridge",
-				},
-			}
-			fakeNetlinkAdapter.LinkByNameReturns(fakeLink, nil)
-
-			common = &lib.Common{
-				NetlinkAdapter: fakeNetlinkAdapter,
-				LinkOperations: fakeLinkOperations,
-			}
-			deviceName = "myDeviceName"
 			localMAC, err := net.ParseMAC("aa:aa:12:34:56:78")
 			Expect(err).NotTo(HaveOccurred())
 			peerMAC, err := net.ParseMAC("ee:ee:12:34:56:78")
@@ -50,12 +36,28 @@ var _ = Describe("Common", func() {
 				IP:       net.IP{169, 254, 0, 1},
 				Hardware: peerMAC,
 			}
+
+			fakeNetlinkAdapter = &fakes.NetlinkAdapter{}
+			fakeLinkOperations = &fakes.LinkOperations{}
+			fakeLink = &netlink.Bridge{
+				LinkAttrs: netlink.LinkAttrs{
+					Name:         "my-fake-bridge",
+					HardwareAddr: local.Hardware,
+				},
+			}
+			fakeNetlinkAdapter.LinkByNameReturns(fakeLink, nil)
+
+			common = &lib.Common{
+				NetlinkAdapter: fakeNetlinkAdapter,
+				LinkOperations: fakeLinkOperations,
+			}
+			deviceName = "myDeviceName"
 		})
 
 		It("sets up a veth device", func() {
 			err := common.BasicSetup(deviceName, local, peer)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(1))
+			Expect(fakeNetlinkAdapter.LinkByNameCallCount()).To(Equal(2))
 			Expect(fakeNetlinkAdapter.LinkByNameArgsForCall(0)).To(Equal("myDeviceName"))
 
 			Expect(fakeNetlinkAdapter.LinkSetHardwareAddrCallCount()).To(Equal(1))
@@ -103,6 +105,62 @@ var _ = Describe("Common", func() {
 			It("wraps and returns the error", func() {
 				err := common.BasicSetup(deviceName, local, peer)
 				Expect(err).To(Equal(errors.New("setting hardware address: apple")))
+			})
+		})
+
+		Context("when the hardware address is set to the wrong thing", func() {
+			var fakeLinkWithBadHardwareAddr *netlink.Bridge
+			var fakeLinkWithCorrectLocalHardwareAddr *netlink.Bridge
+			var randomHardwareAddr net.HardwareAddr
+
+			BeforeEach(func() {
+
+				var err error
+				randomHardwareAddr, err = net.ParseMAC("ff:ff:ff:ff:ff:ff")
+				Expect(err).NotTo(HaveOccurred())
+
+				fakeLinkWithBadHardwareAddr = &netlink.Bridge{
+					LinkAttrs: netlink.LinkAttrs{
+						Name:         "my-fake-bridge",
+						HardwareAddr: randomHardwareAddr,
+					},
+				}
+
+				fakeLinkWithCorrectLocalHardwareAddr = &netlink.Bridge{
+					LinkAttrs: netlink.LinkAttrs{
+						Name:         "my-fake-bridge",
+						HardwareAddr: local.Hardware,
+					},
+				}
+			})
+
+			Context("but eventually is set to the right thing", func() {
+				BeforeEach(func() {
+					fakeNetlinkAdapter.LinkByNameReturnsOnCall(0, fakeLink, nil)
+					// The 0th time this function is for getting the link so we
+					// can change the hardware addr. The 1st time is for
+					// checking to make sure the hardware addr is set
+					// correctly.
+					fakeNetlinkAdapter.LinkByNameReturnsOnCall(1, fakeLinkWithBadHardwareAddr, nil)
+					fakeNetlinkAdapter.LinkByNameReturnsOnCall(2, fakeLinkWithCorrectLocalHardwareAddr, nil)
+				})
+
+				It("retries and eventually works", func() {
+					err := common.BasicSetup(deviceName, local, peer)
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			Context("and it is never set to the right thing", func() {
+				BeforeEach(func() {
+					fakeNetlinkAdapter.LinkByNameReturns(fakeLinkWithBadHardwareAddr, nil)
+				})
+
+				It("runs out of retries and wraps and returns an error", func() {
+					err := common.BasicSetup(deviceName, local, peer)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("failed to set hardware addr"))
+				})
 			})
 		})
 
