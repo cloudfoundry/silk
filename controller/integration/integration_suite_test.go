@@ -36,7 +36,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	return []byte(controllerBinaryPath)
 }, func(data []byte) {
 	controllerBinaryPath = string(data)
-	rand.Seed(ginkgoConfig.GinkgoConfig.RandomSeed + int64(GinkgoParallelNode()))
+	rand.Seed(ginkgoConfig.GinkgoConfig.RandomSeed + int64(GinkgoParallelProcess()))
 })
 
 var _ = SynchronizedAfterSuite(func() {}, func() {

@@ -38,7 +38,7 @@ var _ = Describe("DatabaseHandler", func() {
 		mockMigrateAdapter = &fakes.MigrateAdapter{}
 
 		dbConfig = testsupport.GetDBConfig()
-		dbConfig.DatabaseName = fmt.Sprintf("test_db_%03d_%x", GinkgoParallelNode(), rand.Int())
+		dbConfig.DatabaseName = fmt.Sprintf("test_db_%03d_%x", GinkgoParallelProcess(), rand.Int())
 		testsupport.CreateDatabase(dbConfig)
 
 		var err error
