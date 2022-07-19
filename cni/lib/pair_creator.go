@@ -21,11 +21,13 @@ func (c *VethPairCreator) Create(cfg *config.Config) error {
 
 	vethDeviceRequest := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:  hostName,
-			Flags: net.FlagUp,
-			MTU:   cfg.Container.MTU,
+			Name:         hostName,
+			Flags:        net.FlagUp,
+			MTU:          cfg.Container.MTU,
+			HardwareAddr: cfg.Host.Address.Hardware,
 		},
-		PeerName: containerName,
+		PeerName:         containerName,
+		PeerHardwareAddr: cfg.Container.Address.Hardware,
 	}
 
 	// Note: this Do is only necessary while we're doing container namespace switching elsewhere in this process
