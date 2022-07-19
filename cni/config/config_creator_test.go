@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/config/fakes"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -26,6 +27,7 @@ var _ = Describe("ConfigCreator", func() {
 			fakeNamespaceAdapter         *fakes.NamespaceAdapter
 			fakeHardwareAddressGenerator *fakes.HardwareAddressGenerator
 			fakeDeviceNameGenerator      *fakes.DeviceNameGenerator
+			fakelogger                   *lagertest.TestLogger
 			configCreator                *config.ConfigCreator
 		)
 		BeforeEach(func() {
@@ -48,6 +50,7 @@ var _ = Describe("ConfigCreator", func() {
 				},
 				Routes: nil,
 			}
+			fakelogger = lagertest.NewTestLogger("test")
 			fakeNamespaceAdapter = &fakes.NamespaceAdapter{}
 			fakeHardwareAddressGenerator = &fakes.HardwareAddressGenerator{}
 			fakeDeviceNameGenerator = &fakes.DeviceNameGenerator{}
@@ -63,6 +66,7 @@ var _ = Describe("ConfigCreator", func() {
 				HardwareAddressGenerator: fakeHardwareAddressGenerator,
 				DeviceNameGenerator:      fakeDeviceNameGenerator,
 				NamespaceAdapter:         fakeNamespaceAdapter,
+				Logger:                   fakelogger,
 			}
 		})
 

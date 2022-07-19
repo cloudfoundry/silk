@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/lib"
 	"code.cloudfoundry.org/silk/cni/lib/fakes"
@@ -22,6 +23,7 @@ var _ = Describe("Common", func() {
 			local              config.DualAddress
 			peer               config.DualAddress
 			common             *lib.Common
+			fakelogger         *lagertest.TestLogger
 		)
 		BeforeEach(func() {
 			localMAC, err := net.ParseMAC("aa:aa:12:34:56:78")
@@ -37,6 +39,7 @@ var _ = Describe("Common", func() {
 				Hardware: peerMAC,
 			}
 
+			fakelogger = lagertest.NewTestLogger("test")
 			fakeNetlinkAdapter = &fakes.NetlinkAdapter{}
 			fakeLinkOperations = &fakes.LinkOperations{}
 			fakeLink = &netlink.Bridge{
@@ -50,6 +53,7 @@ var _ = Describe("Common", func() {
 			common = &lib.Common{
 				NetlinkAdapter: fakeNetlinkAdapter,
 				LinkOperations: fakeLinkOperations,
+				Logger:         fakelogger,
 			}
 			deviceName = "myDeviceName"
 		})

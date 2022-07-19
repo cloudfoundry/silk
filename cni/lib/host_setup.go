@@ -3,6 +3,7 @@ package lib
 import (
 	"fmt"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/cni/config"
 	"github.com/containernetworking/plugins/pkg/ns"
 )
@@ -10,11 +11,14 @@ import (
 type Host struct {
 	Common         common
 	LinkOperations linkOperations
+	Logger         lager.Logger
 }
 
 // Setup will configure the network stack on the host
 // A veth pair must already have been created.  See VethPairCreator.
 func (h *Host) Setup(cfg *config.Config) error {
+	h.Logger.Debug("start")
+	defer h.Logger.Debug("done")
 	deviceName := cfg.Host.DeviceName
 	local := cfg.Host.Address
 	peer := cfg.Container.Address

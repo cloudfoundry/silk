@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/lib"
 	"code.cloudfoundry.org/silk/cni/lib/fakes"
@@ -21,6 +22,7 @@ var _ = Describe("Host Setup", func() {
 		hostSetup          *lib.Host
 		containerAddr      config.DualAddress
 		hostAddr           config.DualAddress
+		fakelogger         *lagertest.TestLogger
 	)
 
 	BeforeEach(func() {
@@ -28,6 +30,8 @@ var _ = Describe("Host Setup", func() {
 		fakeCommon = &fakes.Common{}
 		hostNS = &fakes.NetNS{}
 		hostNS.DoStub = lib.NetNsDoStub
+
+		fakelogger = lagertest.NewTestLogger("test")
 
 		containerAddr = config.DualAddress{IP: net.IP{10, 255, 30, 4}}
 		hostAddr = config.DualAddress{IP: net.IP{169, 254, 0, 1}}
@@ -41,6 +45,7 @@ var _ = Describe("Host Setup", func() {
 		hostSetup = &lib.Host{
 			Common:         fakeCommon,
 			LinkOperations: fakeLinkOperations,
+			Logger:         fakelogger,
 		}
 	})
 

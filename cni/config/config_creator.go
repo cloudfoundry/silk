@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/lager"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
@@ -33,11 +34,15 @@ type ConfigCreator struct {
 	HardwareAddressGenerator hardwareAddressGenerator
 	DeviceNameGenerator      deviceNameGenerator
 	NamespaceAdapter         namespaceAdapter
+	Logger                   lager.Logger
 }
 
 func (c *ConfigCreator) Create(hostNS netNS, addCmdArgs *skel.CmdArgs, ipamResult *current.Result, mtu int) (*Config, error) {
 	var conf Config
 	var err error
+
+	c.Logger.Debug("start")
+	defer c.Logger.Debug("done")
 
 	if addCmdArgs.IfName == "" {
 		return nil, errors.New("IfName cannot be empty")

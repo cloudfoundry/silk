@@ -3,6 +3,7 @@ package lib
 import (
 	"fmt"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/cni/config"
 )
 
@@ -10,6 +11,7 @@ import (
 type Common struct {
 	NetlinkAdapter netlinkAdapter
 	LinkOperations linkOperations
+	Logger         lager.Logger
 }
 
 const MAX_ATTEMPTS = 10
@@ -17,6 +19,8 @@ const MAX_ATTEMPTS = 10
 // BasicSetup configures a veth device for point-to-point communication with its peer.
 // It is meant to be called by either Host.Setup or Container.Setup
 func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) error {
+	s.Logger.Debug("basic-device-setup", lager.Data{"deviceName": deviceName, "local": local.Hardware.String(), "peer": peer.Hardware.String()})
+	defer s.Logger.Debug("done")
 	link, err := s.NetlinkAdapter.LinkByName(deviceName)
 	if err != nil {
 		return fmt.Errorf("failed to find link %q: %s", deviceName, err)
@@ -32,6 +36,7 @@ func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) e
 	got := l.Attrs().HardwareAddr.String()
 	expected := local.Hardware.String()
 	for i := 0; got != expected && i < MAX_ATTEMPTS; i++ {
+		s.Logger.Debug("hardware-addr-incorrect-retrying", lager.Data{"expected": expected, "found": got})
 		err = s.NetlinkAdapter.LinkSetHardwareAddr(link, local.Hardware)
 		if err != nil {
 			return fmt.Errorf("setting hardware address: %s", err)
@@ -41,6 +46,8 @@ func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) e
 	}
 	if got != expected {
 		return fmt.Errorf("failed to set hardware addr after %d attempts", MAX_ATTEMPTS)
+	} else {
+		s.Logger.Debug("hardware-addr-set-correctly", lager.Data{"addr": l.Attrs().HardwareAddr.String()})
 	}
 
 	s.LinkOperations.DisableIPv6(deviceName)
