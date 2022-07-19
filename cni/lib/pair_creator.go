@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/silk/cni/config"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
@@ -11,11 +12,14 @@ import (
 
 type VethPairCreator struct {
 	NetlinkAdapter netlinkAdapter
+	Logger         lager.Logger
 }
 
 // Create will create a pair of virtual ethernet devices and move one end into the container
 // The container-side will have a temporary name.
 func (c *VethPairCreator) Create(cfg *config.Config) error {
+	c.Logger.Debug("start")
+	defer c.Logger.Debug("done")
 	hostName := cfg.Host.DeviceName
 	containerName := cfg.Container.TemporaryDeviceName
 
@@ -29,6 +33,7 @@ func (c *VethPairCreator) Create(cfg *config.Config) error {
 		PeerName:         containerName,
 		PeerHardwareAddr: cfg.Container.Address.Hardware,
 	}
+	c.Logger.Debug("create", lager.Data{"hostName": hostName, "containerName": containerName, "vethDeviceRequest": vethDeviceRequest})
 
 	// Note: this Do is only necessary while we're doing container namespace switching elsewhere in this process
 	err := cfg.Host.Namespace.Do(func(_ ns.NetNS) error {
@@ -40,6 +45,7 @@ func (c *VethPairCreator) Create(cfg *config.Config) error {
 		if err != nil {
 			return fmt.Errorf("failed to find newly-created veth device %q: %v", containerName, err)
 		}
+		c.Logger.Debug("create.result", lager.Data{"containerVeth": containerVeth})
 
 		err = c.NetlinkAdapter.LinkSetNsFd(containerVeth, int(cfg.Container.Namespace.Fd()))
 		if err != nil {

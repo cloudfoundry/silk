@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/lib"
 	"code.cloudfoundry.org/silk/cni/lib/fakes"
@@ -21,6 +22,7 @@ var _ = Describe("VethPairCreator", func() {
 			cfg                     *config.Config
 			creator                 *lib.VethPairCreator
 			fakeNetlinkAdapter      *fakes.NetlinkAdapter
+			fakelogger              *lagertest.TestLogger
 			err                     error
 			hostAddr, containerAddr net.HardwareAddr
 		)
@@ -45,6 +47,7 @@ var _ = Describe("VethPairCreator", func() {
 			cfg.Host.Address.Hardware = hostAddr
 			cfg.Container.Address.Hardware = containerAddr
 
+			fakelogger = lagertest.NewTestLogger("test")
 			fakeNetlinkAdapter = &fakes.NetlinkAdapter{}
 			fakeNetlinkAdapter.LinkByNameReturns(&netlink.Bridge{
 				LinkAttrs: netlink.LinkAttrs{
@@ -53,6 +56,7 @@ var _ = Describe("VethPairCreator", func() {
 			}, nil)
 			creator = &lib.VethPairCreator{
 				NetlinkAdapter: fakeNetlinkAdapter,
+				Logger:         fakelogger,
 			}
 		})
 
@@ -97,6 +101,7 @@ var _ = Describe("VethPairCreator", func() {
 				fakeNetlinkAdapter.LinkAddReturns(errors.New("banana"))
 				creator = &lib.VethPairCreator{
 					NetlinkAdapter: fakeNetlinkAdapter,
+					Logger:         fakelogger,
 				}
 			})
 
