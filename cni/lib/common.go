@@ -12,6 +12,8 @@ type Common struct {
 	LinkOperations linkOperations
 }
 
+const MAX_ATTEMPTS = 10
+
 // BasicSetup configures a veth device for point-to-point communication with its peer.
 // It is meant to be called by either Host.Setup or Container.Setup
 func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) error {
@@ -20,9 +22,26 @@ func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) e
 		return fmt.Errorf("failed to find link %q: %s", deviceName, err)
 	}
 
-	err = s.NetlinkAdapter.LinkSetHardwareAddr(link, local.Hardware)
-	if err != nil {
-		return fmt.Errorf("setting hardware address: %s", err)
+	// Starting with Ubuntu 22.04 (jammy), we encountered cases where interfaces were
+	// not actually getting the hardware addr being set here. So we added this loop
+	// to make sure that when we set it, it gets set to what we set it to.
+	// For example: s-1234 had MAC addr bb:bb:bb:bb:bb:bb initially. We call LinkSetHardwarAddr
+	// to set it to aa:aa:aa:aa:aa:aa, but afterwards its MAC addr is ff:dd:23:f1:9a:43
+
+	successfullySetAddr := false
+	for i := 0; i < MAX_ATTEMPTS; i++ {
+		err = s.NetlinkAdapter.LinkSetHardwareAddr(link, local.Hardware)
+		if err != nil {
+			return fmt.Errorf("setting hardware address: %s", err)
+		}
+		l, _ := s.NetlinkAdapter.LinkByName(deviceName)
+		if l.Attrs().HardwareAddr.String() == local.Hardware.String() {
+			successfullySetAddr = true
+			break
+		}
+	}
+	if !successfullySetAddr {
+		return fmt.Errorf("failed to set hardware addr after %d attempts", MAX_ATTEMPTS)
 	}
 
 	s.LinkOperations.DisableIPv6(deviceName)
