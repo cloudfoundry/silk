@@ -59,8 +59,8 @@ func main() {
 	requestId := uuid.New()
 	logger := lager.NewLogger(logPrefix).Session(jobPrefix, lager.Data{"cni-request-id": requestId})
 
-	logWriter := os.Stdout
-	if LoggingDevice != "stdout" {
+	logWriter := os.Stderr
+	if LoggingDevice != "stderr" {
 		vcapLog, err := os.OpenFile("/var/vcap/sys/log/silk-cni/silk-cni.stdout.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, os.FileMode(0644))
 		if err != nil {
 			log.Fatalf("can't open log file: %s", err)
