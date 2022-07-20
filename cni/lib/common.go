@@ -28,7 +28,9 @@ func (s *Common) BasicSetup(deviceName string, local, peer config.DualAddress) e
 
 	// Starting with Ubuntu 22.04 (jammy), we encountered cases where interfaces were
 	// not actually getting the hardware addr being set here. So we added this loop
-	// to make sure that when we set it, it gets set to what we set it to.
+	// to make sure that when we set it, it gets set to what we set it to. After we observed
+	// occasional failures even after introducing this loop, we modified VethPairCreator.Create
+	// to set the hardware addresses on interface creation, and that seems to have fixed the issue.
 	// For example: s-1234 had MAC addr bb:bb:bb:bb:bb:bb initially. We call LinkSetHardwarAddr
 	// to set it to aa:aa:aa:aa:aa:aa, but afterwards its MAC addr is ff:dd:23:f1:9a:43
 

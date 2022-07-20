@@ -23,6 +23,12 @@ func (c *VethPairCreator) Create(cfg *config.Config) error {
 	hostName := cfg.Host.DeviceName
 	containerName := cfg.Container.TemporaryDeviceName
 
+	// Starting with Ubuntu 22.04 (jammy), we encountered cases where interfaces were
+	// not actually getting the hardware addr being set here. Originally we were not setting
+	// hardware addrs on the interface during VethPairCreator.Create, so we added a loop
+	// around the LinkSetHardwareAddr call in Common.BasicSetup to make sure that when we set it,
+	// it gets set to what we set it to. That still did not always work, so we started to
+	// set the HardwareAddr here as well. This has successfully quelled the problem.
 	vethDeviceRequest := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         hostName,
