@@ -47,6 +47,9 @@ const (
 	logPrefix = "cfnetworking"
 )
 
+// used as a compile-time flag to disable logging during integration tests
+var LoggingDevice = "vcapLog"
+
 func main() {
 	hostNS, err := ns.GetCurrentNS()
 	if err != nil {
@@ -55,15 +58,21 @@ func main() {
 
 	requestId := uuid.New()
 	logger := lager.NewLogger(logPrefix).Session(jobPrefix, lager.Data{"cni-request-id": requestId})
-	myfile, err := os.OpenFile("/var/vcap/sys/log/silk-cni/silk-cni.stdout.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, os.FileMode(0644))
-	if err != nil {
-		log.Fatalf("can't open log file: %s", err)
+
+	logWriter := os.Stdout
+	if LoggingDevice != "stdout" {
+		vcapLog, err := os.OpenFile("/var/vcap/sys/log/silk-cni/silk-cni.stdout.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, os.FileMode(0644))
+		if err != nil {
+			log.Fatalf("can't open log file: %s", err)
+		}
+		logWriter = vcapLog
 	}
 	logLevel := lager.ERROR
 	if _, err := os.Stat("/var/vcap/jobs/silk-cni/config/enable_debug"); err == nil {
 		logLevel = lager.DEBUG
 	}
-	inSink := lager.NewPrettySink(myfile, logLevel)
+
+	inSink := lager.NewPrettySink(logWriter, logLevel)
 	sink := lager.NewReconfigurableSink(inSink, logLevel)
 	logger.RegisterSink(sink)
 
