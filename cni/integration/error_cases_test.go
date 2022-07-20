@@ -209,7 +209,7 @@ var _ = Describe("errors", func() {
 				}`, dataDir, daemonPort)
 				session := startCommandInHost("DEL", cniStdin)
 				Eventually(session, cmdTimeout).Should(gexec.Exit(0))
-				Expect(string(session.Err.Contents())).To(MatchRegexp(`write-container-metadata.*"open lock: open : no such file or directory"`))
+				Expect(string(session.Err.Contents())).To(MatchRegexp(`delete-container-metadata.*"open lock: open : no such file or directory"`))
 			})
 		})
 	})

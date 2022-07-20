@@ -67,7 +67,7 @@ func main() {
 		}
 		logWriter = vcapLog
 	}
-	logLevel := lager.ERROR
+	logLevel := lager.INFO
 	if _, err := os.Stat("/var/vcap/jobs/silk-cni/config/enable_debug"); err == nil {
 		logLevel = lager.DEBUG
 	}
