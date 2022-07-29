@@ -26,10 +26,10 @@ require (
 	github.com/containernetworking/plugins v0.0.0-00010101000000-000000000000
 	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jmoiron/sqlx v1.3.4
-	github.com/lib/pq v1.10.3
+	github.com/lib/pq v1.10.6
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
