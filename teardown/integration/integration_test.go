@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"
@@ -55,7 +56,7 @@ var _ = BeforeEach(func() {
 		ClientCertFile:            paths.ClientCertFile,
 		ClientKeyFile:             paths.ClientKeyFile,
 		VNI:                       GinkgoParallelProcess(),
-		PollInterval:              5,                    // unused by teardown
+		PollInterval:              5,                       // unused by teardown
 		DebugServerPort:           GinkgoParallelProcess(), // unused by teardown
 		Datastore:                 datastoreFile.Name(),
 		PartitionToleranceSeconds: 60,    // unused by teardown
@@ -69,7 +70,7 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	fakeServer = testsupport.StartServer(serverListenAddr, serverTLSConfig)
 
-	vtepFactory = &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}}
+	vtepFactory = &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}, Logger: lagertest.NewTestLogger("test")}
 
 	Expect(vtepFactory.CreateVTEP(vtepConfig)).To(Succeed())
 

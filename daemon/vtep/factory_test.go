@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/daemon/vtep"
 	"code.cloudfoundry.org/silk/daemon/vtep/fakes"
 
@@ -17,12 +18,15 @@ var _ = Describe("Factory", func() {
 		fakeNetlinkAdapter *fakes.NetlinkAdapter
 		factory            *vtep.Factory
 		vtepConfig         *vtep.Config
+		fakeLogger         *lagertest.TestLogger
 	)
 
 	BeforeEach(func() {
 		fakeNetlinkAdapter = &fakes.NetlinkAdapter{}
+		fakeLogger = lagertest.NewTestLogger("test")
 		factory = &vtep.Factory{
 			NetlinkAdapter: fakeNetlinkAdapter,
+			Logger:         fakeLogger,
 		}
 
 		underlayInterface := net.Interface{
