@@ -19,6 +19,7 @@ var _ = Describe("Factory", func() {
 		factory            *vtep.Factory
 		vtepConfig         *vtep.Config
 		fakeLogger         *lagertest.TestLogger
+		overlayMAC         net.HardwareAddr
 	)
 
 	BeforeEach(func() {
@@ -29,6 +30,8 @@ var _ = Describe("Factory", func() {
 			Logger:         fakeLogger,
 		}
 
+		overlayMAC = net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00}
+
 		underlayInterface := net.Interface{
 			Index:        4,
 			MTU:          1450,
@@ -37,25 +40,26 @@ var _ = Describe("Factory", func() {
 			Flags:        net.FlagUp | net.FlagMulticast,
 		}
 		vtepConfig = &vtep.Config{
-			VTEPName:            "some-device",
-			UnderlayInterface:   underlayInterface,
-			UnderlayIP:          net.IP{172, 255, 0, 0},
-			OverlayIP:           net.IP{10, 255, 32, 0},
-			OverlayHardwareAddr: net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00},
-			VNI:                 99,
+			VTEPName:                   "some-device",
+			UnderlayInterface:          underlayInterface,
+			UnderlayIP:                 net.IP{172, 255, 0, 0},
+			OverlayIP:                  net.IP{10, 255, 32, 0},
+			OverlayHardwareAddr:        overlayMAC,
+			VNI:                        99,
 			OverlayNetworkPrefixLength: 10,
 			VTEPPort:                   4913,
 		}
 	})
 
 	Describe("CreateVTEP", func() {
-		It("creates the link", func() {
+		It("creates the link, with the HW address", func() {
 			err := factory.CreateVTEP(vtepConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedLink := &netlink.Vxlan{
 				LinkAttrs: netlink.LinkAttrs{
-					Name: "some-device",
+					Name:         "some-device",
+					HardwareAddr: overlayMAC,
 				},
 				VxlanId:      99,
 				SrcAddr:      net.IP{172, 255, 0, 0},
@@ -70,10 +74,7 @@ var _ = Describe("Factory", func() {
 			Expect(fakeNetlinkAdapter.LinkSetUpCallCount()).To(Equal(1))
 			Expect(fakeNetlinkAdapter.LinkSetUpArgsForCall(0)).To(Equal(expectedLink))
 
-			Expect(fakeNetlinkAdapter.LinkSetHardwareAddrCallCount()).To(Equal(1))
-			link, hardwareAddr := fakeNetlinkAdapter.LinkSetHardwareAddrArgsForCall(0)
-			Expect(link).To(Equal(expectedLink))
-			Expect(hardwareAddr).To(Equal(net.HardwareAddr{0xee, 0xee, 0x0a, 0xff, 0x20, 0x00}))
+			Expect(fakeNetlinkAdapter.LinkSetHardwareAddrCallCount()).To(Equal(0))
 
 			Expect(fakeNetlinkAdapter.AddrAddScopeLinkCallCount()).To(Equal(1))
 			link, addr := fakeNetlinkAdapter.AddrAddScopeLinkArgsForCall(0)
@@ -103,16 +104,6 @@ var _ = Describe("Factory", func() {
 			It("wraps and returns the error", func() {
 				err := factory.CreateVTEP(vtepConfig)
 				Expect(err).To(MatchError("up link: potato"))
-			})
-		})
-
-		Context("when setting the hardware address fails", func() {
-			BeforeEach(func() {
-				fakeNetlinkAdapter.LinkSetHardwareAddrReturns(errors.New("potato"))
-			})
-			It("wraps and returns the error", func() {
-				err := factory.CreateVTEP(vtepConfig)
-				Expect(err).To(MatchError("set hardware addr: potato"))
 			})
 		})
 

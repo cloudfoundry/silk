@@ -38,6 +38,20 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 	vxlan := &netlink.Vxlan{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: cfg.VTEPName,
+			// Starting with Ubuntu 22.04 (jammy), we encountered cases where interfaces were
+			// not actually getting the hardware addr being set when we called LinkSetHardwareAddr below.
+			//
+			// https://wiki.archlinux.org/title/Systemd-networkd#%5BLink%5D  includes the following tip
+			// which is likely what's occurring:
+			//
+			// > Tip: systemd-networkd assigns a MAC address generated based on the interface name and
+			// > the machine ID to the bridge. This may cause connection issues, for example in case of
+			// > routing based on MAC filtering. To circumvent such problems you may assign a MAC address
+			// > to your bridge, probably the same as your physical device, adding the line
+			// > MACAddress=xx:xx:xx:xx:xx:xx in the NetDev section above.
+			//
+			// So, to workaround this, we're now setting HardwareAddr upon link creation
+			HardwareAddr: cfg.OverlayHardwareAddr,
 		},
 		VxlanId:      cfg.VNI,
 		SrcAddr:      cfg.UnderlayIP,
@@ -52,11 +66,6 @@ func (f *Factory) CreateVTEP(cfg *Config) error {
 	err = f.NetlinkAdapter.LinkSetUp(vxlan)
 	if err != nil {
 		return fmt.Errorf("up link: %s", err)
-	}
-
-	err = f.NetlinkAdapter.LinkSetHardwareAddr(vxlan, cfg.OverlayHardwareAddr)
-	if err != nil {
-		return fmt.Errorf("set hardware addr: %s", err)
 	}
 
 	overlayNetworkMask := net.CIDRMask(cfg.OverlayNetworkPrefixLength, 32)
