@@ -60,8 +60,12 @@ func mainWithError() error {
 	if cfg.LogPrefix != "" {
 		logPrefix = cfg.LogPrefix
 	}
+	logLevel := lager.INFO.String()
+	if cfg.LogLevel != "" {
+		logLevel = cfg.LogLevel
+	}
 
-	logger, reconfigurableSink := lagerflags.NewFromConfig(fmt.Sprintf("%s.%s", logPrefix, jobPrefix), getLagerConfig())
+	logger, reconfigurableSink := lagerflags.NewFromConfig(fmt.Sprintf("%s.%s", logPrefix, jobPrefix), getLagerConfig(logLevel))
 	logger.Info("starting")
 
 	tlsConfig, err := mutualtls.NewClientTLSConfig(cfg.ClientCertFile, cfg.ClientKeyFile, cfg.ServerCACertFile)
@@ -87,6 +91,7 @@ func mainWithError() error {
 
 	vtepFactory := &vtep.Factory{
 		NetlinkAdapter: &adapter.NetlinkAdapter{},
+		Logger:         logger,
 	}
 	vtepConfigCreator := &vtep.ConfigCreator{
 		NetAdapter: &adapter.NetAdapter{},
@@ -304,8 +309,9 @@ func deleteAndAcquire(cfg config.Config, logger lager.Logger, client *controller
 	return acquireLease(logger, client, vtepConfigCreator, vtepFactory, cfg)
 }
 
-func getLagerConfig() lagerflags.LagerConfig {
+func getLagerConfig(level string) lagerflags.LagerConfig {
 	lagerConfig := lagerflags.DefaultLagerConfig()
 	lagerConfig.TimeFormat = lagerflags.FormatRFC3339
+	lagerConfig.LogLevel = level
 	return lagerConfig
 }

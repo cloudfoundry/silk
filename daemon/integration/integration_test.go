@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport/ports"
+	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon"
@@ -115,7 +116,7 @@ var _ = BeforeEach(func() {
 		LogPrefix:                 "potato-prefix",
 	}
 
-	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}}
+	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}, lagertest.NewTestLogger("test")}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
 	Expect(err).NotTo(HaveOccurred())

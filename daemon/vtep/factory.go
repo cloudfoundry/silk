@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/lager"
 	"github.com/vishvananda/netlink"
 )
 
@@ -30,6 +31,7 @@ type netlinkAdapter interface {
 
 type Factory struct {
 	NetlinkAdapter netlinkAdapter
+	Logger         lager.Logger
 }
 
 func (f *Factory) CreateVTEP(cfg *Config) error {
