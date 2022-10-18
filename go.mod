@@ -11,7 +11,7 @@ replace github.com/containernetworking/cni => github.com/containernetworking/cni
 replace github.com/square/certstrap => github.com/square/certstrap v1.1.1
 
 require (
-	code.cloudfoundry.org/bbs v0.0.0-20210727125654-2ad50317f7ed // indirect
+	code.cloudfoundry.org/bbs v0.0.0-20220825171858-c716d1aed9a0 // indirect
 	code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210929193536-efcc04207348
 	code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4
 	code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
@@ -26,6 +26,7 @@ require (
 	github.com/containernetworking/plugins v0.0.0-00010101000000-000000000000
 	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jmoiron/sqlx v1.3.5

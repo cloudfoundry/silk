@@ -1,4 +1,4 @@
-# code.cloudfoundry.org/bbs v0.0.0-20210727125654-2ad50317f7ed
+# code.cloudfoundry.org/bbs v0.0.0-20220825171858-c716d1aed9a0
 ## explicit
 code.cloudfoundry.org/bbs/db/sqldb/helpers/monitor
 # code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210929193536-efcc04207348
@@ -85,7 +85,8 @@ github.com/fsnotify/fsnotify
 github.com/go-sql-driver/mysql
 # github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
 github.com/go-task/slim-sprig
-# github.com/gogo/protobuf v1.2.1
+# github.com/gogo/protobuf v1.3.2
+## explicit
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
