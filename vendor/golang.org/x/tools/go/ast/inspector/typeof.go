@@ -11,7 +11,6 @@ package inspector
 
 import (
 	"go/ast"
-	"math"
 
 	"golang.org/x/tools/internal/typeparams"
 )
@@ -219,7 +218,7 @@ func typeOf(n ast.Node) uint64 {
 
 func maskOf(nodes []ast.Node) uint64 {
 	if nodes == nil {
-		return math.MaxUint64 // match all node types
+		return 1<<64 - 1 // match all node types
 	}
 	var mask uint64
 	for _, n := range nodes {
