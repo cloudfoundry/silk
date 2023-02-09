@@ -6,9 +6,9 @@ cd $ROOT_DIR_PATH
 
 db=${DB:-"postgres"} # if not set, default to postgres
 
-docker_image=c2cnetworking/dev-$db
+docker_image=cloudfoundry/cf-networking-$db
 if [ $db = "none" ]; then
-  docker_image=c2cnetworking/dev-postgres
+  docker_image=cloudfoundry/cf-networking-postgres
 fi
 
 docker run \
