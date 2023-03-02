@@ -17,8 +17,8 @@ code.cloudfoundry.org/cf-networking-helpers/testsupport/ports
 # code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4
 ## explicit; go 1.16
 code.cloudfoundry.org/debugserver
-# code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
-## explicit
+# code.cloudfoundry.org/filelock v0.0.0-20230302172038-1783f8b1c987
+## explicit; go 1.20
 code.cloudfoundry.org/filelock
 # code.cloudfoundry.org/lager v2.0.0+incompatible => code.cloudfoundry.org/lager v1.1.1-0.20210513163233-569157d2803b
 ## explicit; go 1.16
@@ -167,7 +167,7 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.26.0
+# github.com/onsi/gomega v1.27.2
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -216,17 +216,17 @@ github.com/vishvananda/netns
 # github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
 ## explicit
 github.com/ziutek/utils/netaddr
-# golang.org/x/net v0.5.0
+# golang.org/x/net v0.7.0
 ## explicit; go 1.17
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
-# golang.org/x/sys v0.4.0
+# golang.org/x/sys v0.5.0
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.6.0
+# golang.org/x/text v0.7.0
 ## explicit; go 1.17
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
@@ -245,7 +245,7 @@ golang.org/x/text/internal/utf8internal
 golang.org/x/text/language
 golang.org/x/text/runes
 golang.org/x/text/transform
-# golang.org/x/tools v0.1.12
+# golang.org/x/tools v0.6.0
 ## explicit; go 1.18
 golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/internal/typeparams

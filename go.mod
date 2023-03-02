@@ -13,7 +13,7 @@ replace github.com/square/certstrap => github.com/square/certstrap v1.1.1
 require (
 	code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210929193536-efcc04207348
 	code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4
-	code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
+	code.cloudfoundry.org/filelock v0.0.0-20230302172038-1783f8b1c987
 	code.cloudfoundry.org/lager v2.0.0+incompatible
 	github.com/cloudfoundry/dropsonde v1.0.0
 	github.com/containernetworking/cni v0.8.1
@@ -24,7 +24,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.7
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.26.0
+	github.com/onsi/gomega v1.27.2
 	github.com/pivotal-cf-experimental/gomegamatchers v0.0.0-20180326192815-e36bfcc98c3a
 	github.com/rubenv/sql-migrate v0.0.0-20210614095031-55d5740dbbcc
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
@@ -54,10 +54,10 @@ require (
 	github.com/square/certstrap v1.2.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/net v0.5.0 // indirect
-	golang.org/x/sys v0.4.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
-	golang.org/x/tools v0.1.12 // indirect
+	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/tools v0.6.0 // indirect
 	gopkg.in/gorp.v1 v1.7.2 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
