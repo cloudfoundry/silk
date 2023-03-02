@@ -81,14 +81,17 @@ github.com/coreos/go-iptables/iptables
 # github.com/fsnotify/fsnotify v1.4.9
 ## explicit; go 1.13
 github.com/fsnotify/fsnotify
+# github.com/go-gorp/gorp/v3 v3.0.5
+## explicit; go 1.18
+github.com/go-gorp/gorp/v3
 # github.com/go-sql-driver/mysql v1.7.0
 ## explicit; go 1.13
 github.com/go-sql-driver/mysql
 # github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
 ## explicit; go 1.13
 github.com/go-task/slim-sprig
-# github.com/gogo/protobuf v1.2.1
-## explicit
+# github.com/gogo/protobuf v1.3.2
+## explicit; go 1.15
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
@@ -102,7 +105,7 @@ github.com/google/go-cmp/cmp/internal/value
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
-# github.com/hashicorp/errwrap v1.0.0
+# github.com/hashicorp/errwrap v1.1.0
 ## explicit
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
@@ -187,7 +190,7 @@ github.com/pivotal-cf-experimental/gomegamatchers
 github.com/pivotal-cf-experimental/gomegamatchers/internal/deepequal
 github.com/pivotal-cf-experimental/gomegamatchers/internal/diff
 github.com/pivotal-cf-experimental/gomegamatchers/internal/prettyprint
-# github.com/rubenv/sql-migrate v0.0.0-20210614095031-55d5740dbbcc
+# github.com/rubenv/sql-migrate v1.3.1
 ## explicit; go 1.16
 github.com/rubenv/sql-migrate
 github.com/rubenv/sql-migrate/sqlparse
@@ -211,8 +214,6 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 ## explicit; go 1.12
 github.com/vishvananda/netns
-# github.com/ziutek/mymysql v1.5.4
-## explicit
 # github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
 ## explicit
 github.com/ziutek/utils/netaddr
@@ -249,9 +250,6 @@ golang.org/x/text/transform
 ## explicit; go 1.18
 golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/internal/typeparams
-# gopkg.in/gorp.v1 v1.7.2
-## explicit
-gopkg.in/gorp.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 ## explicit
 gopkg.in/tomb.v1
