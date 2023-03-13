@@ -31,7 +31,7 @@ require (
 	github.com/tedsuo/rata v1.0.0
 	github.com/vishvananda/netlink v1.1.0
 	github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
-	gopkg.in/validator.v2 v2.0.0-20210331031555-b37d688a7fb0
+	gopkg.in/validator.v2 v2.0.1
 )
 
 require (
