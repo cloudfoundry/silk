@@ -24,7 +24,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.7
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.3
+	github.com/onsi/gomega v1.27.4
 	github.com/pivotal-cf-experimental/gomegamatchers v0.0.0-20180326192815-e36bfcc98c3a
 	github.com/rubenv/sql-migrate v1.4.0
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
@@ -54,10 +54,10 @@ require (
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/square/certstrap v1.2.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/tools v0.7.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
