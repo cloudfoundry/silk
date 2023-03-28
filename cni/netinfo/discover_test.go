@@ -6,7 +6,7 @@ import (
 	"code.cloudfoundry.org/silk/cni/netinfo"
 	"code.cloudfoundry.org/silk/cni/netinfo/fakes"
 	"code.cloudfoundry.org/silk/daemon"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

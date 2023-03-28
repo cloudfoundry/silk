@@ -7,8 +7,7 @@ import (
 	"path"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	. "github.com/onsi/ginkgo"
-	ginkgoConfig "github.com/onsi/ginkgo/config"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 
@@ -37,13 +36,13 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	hostNS, err = ns.GetCurrentNS()
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToSilkCNI, err := gexec.Build("code.cloudfoundry.org/silk/cmd/silk-cni", `-ldflags=-extldflags=-Wl,--allow-multiple-definition -X main.LoggingDevice=stderr`, "-race")
+	pathToSilkCNI, err := gexec.Build("code.cloudfoundry.org/silk/cmd/silk-cni", `-ldflags=-extldflags=-Wl,--allow-multiple-definition -X main.LoggingDevice=stderr`, "-race", "-buildvcs=false")
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToIPAM, err := gexec.Build("code.cloudfoundry.org/silk/vendor/github.com/containernetworking/plugins/plugins/ipam/host-local", "-race")
+	pathToIPAM, err := gexec.Build("code.cloudfoundry.org/silk/vendor/github.com/containernetworking/plugins/plugins/ipam/host-local", "-race", "-buildvcs=false")
 	Expect(err).NotTo(HaveOccurred())
 
-	pathToFakeDaemon, err := gexec.Build("code.cloudfoundry.org/silk/cni/integration/fake_daemon", "-race")
+	pathToFakeDaemon, err := gexec.Build("code.cloudfoundry.org/silk/cni/integration/fake_daemon", "-race", "-buildvcs=false")
 	Expect(err).NotTo(HaveOccurred())
 
 	paths = testPaths{
@@ -58,7 +57,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 }, func(data []byte) {
 	Expect(json.Unmarshal(data, &paths)).To(Succeed())
 
-	rand.Seed(ginkgoConfig.GinkgoConfig.RandomSeed + int64(GinkgoParallelProcess()))
+	rand.Seed(GinkgoRandomSeed() + int64(GinkgoParallelProcess()))
 })
 
 var _ = SynchronizedAfterSuite(func() {}, func() {

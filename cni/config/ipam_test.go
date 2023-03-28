@@ -3,7 +3,7 @@ package config_test
 import (
 	"code.cloudfoundry.org/silk/cni/config"
 	"github.com/containernetworking/cni/pkg/types"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -29,7 +29,7 @@ var _ = Describe("Ipam config generation", func() {
 								Subnet: types.IPNet(*subnetAsIPNet),
 							},
 						}},
-					Routes: []*types.Route{},
+					Routes:  []*types.Route{},
 					DataDir: "/some/data/dir/ipam",
 				},
 			}))

@@ -43,10 +43,10 @@ BIN_DIR="${PWD}/bin"
 mkdir -p "${BIN_DIR}"
 export PATH="${BIN_DIR}:${PATH}"
 
-go build -o "$BIN_DIR/ginkgo" github.com/onsi/ginkgo/ginkgo
+go build -o "$BIN_DIR/ginkgo" github.com/onsi/ginkgo/v2/ginkgo
 
 bootDB $DB
 
-ginkgo -r -p --race -randomizeAllSpecs -randomizeSuites \
+ginkgo -r -p --race -randomize-all -randomize-suites \
   -ldflags="-extldflags=-Wl,--allow-multiple-definition" \
   ${@}

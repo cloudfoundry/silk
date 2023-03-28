@@ -2,8 +2,7 @@ package leaser_test
 
 import (
 	"code.cloudfoundry.org/silk/controller/leaser"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"net"
 )
@@ -47,7 +46,7 @@ var _ = Describe("CIDRPool", func() {
 			Entry("when the range is /16 and mask is /27", "10.255.0.0/16", 27, 31),
 		)
 
-		It("produces valid subnet starting with the first IP of the cidr", func(){
+		It("produces valid subnet starting with the first IP of the cidr", func() {
 			overlayCIDR := "10.255.0.0/12"
 			subnetMask := 24
 			firstSubnet := "10.240.0.0/24"

@@ -5,8 +5,7 @@ import (
 
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics"
 
-	. "github.com/onsi/ginkgo"
-	ginkgoConfig "github.com/onsi/ginkgo/config"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/types"
@@ -31,12 +30,13 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	controllerBinaryPath, err := gexec.Build(
 		"code.cloudfoundry.org/silk/cmd/silk-controller",
 		"-race",
+		"-buildvcs=false",
 	)
 	Expect(err).NotTo(HaveOccurred())
 	return []byte(controllerBinaryPath)
 }, func(data []byte) {
 	controllerBinaryPath = string(data)
-	rand.Seed(ginkgoConfig.GinkgoConfig.RandomSeed + int64(GinkgoParallelProcess()))
+	rand.Seed(GinkgoRandomSeed() + int64(GinkgoParallelProcess()))
 })
 
 var _ = SynchronizedAfterSuite(func() {}, func() {

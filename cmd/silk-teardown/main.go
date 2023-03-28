@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"code.cloudfoundry.org/cf-networking-helpers/mutualtls"
-	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/lager/lagerflags"
+	"code.cloudfoundry.org/lager/v3"
+	"code.cloudfoundry.org/lager/v3/lagerflags"
 	"code.cloudfoundry.org/silk/client/config"
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/daemon/vtep"

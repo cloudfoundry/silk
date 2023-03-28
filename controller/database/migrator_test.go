@@ -4,11 +4,11 @@ import (
 	"errors"
 	"time"
 
-	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/lager/v3/lagertest"
 	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/database/fakes"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -27,7 +27,7 @@ var _ = Describe("Migrator", func() {
 				DatabaseMigrator:              databaseMigrator,
 				MaxMigrationAttempts:          5,
 				MigrationAttemptSleepDuration: time.Nanosecond,
-				Logger: logger,
+				Logger:                        logger,
 			}
 		})
 

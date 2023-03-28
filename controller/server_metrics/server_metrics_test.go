@@ -5,7 +5,7 @@ import (
 	"code.cloudfoundry.org/silk/controller/server_metrics"
 	"code.cloudfoundry.org/silk/controller/server_metrics/fakes"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

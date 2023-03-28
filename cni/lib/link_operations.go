@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
