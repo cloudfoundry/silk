@@ -116,7 +116,7 @@ var _ = BeforeEach(func() {
 		LogPrefix:                 "potato-prefix",
 	}
 
-	vtepFactory = &vtep.Factory{&adapter.NetlinkAdapter{}, lagertest.NewTestLogger("test")}
+	vtepFactory = &vtep.Factory{NetlinkAdapter: &adapter.NetlinkAdapter{}, Logger: lagertest.NewTestLogger("test")}
 
 	serverTLSConfig, err = mutualtls.NewServerTLSConfig(paths.ServerCertFile, paths.ServerKeyFile, paths.ClientCACertFile)
 	Expect(err).NotTo(HaveOccurred())
