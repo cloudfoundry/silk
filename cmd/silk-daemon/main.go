@@ -208,10 +208,10 @@ func mainWithError() error {
 	uptimeSource := metrics.NewUptimeSource()
 	metricsEmitter := metrics.NewMetricsEmitter(logger, 30*time.Second, uptimeSource)
 	members := grouper.Members{
-		{"server", healthCheckServer},
-		{"vxlan-poller", vxlanPoller},
-		{"debug-server", debugserver.Runner(debugServerAddress, reconfigurableSink)},
-		{"metrics-emitter", metricsEmitter},
+		{Name: "server", Runner: healthCheckServer},
+		{Name: "vxlan-poller", Runner: vxlanPoller},
+		{Name: "debug-server", Runner: debugserver.Runner(debugServerAddress, reconfigurableSink)},
+		{Name: "metrics-emitter", Runner: metricsEmitter},
 	}
 	group := grouper.NewOrdered(os.Interrupt, members)
 	monitor := ifrit.Invoke(sigmon.New(group))

@@ -33,7 +33,7 @@ func main() {
 		}),
 	)
 
-	members := grouper.Members{{"server", server}}
+	members := grouper.Members{{Name: "server", Runner: server}}
 	group := grouper.NewOrdered(os.Interrupt, members)
 	monitor := ifrit.Invoke(sigmon.New(group))
 
