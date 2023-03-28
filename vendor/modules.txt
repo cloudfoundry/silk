@@ -1,8 +1,8 @@
 # code.cloudfoundry.org/bbs v0.0.0-20210727125654-2ad50317f7ed
 ## explicit
 code.cloudfoundry.org/bbs/db/sqldb/helpers/monitor
-# code.cloudfoundry.org/cf-networking-helpers v0.0.0-20210929193536-efcc04207348
-## explicit; go 1.16
+# code.cloudfoundry.org/cf-networking-helpers v0.0.0-20230328193716-3c4df5fd5663
+## explicit; go 1.20
 code.cloudfoundry.org/cf-networking-helpers/db
 code.cloudfoundry.org/cf-networking-helpers/fakes
 code.cloudfoundry.org/cf-networking-helpers/httperror
@@ -14,17 +14,12 @@ code.cloudfoundry.org/cf-networking-helpers/mutualtls
 code.cloudfoundry.org/cf-networking-helpers/testsupport
 code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics
 code.cloudfoundry.org/cf-networking-helpers/testsupport/ports
-# code.cloudfoundry.org/debugserver v0.0.0-20210608171006-d7658ce493f4
-## explicit; go 1.16
+# code.cloudfoundry.org/debugserver v0.0.0-20230328160250-c4f3fe4b289a
+## explicit; go 1.19
 code.cloudfoundry.org/debugserver
 # code.cloudfoundry.org/filelock v0.0.0-20230302172038-1783f8b1c987
 ## explicit; go 1.20
 code.cloudfoundry.org/filelock
-# code.cloudfoundry.org/lager v2.0.0+incompatible
-## explicit
-code.cloudfoundry.org/lager
-code.cloudfoundry.org/lager/lagerctx
-code.cloudfoundry.org/lager/lagertest
 # code.cloudfoundry.org/lager/v3 v3.0.1
 ## explicit; go 1.19
 code.cloudfoundry.org/lager/v3
@@ -83,9 +78,6 @@ github.com/containernetworking/plugins/plugins/ipam/host-local/backend/disk
 # github.com/coreos/go-iptables v0.6.0
 ## explicit; go 1.16
 github.com/coreos/go-iptables/iptables
-# github.com/fsnotify/fsnotify v1.4.9
-## explicit; go 1.13
-github.com/fsnotify/fsnotify
 # github.com/go-gorp/gorp/v3 v3.1.0
 ## explicit; go 1.18
 github.com/go-gorp/gorp/v3
@@ -144,35 +136,6 @@ github.com/mailru/easyjson/jwriter
 # github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 ## explicit
 github.com/nu7hatch/gouuid
-# github.com/nxadm/tail v1.4.8
-## explicit; go 1.13
-github.com/nxadm/tail
-github.com/nxadm/tail/ratelimiter
-github.com/nxadm/tail/util
-github.com/nxadm/tail/watch
-github.com/nxadm/tail/winfile
-# github.com/onsi/ginkgo v1.16.5
-## explicit; go 1.16
-github.com/onsi/ginkgo
-github.com/onsi/ginkgo/config
-github.com/onsi/ginkgo/formatter
-github.com/onsi/ginkgo/internal/codelocation
-github.com/onsi/ginkgo/internal/containernode
-github.com/onsi/ginkgo/internal/failer
-github.com/onsi/ginkgo/internal/global
-github.com/onsi/ginkgo/internal/leafnodes
-github.com/onsi/ginkgo/internal/remote
-github.com/onsi/ginkgo/internal/spec
-github.com/onsi/ginkgo/internal/spec_iterator
-github.com/onsi/ginkgo/internal/specrunner
-github.com/onsi/ginkgo/internal/suite
-github.com/onsi/ginkgo/internal/testingtproxy
-github.com/onsi/ginkgo/internal/writer
-github.com/onsi/ginkgo/reporters
-github.com/onsi/ginkgo/reporters/stenographer
-github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
-github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
-github.com/onsi/ginkgo/types
 # github.com/onsi/ginkgo/v2 v2.9.2
 ## explicit; go 1.18
 github.com/onsi/ginkgo/v2
@@ -223,11 +186,11 @@ github.com/pivotal-cf-experimental/gomegamatchers/internal/prettyprint
 ## explicit; go 1.16
 github.com/rubenv/sql-migrate
 github.com/rubenv/sql-migrate/sqlparse
-# github.com/square/certstrap v1.2.0 => github.com/square/certstrap v1.1.1
+# github.com/square/certstrap v1.2.0
 ## explicit
 github.com/square/certstrap/depot
 github.com/square/certstrap/pkix
-# github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
+# github.com/tedsuo/ifrit v0.0.0-20220120221754-dd274de71113
 ## explicit
 github.com/tedsuo/ifrit
 github.com/tedsuo/ifrit/grouper
@@ -280,9 +243,6 @@ golang.org/x/text/transform
 ## explicit; go 1.18
 golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/internal/typeparams
-# gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
-## explicit
-gopkg.in/tomb.v1
 # gopkg.in/validator.v2 v2.0.1
 ## explicit; go 1.18
 gopkg.in/validator.v2
@@ -296,4 +256,3 @@ gopkg.in/yaml.v3
 ## explicit
 # github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
 # github.com/containernetworking/cni => github.com/containernetworking/cni v0.6.0
-# github.com/square/certstrap => github.com/square/certstrap v1.1.1
