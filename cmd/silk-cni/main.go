@@ -12,7 +12,7 @@ import (
 
 	"code.cloudfoundry.org/cf-networking-helpers/json_client"
 	"code.cloudfoundry.org/filelock"
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 
 	"code.cloudfoundry.org/silk/cni/adapter"
 	"code.cloudfoundry.org/silk/cni/config"

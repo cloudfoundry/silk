@@ -3,7 +3,7 @@ package lib
 import (
 	"fmt"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 	"code.cloudfoundry.org/silk/cni/config"
 	"github.com/containernetworking/plugins/pkg/ns"
 )

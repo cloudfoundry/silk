@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/silk/lib/datastore"
 	"code.cloudfoundry.org/silk/lib/serial"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

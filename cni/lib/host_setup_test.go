@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net"
 
-	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/lager/v3/lagertest"
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/lib"
 	"code.cloudfoundry.org/silk/cni/lib/fakes"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

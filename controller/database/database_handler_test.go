@@ -10,12 +10,12 @@ import (
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"code.cloudfoundry.org/cf-networking-helpers/testsupport"
-	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/lager/v3/lagertest"
 
 	"code.cloudfoundry.org/silk/controller"
 	"code.cloudfoundry.org/silk/controller/database"
 	"code.cloudfoundry.org/silk/controller/database/fakes"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	migrate "github.com/rubenv/sql-migrate"
 )

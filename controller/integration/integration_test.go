@@ -15,7 +15,7 @@ import (
 	"code.cloudfoundry.org/silk/controller/integration/helpers"
 	"code.cloudfoundry.org/silk/controller/leaser"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"

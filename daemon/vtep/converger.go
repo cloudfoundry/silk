@@ -5,7 +5,7 @@ import (
 	"net"
 	"syscall"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 	"code.cloudfoundry.org/silk/controller"
 	"github.com/vishvananda/netlink"
 )

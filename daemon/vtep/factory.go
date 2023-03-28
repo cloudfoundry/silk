@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 	"github.com/vishvananda/netlink"
 )
 

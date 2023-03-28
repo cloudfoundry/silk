@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 )
 
 type Health struct {

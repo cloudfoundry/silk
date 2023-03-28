@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/v3"
 )
 
 //go:generate counterfeiter -o fakes/database_migrator.go --fake-name DatabaseMigrator . databaseMigrator
