@@ -20,11 +20,10 @@ func PickAPort() int {
 	if lastPortUsed == 0 {
 		once.Do(func() {
 			const portRangeStart = 18000
-			lastPortUsed = portRangeStart + GinkgoParallelProcess()
+			lastPortUsed = portRangeStart + GinkgoParallelProcess()*200
 		})
 	}
 
-	suiteCfg, _ := GinkgoConfiguration()
-	lastPortUsed += suiteCfg.ParallelTotal
+	lastPortUsed += 1
 	return lastPortUsed
 }
