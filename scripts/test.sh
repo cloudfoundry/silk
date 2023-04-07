@@ -9,11 +9,11 @@ function bootDB {
   db=$1
 
   if [ "$db" = "postgres" ]; then
-    launchDB="(docker-entrypoint.sh postgres &> /var/log/postgres-boot.log) &"
+    launchDB="(/postgres-entrypoint.sh postgres &> /var/log/postgres-boot.log) &"
     testConnection="psql -h localhost -U postgres -c '\conninfo' &>/dev/null"
   elif [[ "$db" == "mysql"* ]]; then
     chown -R mysql:mysql /var/run/mysqld
-    launchDB="(MYSQL_ROOT_PASSWORD=password /entrypoint.sh mysqld &> /var/log/mysql-boot.log) &"
+    launchDB="(MYSQL_ROOT_PASSWORD=password /mysql-entrypoint.sh mysqld &> /var/log/mysql-boot.log) &"
     testConnection="echo '\s;' | mysql -h 127.0.0.1 -u root --password='password' &>/dev/null"
   else
     echo "skipping database"
