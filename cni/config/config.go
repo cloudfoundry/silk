@@ -4,7 +4,7 @@ import (
 	"net"
 
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
+	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ns"
 )
 
@@ -51,7 +51,6 @@ func (c *Config) AsCNIResult() *current.Result {
 		},
 		IPs: []*current.IPConfig{
 			&current.IPConfig{
-				Version:   "4",
 				Interface: &ipInterface,
 				Address: net.IPNet{
 					IP:   c.Container.Address.IP,

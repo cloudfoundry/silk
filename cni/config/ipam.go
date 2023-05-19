@@ -43,7 +43,7 @@ func (IPAMConfigGenerator) GenerateConfig(subnet, network, dataDirPath string) (
 	}
 
 	return &HostLocalIPAM{
-		CNIVersion: "0.3.1",
+		CNIVersion: "1.0.0",
 		Name:       network,
 		IPAM: IPAMConfig{
 			Type: "host-local",

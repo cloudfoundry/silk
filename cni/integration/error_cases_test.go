@@ -59,7 +59,7 @@ var _ = Describe("errors", func() {
 			BeforeEach(func() {
 				fakeServer = startFakeDaemonInHost(daemonPort, http.StatusOK, `{"overlay_subnet": "10.255.30.0/24", "mtu": 1472}`)
 				cniStdin = fmt.Sprintf(`{
-				"cniVersion": "0.3.1",
+				"cniVersion": "1.0.0",
 				"name": "my-silk-network",
 				"type": "silk",
 				"mtu": -123,
@@ -146,9 +146,9 @@ var _ = Describe("errors", func() {
 				Eventually(session, cmdTimeout).Should(gexec.Exit(1))
 
 				Expect(session.Out.Contents()).To(MatchJSON(`{
-				"code": 100,
-				"msg": "create config",
-				"details": "IfName cannot be longer than 15 characters"
+				"code": 4,
+				"msg": "interface name is too long",
+				"details": "interface name should be less than 16 characters"
 			}`))
 			})
 		})
@@ -156,7 +156,7 @@ var _ = Describe("errors", func() {
 		Context("when the datastore is not specified", func() {
 			It("fails with nonzero status and prints a CNI error", func() {
 				cniStdin = fmt.Sprintf(`{
-					"cniVersion": "0.3.1",
+					"cniVersion": "1.0.0",
 					"name": "my-silk-network",
 					"type": "silk",
 					"dataDir": "%s",
@@ -200,7 +200,7 @@ var _ = Describe("errors", func() {
 		Context("when the datastore is not specified", func() {
 			It("prints a CNI error", func() {
 				cniStdin = fmt.Sprintf(`{
-					"cniVersion": "0.3.1",
+					"cniVersion": "1.0.0",
 					"name": "my-silk-network",
 					"type": "silk",
 					"dataDir": "%s",

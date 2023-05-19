@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -25,7 +26,7 @@ import (
 	"github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
+	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	uuid "github.com/google/uuid"
@@ -119,7 +120,7 @@ func main() {
 		Store:  store,
 	}
 
-	skel.PluginMain(plugin.cmdAdd, plugin.cmdDel, version.PluginSupports("0.3.1"))
+	skel.PluginMain(plugin.cmdAdd, plugin.cmdCheck, plugin.cmdDel, version.PluginSupports("1.0.0"), "CNI Plugin silk-cni")
 }
 
 type NetConf struct {
@@ -201,7 +202,7 @@ func (p *CNIPlugin) cmdAdd(args *skel.CmdArgs) error {
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	p.Logger.Debug("host-local-ipam", lager.Data{"action": "add", "ipamConfig": string(ipamConfigBytes)})
-	result, err := invoke.DelegateAdd("host-local", ipamConfigBytes)
+	result, err := invoke.DelegateAdd(context.Background(), "host-local", ipamConfigBytes, nil)
 	if err != nil {
 		p.Logger.Error("host-local-ipam-failed", err)
 		return typedError("run ipam plugin", err)
@@ -282,7 +283,7 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 	ipamConfigBytes, _ := json.Marshal(ipamConfig) // untestable
 
 	p.Logger.Debug("host-local-ipam", lager.Data{"action": "delete", "ipamConfig": string(ipamConfigBytes)})
-	err = invoke.DelegateDel("host-local", ipamConfigBytes)
+	err = invoke.DelegateDel(context.Background(), "host-local", ipamConfigBytes, nil)
 	if err != nil {
 		p.Logger.Error("host-local-ipam-failed", err)
 		// continue, keep trying to cleanup
@@ -309,4 +310,8 @@ func (p *CNIPlugin) cmdDel(args *skel.CmdArgs) error {
 	}
 
 	return nil
+}
+
+func (p *CNIPlugin) cmdCheck(args *skel.CmdArgs) error {
+	return fmt.Errorf("Meow this isn't implemented yet")
 }
