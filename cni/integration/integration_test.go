@@ -15,8 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containernetworking/cni/pkg/types/current"
+	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/containernetworking/plugins/pkg/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -117,7 +118,7 @@ var _ = Describe("Silk CNI Integration", func() {
 
 			expectedCNIStdout := fmt.Sprintf(`
 			{
-				"cniVersion": "0.3.1",
+				"cniVersion": "1.0.0",
 				"interfaces": [
 						{
 								"name": "%s",
@@ -131,7 +132,6 @@ var _ = Describe("Silk CNI Integration", func() {
 				],
 				"ips": [
 						{
-								"version": "4",
 								"address": "10.255.30.2/32",
 								"gateway": "169.254.0.1",
 								"interface": 1
@@ -436,7 +436,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			It("sets the MTU based on the input", func() {
 				By("calling ADD")
 				cniStdin = fmt.Sprintf(`{
-					"cniVersion": "0.3.1",
+					"cniVersion": "1.0.0",
 					"name": "my-silk-network",
 					"type": "silk",
 					"mtu": 1350,
@@ -479,8 +479,8 @@ var _ = Describe("Silk CNI Integration", func() {
 			sess := startCommandInHost("VERSION", "{}")
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
-          "cniVersion": "0.3.1",
-          "supportedVersions": [ "0.3.1" ]
+          "cniVersion": "1.0.0",
+          "supportedVersions": [ "1.0.0" ]
         }`))
 		})
 	})
@@ -498,7 +498,6 @@ var _ = Describe("Silk CNI Integration", func() {
 
 			Expect(result.IPs).To(HaveLen(1))
 			Expect(result.IPs).To(HaveLen(1))
-			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(*result.IPs[0].Interface).To(Equal(1))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.2/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
@@ -506,7 +505,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			By("checking that the ip is reserved for the correct container id")
 			bytes, err := ioutil.ReadFile(filepath.Join(dataDir, "ipam/my-silk-network/10.255.30.2"))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(Equal(containerID))
+			Expect(string(bytes)).To(Equal(fmt.Sprintf("%s\r\neth0", containerID)))
 
 			By("calling DEL")
 			sess = startCommandInHost("DEL", cniStdin)
@@ -559,7 +558,7 @@ var _ = Describe("Silk CNI Integration", func() {
 			numIPAllocations = int(math.Pow(2, float64(32-prefixSize)) - 2)
 
 			for i := 0; i < numIPAllocations; i++ {
-				containerNS, err := ns.NewNS()
+				containerNS, err := testutils.NewNS()
 				Expect(err).NotTo(HaveOccurred())
 				containerNSList = append(containerNSList, containerNS)
 			}
@@ -574,19 +573,20 @@ var _ = Describe("Silk CNI Integration", func() {
 			By("exhausting all ips")
 			for i := 0; i < numIPAllocations-1; i++ {
 				cniEnv["CNI_NETNS"] = containerNSList[i].Path()
+				cniEnv["CNI_CONTAINERID"] = fmt.Sprintf("test-%03d-%x", GinkgoParallelProcess(), rand.Int31())
 				sess := startCommandInHost("ADD", cniStdin)
 				Eventually(sess, cmdTimeout).Should(gexec.Exit(0))
 
 				result := cniResultForCurrentVersion(sess.Out.Contents())
 
 				Expect(result.IPs).To(HaveLen(1))
-				Expect(result.IPs[0].Version).To(Equal("4"))
 				Expect(*result.IPs[0].Interface).To(Equal(1))
 				Expect(result.IPs[0].Address.String()).To(Equal(fmt.Sprintf("10.255.30.%d/32", i+2)))
 				Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 			}
 
 			cniEnv["CNI_NETNS"] = containerNSList[numIPAllocations-1].Path()
+			cniEnv["CNI_CONTAINERID"] = fmt.Sprintf("test-%03d-%x", GinkgoParallelProcess(), rand.Int31())
 			sess := startCommandInHost("ADD", cniStdin)
 			Eventually(sess, cmdTimeout).Should(gexec.Exit(1))
 			Expect(sess.Out.Contents()).To(MatchJSON(`{
@@ -613,7 +613,7 @@ var _ = Describe("Silk CNI Integration", func() {
 
 			expectedCNIStdout := fmt.Sprintf(`
 			{
-				"cniVersion": "0.3.1",
+				"cniVersion": "1.0.0",
 				"interfaces": [
 						{
 								"name": "%s",
@@ -627,7 +627,6 @@ var _ = Describe("Silk CNI Integration", func() {
 				],
 				"ips": [
 						{
-								"version": "4",
 								"address": "10.255.30.2/32",
 								"gateway": "169.254.0.1",
 								"interface": 1
@@ -659,7 +658,7 @@ FLANNEL_IPMASQ=false  # we'll ignore this field
 
 func cniConfigWithExtras(dataDir, datastore string, daemonPort int, extras map[string]interface{}) string {
 	conf := map[string]interface{}{
-		"cniVersion": "0.3.1",
+		"cniVersion": "1.0.0",
 		"name":       "my-silk-network",
 		"type":       "silk",
 		"dataDir":    dataDir,
@@ -679,7 +678,7 @@ func cniConfig(dataDir, datastore string, daemonPort int) string {
 
 func cniConfigWithSubnetEnv(dataDir, datastore, subnetFile string) string {
 	return fmt.Sprintf(`{
-	"cniVersion": "0.3.1",
+	"cniVersion": "1.0.0",
 	"name": "my-silk-network",
 	"type": "silk",
 	"dataDir": "%s",

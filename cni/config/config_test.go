@@ -6,7 +6,7 @@ import (
 	"code.cloudfoundry.org/silk/cni/config"
 	"code.cloudfoundry.org/silk/cni/lib/fakes"
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
+	current "github.com/containernetworking/cni/pkg/types/100"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -60,7 +60,6 @@ var _ = Describe("Config", func() {
 			Expect(result.IPs).To(HaveLen(1))
 			index := result.IPs[0].Interface
 			Expect(result.Interfaces[*index].Name).To(Equal("container-device-name"))
-			Expect(result.IPs[0].Version).To(Equal("4"))
 			Expect(result.IPs[0].Address.String()).To(Equal("10.255.30.5/32"))
 			Expect(result.IPs[0].Gateway.String()).To(Equal("169.254.0.1"))
 

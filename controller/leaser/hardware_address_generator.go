@@ -3,7 +3,7 @@ package leaser
 import (
 	"net"
 
-	"github.com/containernetworking/plugins/pkg/utils/hwaddr"
+	"code.cloudfoundry.org/silk/lib/hwaddr"
 )
 
 type HardwareAddressGenerator struct{}

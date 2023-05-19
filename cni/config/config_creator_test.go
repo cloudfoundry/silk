@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/silk/cni/config/fakes"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
+	current "github.com/containernetworking/cni/pkg/types/100"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,7 +40,6 @@ var _ = Describe("ConfigCreator", func() {
 			ipamResult = &current.Result{
 				IPs: []*current.IPConfig{
 					&current.IPConfig{
-						Version: "4",
 						Address: net.IPNet{
 							IP:   []byte{123, 124, 125, 126},
 							Mask: []byte{255, 255, 255, 255},

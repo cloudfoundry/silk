@@ -19,7 +19,7 @@ var _ = Describe("Ipam config generation", func() {
 
 		Expect(ipamConfig).To(Equal(
 			&config.HostLocalIPAM{
-				CNIVersion: "0.3.1",
+				CNIVersion: "1.0.0",
 				Name:       "some-network-name",
 				IPAM: config.IPAMConfig{
 					Type: "host-local",
