@@ -15,8 +15,8 @@ code.cloudfoundry.org/cf-networking-helpers/testsupport/ports
 # code.cloudfoundry.org/debugserver v0.0.0-20230508035730-c4fc5f67e21e
 ## explicit; go 1.19
 code.cloudfoundry.org/debugserver
-# code.cloudfoundry.org/filelock v0.0.0-20230410204127-470838d066c5
-## explicit; go 1.20
+# code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
+## explicit
 code.cloudfoundry.org/filelock
 # code.cloudfoundry.org/lager/v3 v3.0.1
 ## explicit; go 1.19
@@ -53,19 +53,24 @@ github.com/cloudfoundry/dropsonde/runtime_stats
 # github.com/cloudfoundry/sonde-go v0.0.0-20230412182205-eaf74d09b55a
 ## explicit; go 1.17
 github.com/cloudfoundry/sonde-go/events
-# github.com/containernetworking/cni v1.1.2 => github.com/containernetworking/cni v0.6.0
-## explicit
+# github.com/containernetworking/cni v1.1.2
+## explicit; go 1.14
 github.com/containernetworking/cni/pkg/invoke
 github.com/containernetworking/cni/pkg/skel
 github.com/containernetworking/cni/pkg/types
 github.com/containernetworking/cni/pkg/types/020
-github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/types/040
+github.com/containernetworking/cni/pkg/types/100
+github.com/containernetworking/cni/pkg/types/create
+github.com/containernetworking/cni/pkg/types/internal
+github.com/containernetworking/cni/pkg/utils
 github.com/containernetworking/cni/pkg/version
-# github.com/containernetworking/plugins v1.3.0 => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
-## explicit
+# github.com/containernetworking/plugins v1.3.0
+## explicit; go 1.20
 github.com/containernetworking/plugins/pkg/ip
 github.com/containernetworking/plugins/pkg/ns
-github.com/containernetworking/plugins/pkg/utils/hwaddr
+github.com/containernetworking/plugins/pkg/testutils
+github.com/containernetworking/plugins/pkg/utils/buildversion
 github.com/containernetworking/plugins/pkg/utils/sysctl
 github.com/containernetworking/plugins/plugins/ipam/host-local
 github.com/containernetworking/plugins/plugins/ipam/host-local/backend
@@ -171,6 +176,9 @@ github.com/pkg/errors
 ## explicit; go 1.16
 github.com/rubenv/sql-migrate
 github.com/rubenv/sql-migrate/sqlparse
+# github.com/safchain/ethtool v0.3.0
+## explicit; go 1.16
+github.com/safchain/ethtool
 # github.com/square/certstrap v1.3.0
 ## explicit; go 1.18
 github.com/square/certstrap/depot
@@ -184,7 +192,7 @@ github.com/tedsuo/ifrit/sigmon
 # github.com/tedsuo/rata v1.0.0
 ## explicit
 github.com/tedsuo/rata
-# github.com/vishvananda/netlink v1.1.0
+# github.com/vishvananda/netlink v1.2.1-beta.2
 ## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
@@ -194,7 +202,7 @@ github.com/vishvananda/netns
 # github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
 ## explicit
 github.com/ziutek/utils/netaddr
-# go.step.sm/crypto v0.28.0
+# go.step.sm/crypto v0.30.0
 ## explicit; go 1.18
 go.step.sm/crypto/fingerprint
 go.step.sm/crypto/internal/bcrypt_pbkdf
@@ -204,7 +212,7 @@ go.step.sm/crypto/keyutil
 go.step.sm/crypto/pemutil
 go.step.sm/crypto/randutil
 go.step.sm/crypto/x25519
-# golang.org/x/crypto v0.7.0
+# golang.org/x/crypto v0.9.0
 ## explicit; go 1.17
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/chacha20
@@ -290,5 +298,3 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.6.1-0.20171122160932-92c634042c38
-# github.com/containernetworking/cni => github.com/containernetworking/cni v0.6.0
