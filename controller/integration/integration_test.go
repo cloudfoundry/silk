@@ -47,6 +47,7 @@ var _ = Describe("Silk Controller", func() {
 	})
 
 	AfterEach(func() {
+		testClient.JsonClient.CloseIdleConnections()
 		helpers.StopServer(session)
 		testsupport.RemoveDatabase(dbConfig)
 	})
