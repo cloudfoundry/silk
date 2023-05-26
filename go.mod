@@ -4,8 +4,8 @@ go 1.20
 
 require (
 	code.cloudfoundry.org/cf-networking-helpers v0.0.0-20230523192906-a0bc5865c476
-	code.cloudfoundry.org/debugserver v0.0.0-20230508035730-c4fc5f67e21e
-	code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
+	code.cloudfoundry.org/debugserver v0.0.0-20230522035716-70a733dc508f
+	code.cloudfoundry.org/filelock v0.0.0-20230410204127-470838d066c5
 	code.cloudfoundry.org/lager/v3 v3.0.1
 	github.com/cloudfoundry/dropsonde v1.1.0
 	github.com/containernetworking/cni v1.1.2

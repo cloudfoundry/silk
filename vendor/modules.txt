@@ -12,11 +12,11 @@ code.cloudfoundry.org/cf-networking-helpers/mutualtls
 code.cloudfoundry.org/cf-networking-helpers/testsupport
 code.cloudfoundry.org/cf-networking-helpers/testsupport/metrics
 code.cloudfoundry.org/cf-networking-helpers/testsupport/ports
-# code.cloudfoundry.org/debugserver v0.0.0-20230508035730-c4fc5f67e21e
+# code.cloudfoundry.org/debugserver v0.0.0-20230522035716-70a733dc508f
 ## explicit; go 1.19
 code.cloudfoundry.org/debugserver
-# code.cloudfoundry.org/filelock v0.0.0-20180314203404-13cd41364639
-## explicit
+# code.cloudfoundry.org/filelock v0.0.0-20230410204127-470838d066c5
+## explicit; go 1.20
 code.cloudfoundry.org/filelock
 # code.cloudfoundry.org/lager/v3 v3.0.1
 ## explicit; go 1.19
