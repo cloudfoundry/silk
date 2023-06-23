@@ -15,10 +15,10 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9
-	github.com/onsi/ginkgo/v2 v2.10.0
+	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/pivotal-cf-experimental/gomegamatchers v0.0.0-20180326192815-e36bfcc98c3a
-	github.com/rubenv/sql-migrate v1.4.0
+	github.com/rubenv/sql-migrate v1.5.0
 	github.com/tedsuo/ifrit v0.0.0-20230516164442-7862c310ad26
 	github.com/tedsuo/rata v1.0.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
@@ -30,7 +30,7 @@ require (
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/alexflint/go-filemutex v1.2.0 // indirect
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect
-	github.com/cloudfoundry/sonde-go v0.0.0-20230606195250-c7c0fdf1ccc4 // indirect
+	github.com/cloudfoundry/sonde-go v0.0.0-20230620185717-2140aa2e9669 // indirect
 	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect

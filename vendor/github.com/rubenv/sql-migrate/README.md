@@ -14,6 +14,7 @@
 * Up/down migrations to allow rollback
 * Supports multiple database types in one project
 * Works great with other libraries such as [sqlx](https://jmoiron.github.io/sqlx/)
+* Supported on go1.13+
 
 ## Installation
 
@@ -66,7 +67,7 @@ This may be useful if one doesn't want to store credentials in file:
 ```yml
 production:
     dialect: postgres
-    datasource: host=prodhost dbname=proddb user=${DB_USER} password=${DB_PASSWORD} sslmode=required
+    datasource: host=prodhost dbname=proddb user=${DB_USER} password=${DB_PASSWORD} sslmode=require
     dir: migrations
     table: migrations
 ```
