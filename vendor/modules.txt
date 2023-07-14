@@ -50,7 +50,7 @@ github.com/cloudfoundry/dropsonde/metric_sender
 github.com/cloudfoundry/dropsonde/metricbatcher
 github.com/cloudfoundry/dropsonde/metrics
 github.com/cloudfoundry/dropsonde/runtime_stats
-# github.com/cloudfoundry/sonde-go v0.0.0-20230620185717-2140aa2e9669
+# github.com/cloudfoundry/sonde-go v0.0.0-20230710164515-a0a43d1dbbf8
 ## explicit; go 1.17
 github.com/cloudfoundry/sonde-go/events
 # github.com/containernetworking/cni v1.1.2
@@ -202,7 +202,7 @@ github.com/vishvananda/netns
 # github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
 ## explicit
 github.com/ziutek/utils/netaddr
-# go.step.sm/crypto v0.32.2
+# go.step.sm/crypto v0.32.3
 ## explicit; go 1.18
 go.step.sm/crypto/fingerprint
 go.step.sm/crypto/internal/bcrypt_pbkdf
