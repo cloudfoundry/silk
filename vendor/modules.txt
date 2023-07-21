@@ -172,7 +172,7 @@ github.com/pivotal-cf-experimental/gomegamatchers/internal/prettyprint
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/rubenv/sql-migrate v1.5.1
+# github.com/rubenv/sql-migrate v1.5.2
 ## explicit; go 1.17
 github.com/rubenv/sql-migrate
 github.com/rubenv/sql-migrate/sqlparse
@@ -202,7 +202,7 @@ github.com/vishvananda/netns
 # github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c
 ## explicit
 github.com/ziutek/utils/netaddr
-# go.step.sm/crypto v0.32.3
+# go.step.sm/crypto v0.32.4
 ## explicit; go 1.18
 go.step.sm/crypto/fingerprint
 go.step.sm/crypto/internal/bcrypt_pbkdf
