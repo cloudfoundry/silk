@@ -1,3 +1,11 @@
+# DEPRECATED.
+
+This repository has been merged into [`silk-release`](https://github.com/cloudfoundry/silk-release). Please import this code from there.
+See related PRs and issues:
+- https://github.com/cloudfoundry/silk/issues/52
+- https://github.com/cloudfoundry/silk-release/pull/89
+
+
 # Silk
 
 > Note: This repository should be imported as `code.cloudfoundry.org/silk`.
